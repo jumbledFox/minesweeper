@@ -6,7 +6,7 @@ use rand::prelude::*;
 pub enum GameState {
     Prelude, Playing, Win, Lose
 }
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub enum TileType {
     Unopened, Dug, Flag,
 }
@@ -70,10 +70,21 @@ impl Minesweeper {
         }
     }
 
-    pub fn dig(&mut self) {
+    pub fn dig(&mut self, index: usize) {
         if self.state == GameState::Prelude {
             self.state = GameState::Playing;
             self.start_time = Instant::now();
+        }
+        self.board[index] = TileType::Dug;
+    }
+
+    // If flagging_mode is true, only add flags, otherwise only remove flags
+    pub fn flag(&mut self, flagging_mode: bool, index: usize) {
+        if self.state != GameState::Prelude && self.state != GameState::Playing { return; }
+        if flagging_mode {
+            self.board[index] = TileType::Flag;
+        } else {
+            self.board[index] = TileType::Unopened
         }
     }
 }

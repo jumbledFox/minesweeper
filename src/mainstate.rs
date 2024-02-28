@@ -1,3 +1,5 @@
+use core::f32;
+
 use ggez::winit::dpi::{LogicalSize, PhysicalSize};
 use ggez::{graphics, Context, GameResult};
 use ggez::glam::Vec2;
@@ -41,65 +43,90 @@ pub struct Rendering {
 
     pub bombcount_digits: usize,
     pub timer_value: Option<usize>,
+
+    pub redraw: bool,
 }
 
 pub struct MainState {
     pub game: Minesweeper,
     pub rendering: Rendering,
 
-    pub selected_cell: Option<usize>,
+    pub selected_tile: Option<usize>,
+    pub flagging_mode: Option<bool>,
+    pub holding_button: bool,
 
     pub i: usize,
 }
 
 impl MainState {
     pub fn new(ctx: &mut Context, width: usize, height: usize, bomb_count: usize) -> MainState {
-        let game = Minesweeper::new(width, height, bomb_count);
-
+        let mut game = Minesweeper::new(width, height, bomb_count);
+        game.board.fill(TileType::Unopened);
         // Load the sprite sheet and set up the batch renderer for, well, batch rendering
         let spritesheet = Image::from_path(ctx, "/spritesheet.png").unwrap();
         let mut spritesheet_batch = InstanceArray::new(ctx, spritesheet.clone());
         spritesheet_batch.resize(ctx, width * height);
 
-        // Generate images for each part of the display
-        // Minefield
-        // 9 is the size of one tile, 4 is added to make room for the nice border  
-        let minefield_img = Image::new_canvas_image(ctx, ctx.gfx.surface_format(), (width * 9 + 4) as u32, (height * 9 + 4) as u32, 1);
-        // For the bomb counter, we want to show the minimum amount of digits possible
-        let bombcount_digits = game.bomb_count.checked_ilog10().unwrap_or(0) + 1;
-        let bombcount_img = Image::new_canvas_image(ctx, ctx.gfx.surface_format(), (10*bombcount_digits)+4, 18, 1);
+        let game_config_result = MainState::set_window_and_game_specific_elements(ctx, width, height, game.bomb_count);
+
+        ctx.gfx.window().set_visible(true);
+
         let timer_img     = Image::new_canvas_image(ctx, ctx.gfx.surface_format(), 21, 9, 1);
         let button_img    = Image::new_canvas_image(ctx, ctx.gfx.surface_format(), 19, 19, 1);
 
-        // The window needs to have room for the board, as well as 4 pixels on either side around it, plus the top part
-        let min_inner_size: PhysicalSize<f32> = PhysicalSize::from_logical(LogicalSize::new(
-            (minefield_img.width()  + 8) as f32,
-            (minefield_img.height() + 4 + 24) as f32), 1.0);
-        
-        ctx.gfx.window().set_inner_size(min_inner_size);
-        ctx.gfx.window().set_min_inner_size(Some(min_inner_size));
-        ctx.gfx.window().set_visible(true);
-
-        let minefield = GuiElement::new(minefield_img);
-        let bombcount = GuiElement::new(bombcount_img);
+        let minefield = game_config_result.0;
+        let bombcount = game_config_result.1;
         let timer     = GuiElement::new(timer_img);
         let button    = GuiElement::new(button_img);
 
         let rendering = Rendering {
             spritesheet, spritesheet_batch,
             minefield, bombcount, timer, button,
-            window_size: PhysicalSize::new(0, 0), min_inner_size: min_inner_size,
+            window_size: PhysicalSize::new(0, 0), min_inner_size: game_config_result.3,
             scale_factor: 1.0, screen_size: Rect::zero(),
-            timer_value: None, bombcount_digits: bombcount_digits as usize,
+            timer_value: None, bombcount_digits: game_config_result.2,
+            redraw: true,
         };
 
-        MainState { game, rendering, selected_cell: Some(width + 10), i: 0 }
+        MainState { game, rendering, 
+            selected_tile: None, flagging_mode: None, holding_button: false,
+            i: 0 }
+    }
+
+    // Generates GuiElements that change depending on the game, as well as set the window min size
+    pub fn set_window_and_game_specific_elements(ctx: &mut Context, width: usize, height: usize, bomb_count: usize) -> (GuiElement, GuiElement, usize, PhysicalSize<f32>) {
+        // 9 is the size of one tile, 4 is added to make room for the nice border  
+        let minefield_img = Image::new_canvas_image(ctx, ctx.gfx.surface_format(), (width * 9 + 4) as u32, (height * 9 + 4) as u32, 1);
+        // For the bomb counter, we want to show the minimum amount of digits possible
+        let bombcount_digits = bomb_count.checked_ilog10().unwrap_or(0) + 1;
+        let bombcount_img = Image::new_canvas_image(ctx, ctx.gfx.surface_format(), (10*bombcount_digits)+4, 18, 1);
+        
+        let min_inner_size: PhysicalSize<f32> = PhysicalSize::from_logical(LogicalSize::new(
+            (minefield_img.width()  + 8) as f32,
+            (minefield_img.height() + 4 + 24) as f32), 1.0);
+
+        ctx.gfx.window().set_min_inner_size(Some(min_inner_size));
+
+        (GuiElement::new(minefield_img), GuiElement::new(bombcount_img), bombcount_digits as usize, min_inner_size)
     }
 
     // Changes to a new game of minesweeper, remakes certain rendering elements
-    pub fn new_game(&mut self, width: usize, height: usize, bomb_count: usize) {
+    pub fn new_game(&mut self, ctx: &mut Context, width: usize, height: usize, bomb_count: usize) -> GameResult {
+        // Make the new game
         self.game = Minesweeper::new(width, height, bomb_count);
+        // Reset some variables
+        self.selected_tile = None;
+        self.rendering.timer_value = None;
 
+        // Reconfigure the window and elements
+        let result = MainState::set_window_and_game_specific_elements(ctx, width, height, self.game.bomb_count);
+        self.rendering.minefield = result.0;
+        self.rendering.bombcount = result.1;
+        self.rendering.bombcount_digits = result.2;
+        self.rendering.min_inner_size = result.3;
+        self.rendering.window_size = PhysicalSize::new(0, 0);
+
+        self.draw_all(ctx)
     }
 
     // TODO: Make this function a LOT better (includes rework GuiElements somewhat)
@@ -166,6 +193,16 @@ impl MainState {
         );
         canvas.draw(&self.rendering.spritesheet_batch, DrawParam::new().dest(Vec2::new(2.0, 2.0)));
         
+        // If a tile is being held down, draw it
+        if let Some(index) = self.selected_tile {
+            if self.holding_button {
+                canvas.draw(&self.rendering.spritesheet, DrawParam::new()
+                    .src(normalize_rect(Rect::new(9.0, 0.0, 9.0, 9.0), &self.rendering.spritesheet))
+                    .dest(index_to_draw_coord(&self.game, index) + Vec2::new(2.0, 2.0))
+                );
+            }
+        }
+
         // TODO: If we've lost, draw all bombs / explosions
         self.rendering.spritesheet_batch.set(
             self.game.bombs
@@ -217,10 +254,10 @@ impl MainState {
         MainState::draw_nineslice(&mut canvas, &mut self.rendering.spritesheet_batch, Rect::new(36.0, 42.0, 3.0, 3.0), 1.0,
             Rect::new(0.0, 0.0, self.rendering.button.img.width() as f32, self.rendering.button.img.height() as f32));
         
-        canvas.draw(&self.rendering.spritesheet, DrawParam::new()
-            .src(normalize_rect(Rect::new(36.0, 0.0, 8.0, 14.0), &self.rendering.spritesheet))
-            .dest(Vec2::new(3.0, 2.0))
-        );
+        // canvas.draw(&self.rendering.spritesheet, DrawParam::new()
+        //     .src(normalize_rect(Rect::new(36.0, 0.0, 8.0, 14.0), &self.rendering.spritesheet))
+        //     .dest(Vec2::new(3.0, 2.0))
+        // );
 
         canvas.finish(ctx)?;
         Ok(())
