@@ -305,43 +305,34 @@ impl MainState {
 
     // Draws a nine-slice texture, from a batch image, to a given canvas
     // TODO: Put this in a file called something like 'rendering.rs'.
-    pub fn draw_nineslice(canvas: &mut Canvas, batch_img: &mut InstanceArray, src: Rect, border: f32, dest: Rect) {
-        let corner_width  = border;
-        let corner_height = border;
-        let edge_width  = src.w - border * 2.0;
-        let edge_height = border;
-        
-        // Element 0 is the source rect, Element 1 is the destination rect
-        let parts: [(Rect, Rect); 9] = [
+    pub fn draw_nineslice(canvas: &mut Canvas, batch_img: &mut InstanceArray, src: Rect, s: f32, dest: Rect) {
+        // 's' is the width of the slice from the edge.
+        // Generate an array of parts to draw.
+        // (source rect, destination rect), both of these are localised.
+        let parts: [(Rect, Rect); 5] = [
+            // ===== Corners =====
             // Top left
-            (Rect::new(src.x, src.y, border, border), Rect::new(dest.x, dest.y, 1.0, 1.0)); 9
+            (Rect::new(0.0,     0.0,     s, s), Rect::new(0.0,      0.0,      1.0, 1.0)),
+            // Top Right
+            (Rect::new(src.w-s, 0.0,     s, s), Rect::new(dest.w-s, 0.0,      1.0, 1.0)),
+            // Bottom left
+            (Rect::new(0.0,     src.h-s, s, s), Rect::new(0.0,      dest.h-s, 1.0, 1.0)),
+            // Bottom Right
+            (Rect::new(src.w-s, src.h-s, s, s), Rect::new(dest.w-s, dest.h-s, 1.0, 1.0)),
+            // ===== Edges =====
+            // TODO:
+            
+            // ===== Middle =====
+            (Rect::new(s, s, src.w-s*2, src.h-s*2), Rect::new(s, s, dest.w-s*2, dest.h-s*2)),
         ];
         // Draw each of the parts
         let image = &batch_img.image().clone();
         batch_img.set(
-            parts.iter().map(|(src, dest)| DrawParam::new().src(normalize_rect(*src, image)).dest_rect(*dest))
+            parts.iter().map(|(s, d)| DrawParam::new().src
+                (normalize_rect(*s.translate(Vec2::new(src.x,  src.y)), image))
+                     .dest_rect(*d.translate(Vec2::new(dest.x, dest.y))))
         );
         canvas.draw(batch_img, DrawParam::new());
-
-        // return;
-        // // Top left
-        // canvas.draw(&self.rendering.spritesheet, DrawParam::new()
-        //     .src(normalize_rect(Rect::new(src.x, src.y, border, border), &self.rendering.spritesheet))
-        //     .dest_rect(Rect::new(dest.x, dest.y, 1.0, 1.0))
-        // );
-        // // Top right
-        // canvas.draw(&self.rendering.spritesheet, DrawParam::new()
-        //     .src(normalize_rect(Rect::new(src.x + src.w - border, src.y, border, border), &self.rendering.spritesheet))
-        //     .dest_rect(Rect::new(dest.x + dest.w - border, dest.y, 1.0, 1.0))
-        // );
-        // // Top
-        // let src_r = Rect::new(src.x + border, src.y, edge_width, border);
-        // let dest_r = Rect::new(dest.x + border, dest.y, dest.w - border * 2.0, 1.0);
-        // canvas.draw(&self.rendering.spritesheet, DrawParam::new()
-        //     .src(normalize_rect(src_r, &self.rendering.spritesheet))
-        //     .dest_rect(dest_r)
-        // );
-        // println!("{:?}", (src, src_r, dest_r))
     }
 }
 
