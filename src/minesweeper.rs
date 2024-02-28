@@ -56,7 +56,8 @@ impl Minesweeper {
         // So before that they're empty / filled with dummy values.
 
         let mut bombs = Vec::with_capacity(bomb_count);
-        bombs.append(&mut vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+        bombs.append(&mut vec![0; bomb_count]);
+
         let mut neighbour_count = Vec::with_capacity(size);
         for _ in 0..size {
             neighbour_count.push(thread_rng().gen_range(0..=8));

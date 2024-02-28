@@ -1,7 +1,7 @@
 use ggez::winit::dpi::{LogicalSize, PhysicalSize};
 use ggez::{graphics, Context, GameResult};
 use ggez::glam::Vec2;
-use ggez::graphics::{Canvas, Color, DrawParam, Image, InstanceArray, Rect};
+use ggez::graphics::{Canvas, Color, DrawParam, Image, InstanceArray, Rect, Sampler};
 
 use crate::minesweeper::{GameState, Minesweeper, TileType};
 
@@ -65,12 +65,10 @@ impl MainState {
         // Minefield
         // 9 is the size of one tile, 4 is added to make room for the nice border  
         let minefield_img = Image::new_canvas_image(ctx, ctx.gfx.surface_format(), (width * 9 + 4) as u32, (height * 9 + 4) as u32, 1);
-        // Bomb counter
-        let bombcount_digits = game.bomb_count.checked_ilog10().unwrap_or(0) + 1 + 1;
+        // For the bomb counter, we want to show the minimum amount of digits possible
+        let bombcount_digits = game.bomb_count.checked_ilog10().unwrap_or(0) + 1;
         let bombcount_img = Image::new_canvas_image(ctx, ctx.gfx.surface_format(), (10*bombcount_digits)+4, 18, 1);
-        // Timer
         let timer_img     = Image::new_canvas_image(ctx, ctx.gfx.surface_format(), 21, 9, 1);
-        // Button (Don't think this has a proper name...)
         let button_img    = Image::new_canvas_image(ctx, ctx.gfx.surface_format(), 19, 19, 1);
 
         // The window needs to have room for the board, as well as 4 pixels on either side around it, plus the top part
@@ -96,6 +94,12 @@ impl MainState {
         };
 
         MainState { game, rendering, selected_cell: Some(width + 10), i: 0 }
+    }
+
+    // Changes to a new game of minesweeper, remakes certain rendering elements
+    pub fn new_game(&mut self, width: usize, height: usize, bomb_count: usize) {
+        self.game = Minesweeper::new(width, height, bomb_count);
+
     }
 
     // TODO: Make this function a LOT better (includes rework GuiElements somewhat)
@@ -138,14 +142,12 @@ impl MainState {
     // Renders the minefield
     pub fn draw_minefield(&mut self, ctx: &mut Context) -> GameResult {
         let mut canvas = graphics::Canvas::from_image(ctx, self.rendering.minefield.img.clone(), Color::from_rgba(90, 105, 136, 255));
+        canvas.set_sampler(Sampler::nearest_clamp());
 
-        // Draw the nine-slice texture
-        
-        MainState::draw_nineslice(&mut canvas, &mut self.rendering.spritesheet_batch, Rect::new(27.0, 0.0, 5.0, 5.0), 2.0,
+        // Draw the background
+        // TODO: Maybe make the second line (where we get the dimensions) neater
+        MainState::draw_nineslice(&mut canvas, &mut self.rendering.spritesheet_batch, Rect::new(36.0, 34.0, 5.0, 5.0), 2.0,
             Rect::new(0.0, 0.0, self.rendering.minefield.img.width() as f32, self.rendering.minefield.img.height() as f32));
-        // Test nines-lice
-        // MainState::draw_nineslice(&mut canvas, &mut self.rendering.spritesheet_batch, Rect::new(36.0, 35.0, 9.0, 9.0), 4.0,
-        //     Rect::new(0.0, 0.0, self.rendering.minefield.img.width() as f32, self.rendering.minefield.img.height() as f32));
 
         // Draw the tiles
         self.rendering.spritesheet_batch.set(
@@ -209,7 +211,12 @@ impl MainState {
     // Renders the button
     pub fn draw_button(&mut self, ctx: &mut Context) -> GameResult {
         let mut canvas = graphics::Canvas::from_image(ctx, self.rendering.button.img.clone(), Color::from_rgba(0, 0, 0, 255));
+        canvas.set_sampler(Sampler::nearest_clamp());
 
+        // Draw the background
+        MainState::draw_nineslice(&mut canvas, &mut self.rendering.spritesheet_batch, Rect::new(36.0, 42.0, 3.0, 3.0), 1.0,
+            Rect::new(0.0, 0.0, self.rendering.button.img.width() as f32, self.rendering.button.img.height() as f32));
+        
         canvas.draw(&self.rendering.spritesheet, DrawParam::new()
             .src(normalize_rect(Rect::new(36.0, 0.0, 8.0, 14.0), &self.rendering.spritesheet))
             .dest(Vec2::new(3.0, 2.0))
@@ -222,7 +229,12 @@ impl MainState {
     // Renders the bomb counter
     pub fn draw_bombcount(&mut self, ctx: &mut Context) -> GameResult {
         let mut canvas = graphics::Canvas::from_image(ctx, self.rendering.bombcount.img.clone(), Color::from_rgba(0, 0, 0, 255));
-        
+        canvas.set_sampler(Sampler::nearest_clamp());
+
+        // Draw the background
+        MainState::draw_nineslice(&mut canvas, &mut self.rendering.spritesheet_batch, Rect::new(36.0, 39.0, 3.0, 3.0), 1.0,
+            Rect::new(0.0, 0.0, self.rendering.bombcount.img.width() as f32, self.rendering.bombcount.img.height() as f32));
+
         // The number we're going to display
         // We COULD check this to make sure it fits within the given digits, however it would be impossible unless you have some weird invalid game.
         let count = self.game.bombs.len().saturating_sub(self.game.board.iter().filter(|&t| *t == TileType::Flag).count());
@@ -253,8 +265,13 @@ impl MainState {
     // Renders the timer
     pub fn draw_timer(&mut self, ctx: &mut Context) -> GameResult {
         let mut canvas = graphics::Canvas::from_image(ctx, self.rendering.timer.img.clone(), Color::from_rgba(0, 0, 0, 255));
+        canvas.set_sampler(Sampler::nearest_clamp());
 
-        // Only draw the timer if it's a number
+        // Draw the background
+        MainState::draw_nineslice(&mut canvas, &mut self.rendering.spritesheet_batch, Rect::new(39.0, 39.0, 3.0, 3.0), 1.0,
+            Rect::new(0.0, 0.0, self.rendering.timer.img.width() as f32, self.rendering.timer.img.height() as f32));
+            
+        // Unwrap the number
         let t = self.rendering.timer_value.unwrap_or_default();
         if t > 99 * 60 + 59 {
             // bigger than 99 minutes!! need some kind of easter egg...
@@ -309,28 +326,27 @@ impl MainState {
         // 's' is the width of the slice from the edge.
         // Generate an array of parts to draw.
         // (source rect, destination rect), both of these are localised.
-        let parts: [(Rect, Rect); 5] = [
-            // ===== Corners =====
-            // Top left
-            (Rect::new(0.0,     0.0,     s, s), Rect::new(0.0,      0.0,      1.0, 1.0)),
-            // Top Right
-            (Rect::new(src.w-s, 0.0,     s, s), Rect::new(dest.w-s, 0.0,      1.0, 1.0)),
-            // Bottom left
-            (Rect::new(0.0,     src.h-s, s, s), Rect::new(0.0,      dest.h-s, 1.0, 1.0)),
-            // Bottom Right
-            (Rect::new(src.w-s, src.h-s, s, s), Rect::new(dest.w-s, dest.h-s, 1.0, 1.0)),
-            // ===== Edges =====
-            // TODO:
-            
-            // ===== Middle =====
-            (Rect::new(s, s, src.w-s*2, src.h-s*2), Rect::new(s, s, dest.w-s*2, dest.h-s*2)),
+        let middle_size = Vec2::new((dest.w-s*2.0)/(src.w-s*2.0), (dest.h-s*2.0)/(src.h-s*2.0));
+        let parts: [(Rect, Rect); 9] = [
+            // ===== Middle ===== //
+            (Rect::new(s, s, src.w-s*2.0, src.h-s*2.0), Rect::new(s, s, middle_size.x, middle_size.y)),
+            // ===== Edges ===== //
+            /*Left  */ (Rect::new(0.0,     s, s, src.h-2.0*s), Rect::new(0.0,      s, 1.0, middle_size.y)),
+            /*Right */ (Rect::new(src.w-s, s, s, src.h-2.0*s), Rect::new(dest.w-s, s, 1.0, middle_size.y)),
+            /*Top   */ (Rect::new(s, 0.0,     src.w-2.0*s, s), Rect::new(s, 0.0,      middle_size.x, 1.0)),
+            /*Bottom*/ (Rect::new(s, src.h-s, src.w-2.0*s, s), Rect::new(s, dest.h-s, middle_size.x, 1.0)),
+            // ===== Corners ===== //
+            /*TL*/ (Rect::new(0.0,     0.0,     s, s), Rect::new(0.0,      0.0,      1.0, 1.0)),
+            /*TR*/ (Rect::new(src.w-s, 0.0,     s, s), Rect::new(dest.w-s, 0.0,      1.0, 1.0)),
+            /*BL*/ (Rect::new(0.0,     src.h-s, s, s), Rect::new(0.0,      dest.h-s, 1.0, 1.0)),
+            /*BR*/ (Rect::new(src.w-s, src.h-s, s, s), Rect::new(dest.w-s, dest.h-s, 1.0, 1.0)),
         ];
         // Draw each of the parts
         let image = &batch_img.image().clone();
         batch_img.set(
             parts.iter().map(|(s, d)| DrawParam::new().src
-                (normalize_rect(*s.translate(Vec2::new(src.x,  src.y)), image))
-                     .dest_rect(*d.translate(Vec2::new(dest.x, dest.y))))
+                (normalize_rect(Rect::new(s.x + src.x,  s.y + src.y,  s.w, s.h), image))
+                     .dest_rect(Rect::new(d.x + dest.x, d.y + dest.y, d.w, d.h)))
         );
         canvas.draw(batch_img, DrawParam::new());
     }

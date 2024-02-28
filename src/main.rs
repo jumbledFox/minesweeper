@@ -104,8 +104,25 @@ impl EventHandler for MainState {
             println!("dug");
             self.game.dig();
         }
-        if input.keycode == Some(KeyCode::Return) {
-
+        if input.keycode == Some(KeyCode::Key1) {
+            self.new_game(5, 5, 5);
+            self.draw_all(ctx)?;
+        }
+        if input.keycode == Some(KeyCode::Key2) {
+            self.new_game(9, 9, 10);
+            self.draw_all(ctx)?;
+        }
+        if input.keycode == Some(KeyCode::Key3) {
+            self.new_game(15, 13, 40);
+            self.draw_all(ctx)?;
+        }
+        if input.keycode == Some(KeyCode::Key4) {
+            self.new_game(30, 16, 99);
+            self.draw_all(ctx)?;
+        }
+        if input.keycode == Some(KeyCode::Key5) {
+            self.new_game(50, 24, 250);
+            self.draw_all(ctx)?;
         }
         Ok(())
     }
