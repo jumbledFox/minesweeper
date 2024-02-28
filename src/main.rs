@@ -1,4 +1,4 @@
-use std::time::{Duration, Instant};
+use std::time::{self, Duration, Instant};
 
 use ggez::conf::{WindowMode, WindowSetup};
 use ggez::context::HasMut;
@@ -47,6 +47,9 @@ fn main() {
 
 impl EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
+
+        // TODO: When resizing, the selected tile calculates from where the mouse was for some reason which is odd
+        
         // Update the selected tile
         let mouse_pos = Vec2::new(ctx.mouse.position().x, ctx.mouse.position().y);
         let minefield_inner_pos = Vec2::new(self.rendering.minefield.dest_rect.x, self.rendering.minefield.dest_rect.y);
