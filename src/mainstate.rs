@@ -1,7 +1,7 @@
 use ggez::winit::dpi::{LogicalSize, PhysicalSize};
 use ggez::{graphics, Context, GameResult};
 use ggez::glam::Vec2;
-use ggez::graphics::{Color, DrawParam, Image, InstanceArray, Rect};
+use ggez::graphics::{Canvas, Color, DrawParam, Image, InstanceArray, Rect};
 
 use crate::minesweeper::{GameState, Minesweeper, TileType};
 
@@ -138,6 +138,14 @@ impl MainState {
     // Renders the minefield
     pub fn draw_minefield(&mut self, ctx: &mut Context) -> GameResult {
         let mut canvas = graphics::Canvas::from_image(ctx, self.rendering.minefield.img.clone(), Color::from_rgba(90, 105, 136, 255));
+
+        // Draw the nine-slice texture
+        
+        MainState::draw_nineslice(&mut canvas, &mut self.rendering.spritesheet_batch, Rect::new(27.0, 0.0, 5.0, 5.0), 2.0,
+            Rect::new(0.0, 0.0, self.rendering.minefield.img.width() as f32, self.rendering.minefield.img.height() as f32));
+        // Test nines-lice
+        // MainState::draw_nineslice(&mut canvas, &mut self.rendering.spritesheet_batch, Rect::new(36.0, 35.0, 9.0, 9.0), 4.0,
+        //     Rect::new(0.0, 0.0, self.rendering.minefield.img.width() as f32, self.rendering.minefield.img.height() as f32));
 
         // Draw the tiles
         self.rendering.spritesheet_batch.set(
@@ -293,6 +301,47 @@ impl MainState {
 
         ctx.gfx.end_frame()?;
         Ok(())
+    }
+
+    // Draws a nine-slice texture, from a batch image, to a given canvas
+    // TODO: Put this in a file called something like 'rendering.rs'.
+    pub fn draw_nineslice(canvas: &mut Canvas, batch_img: &mut InstanceArray, src: Rect, border: f32, dest: Rect) {
+        let corner_width  = border;
+        let corner_height = border;
+        let edge_width  = src.w - border * 2.0;
+        let edge_height = border;
+        
+        // Element 0 is the source rect, Element 1 is the destination rect
+        let parts: [(Rect, Rect); 9] = [
+            // Top left
+            (Rect::new(src.x, src.y, border, border), Rect::new(dest.x, dest.y, 1.0, 1.0)); 9
+        ];
+        // Draw each of the parts
+        let image = &batch_img.image().clone();
+        batch_img.set(
+            parts.iter().map(|(src, dest)| DrawParam::new().src(normalize_rect(*src, image)).dest_rect(*dest))
+        );
+        canvas.draw(batch_img, DrawParam::new());
+
+        // return;
+        // // Top left
+        // canvas.draw(&self.rendering.spritesheet, DrawParam::new()
+        //     .src(normalize_rect(Rect::new(src.x, src.y, border, border), &self.rendering.spritesheet))
+        //     .dest_rect(Rect::new(dest.x, dest.y, 1.0, 1.0))
+        // );
+        // // Top right
+        // canvas.draw(&self.rendering.spritesheet, DrawParam::new()
+        //     .src(normalize_rect(Rect::new(src.x + src.w - border, src.y, border, border), &self.rendering.spritesheet))
+        //     .dest_rect(Rect::new(dest.x + dest.w - border, dest.y, 1.0, 1.0))
+        // );
+        // // Top
+        // let src_r = Rect::new(src.x + border, src.y, edge_width, border);
+        // let dest_r = Rect::new(dest.x + border, dest.y, dest.w - border * 2.0, 1.0);
+        // canvas.draw(&self.rendering.spritesheet, DrawParam::new()
+        //     .src(normalize_rect(src_r, &self.rendering.spritesheet))
+        //     .dest_rect(dest_r)
+        // );
+        // println!("{:?}", (src, src_r, dest_r))
     }
 }
 
