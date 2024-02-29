@@ -51,8 +51,9 @@ pub struct MainState {
     pub game: Minesweeper,
     pub rendering: Rendering,
 
+    pub last_hovered_tile: Vec2,
     pub selected_tile: Option<usize>,
-    pub flagging_mode: Option<bool>,
+    pub erasing_flags: bool,
     pub holding_button: bool,
 
     pub i: usize,
@@ -89,7 +90,7 @@ impl MainState {
         };
 
         MainState { game, rendering, 
-            selected_tile: None, flagging_mode: None, holding_button: false,
+            last_hovered_tile: Vec2::MAX, selected_tile: None, erasing_flags: false, holding_button: false,
             i: 0 }
     }
 

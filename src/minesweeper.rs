@@ -60,7 +60,7 @@ impl Minesweeper {
 
         let mut neighbour_count = Vec::with_capacity(size);
         for _ in 0..size {
-            neighbour_count.push(thread_rng().gen_range(0..=8));
+            neighbour_count.push(thread_rng().gen_range(0..=3));
         }
 
         Minesweeper { width, height, bomb_count,
@@ -72,19 +72,24 @@ impl Minesweeper {
 
     pub fn dig(&mut self, index: usize) {
         if self.state == GameState::Prelude {
-            self.state = GameState::Playing;
+            // Generate the board, bombs and stuff
+
+            // Start the timer
             self.start_time = Instant::now();
+            self.state = GameState::Playing;
         }
         self.board[index] = TileType::Dug;
     }
 
-    // If flagging_mode is true, only add flags, otherwise only remove flags
-    pub fn flag(&mut self, flagging_mode: bool, index: usize) {
-        if self.state != GameState::Prelude && self.state != GameState::Playing { return; }
-        if flagging_mode {
-            self.board[index] = TileType::Flag;
-        } else {
-            self.board[index] = TileType::Unopened
+    // Toggle a flag at a position, checks if the index is valid, as well as if flagging that tile is a valid move
+    pub fn set_flag(&mut self, erasing_flags: bool, index: usize) {
+        // If the index is valid
+        if let Some(tile) = self.board.get_mut(index) {
+            // Add or remove a flag, depending on 'erasing_flags'
+            match erasing_flags {
+                true  => if *tile == TileType::Flag { *tile = TileType::Unopened },
+                false => if *tile == TileType::Unopened { *tile = TileType::Flag },
+            }
         }
     }
 }

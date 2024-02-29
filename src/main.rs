@@ -1,20 +1,15 @@
-use std::time::{self, Duration, Instant};
-
 use ggez::conf::{WindowMode, WindowSetup};
-use ggez::context::HasMut;
 use ggez::glam::Vec2;
 use ggez::input::keyboard::{KeyCode, KeyInput};
-use ggez::winit::dpi::{LogicalSize, PhysicalSize};
 use ggez::{Context, ContextBuilder, GameResult};
-use ggez::graphics::{self, Canvas, Color, DrawParam, Drawable, FilterMode, GraphicsContext, Image, ImageFormat, InstanceArray, Rect, ScreenImage};
+use ggez::graphics::{self, Color, DrawParam, FilterMode, Rect};
 use ggez::event::{self, EventHandler};
 
 use mainstate::{normalize_rect, MainState};
-use rand::prelude::*;
 
 pub mod minesweeper;
 pub mod mainstate;
-use minesweeper::{GameState, Minesweeper};
+use minesweeper::GameState;
 
 use crate::minesweeper::TileType;
 
@@ -47,32 +42,31 @@ fn main() {
 
 impl EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
-
-        // TODO: When resizing, the selected tile calculates from where the mouse was for some reason which is odd
         
         // Update the selected tile
         let mouse_pos = Vec2::new(ctx.mouse.position().x, ctx.mouse.position().y);
         let minefield_inner_pos = Vec2::new(self.rendering.minefield.dest_rect.x, self.rendering.minefield.dest_rect.y);
         // We take away 2.0 to account for the border on the minefield
         let hovered_tile_coords = (((mouse_pos-minefield_inner_pos)/self.rendering.scale_factor-2.0)/9.0).floor();
-        // If the mouse is over a valid tile, make it the selected one! Otherwise make the selected one None
-        self.selected_tile = if hovered_tile_coords.x >= 0.0 && hovered_tile_coords.x < self.game.width  as f32 &&
-                                hovered_tile_coords.y >= 0.0 && hovered_tile_coords.y < self.game.height as f32
-        {
-            let hovering_index = hovered_tile_coords.x as usize % self.game.width + hovered_tile_coords.y as usize * self.game.width;
-            // If the tile we WERE hovering over is in a different position to the current one, or is None:
-            // Make it so we're no-longer holding down a tile, AND, if we're flagging, set the flag state of the new tile
-            if !self.selected_tile.is_some_and(|x| x == hovering_index) {
-                self.rendering.redraw = true;
+        // If we're hovering over a new tile
+        if self.last_hovered_tile != hovered_tile_coords {
+            self.last_hovered_tile = hovered_tile_coords;
+            // Check if we're hovering over an actual tileS
+            let hovered_tile_on_board =  hovered_tile_coords.x >= 0.0 && hovered_tile_coords.x < self.game.width as f32 && hovered_tile_coords.y >= 0.0 && hovered_tile_coords.y < self.game.height as f32;
+            self.selected_tile = if hovered_tile_on_board {
+                // If we're hovering over an actual tile, work out where it is!!!
+                let hovering_index = hovered_tile_coords.x as usize % self.game.width + hovered_tile_coords.y as usize * self.game.width;
+                // Remove the flag at this position if we should
+                if self.erasing_flags { self.game.set_flag(true, hovering_index); }
+                // Make it so we're no-longer holding down anything
                 self.holding_button = false;
-                if let Some(flagging_mode) = self.flagging_mode {
-                    self.game.flag(flagging_mode, hovering_index);
-                }
-            }
-            Some(hovering_index)
-        } else {
-            None
-        };
+                // Make sure we redraw
+                self.rendering.redraw = true;
+                Some(hovering_index)
+            } else { None }
+        }
+
+
 
         if self.rendering.redraw {
             self.rendering.redraw = false;
@@ -87,19 +81,11 @@ impl EventHandler for MainState {
         match button {
             event::MouseButton::Left => { self.holding_button = true; },
             event::MouseButton::Right => {
-                // Start flagging
-                self.flagging_mode = if let Some(index) = self.selected_tile {
-                    self.holding_button = false;
-                    // If the tile isnt a flag, we want to set it to one, and vice versa
-                    let f_mode = self.game.board[index] != TileType::Flag;
-                    // And then we want to actually update the one we're currently selecting
-                    // This is because flags are only changed when we hover over a different cell
-                    self.game.flag(f_mode, index);
-                    Some(f_mode)
-                } else {
-                    // If we're not selecting a tile, make it so when we do we're adding flags, as that's the expected behaviour
-                    Some(true)
-                };
+                // We only want to start erasing flags if we right click on a flag
+                self.erasing_flags = self.selected_tile.is_some_and(|i| self.game.board.get(i).is_some_and(|t| *t == TileType::Flag));
+                if let Some(index) = self.selected_tile {
+                    self.game.set_flag(self.erasing_flags, index);
+                }
             }
             _ => {}
         }
@@ -117,7 +103,7 @@ impl EventHandler for MainState {
                 }
                 self.holding_button = false;
             },
-            event::MouseButton::Right => { self.flagging_mode = None; },
+            event::MouseButton::Right => { self.erasing_flags = false; },
             _ => { return Ok(()); }
         }
         self.rendering.redraw = true;
@@ -159,6 +145,10 @@ impl EventHandler for MainState {
         canvas.finish(ctx)
     }
 
+    fn resize_event(&mut self, _ctx: &mut Context, _width: f32, _height: f32) -> GameResult {
+        println!("{:?}", _ctx.mouse.position());
+        Ok(())
+    }
     fn key_down_event(&mut self, ctx: &mut Context, input: KeyInput, _repeat: bool) -> GameResult {
         if input.keycode == Some(KeyCode::Escape) {
             ctx.request_quit();
