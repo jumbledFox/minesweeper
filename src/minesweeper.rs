@@ -42,7 +42,7 @@ impl Minesweeper {
     pub fn new(width: usize, height: usize, bomb_count: usize) -> Minesweeper {
         let size = width*height;
 
-        if bomb_count > size - 9 {
+        if bomb_count > size.saturating_sub(9) {
             println!("Bomb count is bigger than max! you silly goose :P");
         }
         let bomb_count = bomb_count.min(size - 9);
@@ -82,14 +82,16 @@ impl Minesweeper {
     }
 
     // Toggle a flag at a position, checks if the index is valid, as well as if flagging that tile is a valid move
-    pub fn set_flag(&mut self, erasing_flags: bool, index: usize) {
+    // Returns if the operation was successful
+    pub fn set_flag(&mut self, erasing_flags: bool, index: usize) -> bool {
         // If the index is valid
         if let Some(tile) = self.board.get_mut(index) {
             // Add or remove a flag, depending on 'erasing_flags'
             match erasing_flags {
-                true  => if *tile == TileType::Flag { *tile = TileType::Unopened },
-                false => if *tile == TileType::Unopened { *tile = TileType::Flag },
+                true  => if *tile == TileType::Flag { *tile = TileType::Unopened; return true; },
+                false => if *tile == TileType::Unopened { *tile = TileType::Flag; return true; },
             }
         }
+        false
     }
 }

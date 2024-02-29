@@ -1,11 +1,88 @@
 use core::f32;
 
+use ggez::input::keyboard::{self, KeyCode};
 use ggez::winit::dpi::{LogicalSize, PhysicalSize};
 use ggez::{graphics, Context, GameResult};
 use ggez::glam::Vec2;
 use ggez::graphics::{Canvas, Color, DrawParam, Image, InstanceArray, Rect, Sampler};
 
 use crate::minesweeper::{GameState, Minesweeper, TileType};
+
+// TODO: think about how we render - maybe upscaling a smaller canvas is better than a bunch of upscaled smaller ones meshed together ?? makes drawing easier
+
+pub struct NumberInput {
+    pub value: Option<usize>,
+    pub min: usize,
+    pub max: usize,
+    pub max_length: usize,
+    pub valid: bool,
+}
+
+impl NumberInput {
+    pub fn new(min: usize, max: usize, max_length: usize) -> NumberInput {
+        NumberInput { value: None, min, max, max_length, valid: false }
+    }
+    pub fn add(&mut self, keycode: KeyCode) {
+        let num_to_push;
+        match keycode {
+            // If we press backspace, divide the number by 10
+            KeyCode::Back => {
+                self.value = if self.value.is_some_and(|v| v>=10) { Some(self.value.unwrap()/10) } else { None };
+                return;
+            }
+            KeyCode::Key0 | KeyCode::Numpad0 => { num_to_push = 0; }
+            KeyCode::Key1 | KeyCode::Numpad1 => { num_to_push = 1; }
+            KeyCode::Key2 | KeyCode::Numpad2 => { num_to_push = 2; }
+            KeyCode::Key3 | KeyCode::Numpad3 => { num_to_push = 3; }
+            KeyCode::Key4 | KeyCode::Numpad4 => { num_to_push = 4; }
+            KeyCode::Key5 | KeyCode::Numpad5 => { num_to_push = 5; }
+            KeyCode::Key6 | KeyCode::Numpad6 => { num_to_push = 6; }
+            KeyCode::Key7 | KeyCode::Numpad7 => { num_to_push = 7; }
+            KeyCode::Key8 | KeyCode::Numpad8 => { num_to_push = 8; }
+            KeyCode::Key9 | KeyCode::Numpad9 => { num_to_push = 9; }
+            _ => {return;}
+        }
+        let new_value = if let Some(v) = self.value {
+            Some(v*10+num_to_push)
+        } else {
+            Some(num_to_push)
+        };
+        if self.length_valid(new_value) {
+            self.value = new_value
+        }
+    }
+    pub fn length_valid(&self, value: Option<usize>) -> bool {
+        if let Some(v) = value { v.checked_ilog10().unwrap_or(0)as usize+1 <= self.max_length } else { true }
+    }
+    pub fn validity(&mut self) -> bool {
+        // If it's more than or equal to min, less than or equal to max, and the amount of digits is less than or equal to the maximum length
+        self.valid = self.value.is_some_and(|v| v >= self.min && v <= self.max) && self.length_valid(self.value);
+        self.valid
+    }
+}
+
+pub struct Menu {
+    pub showing: bool,
+    pub buttons: Vec<Rect>,
+    pub number_inputs: Vec<NumberInput>,
+    pub gui_element: GuiElement,
+}
+
+impl Menu {
+    pub fn new(ctx: &Context, width: usize, height: usize, buttons: Vec<Rect>, number_inputs: Vec<NumberInput>) -> Menu {
+        let img = Image::new_canvas_image(ctx, ctx.gfx.surface_format(), 19, 19, 1);
+        let gui_element = GuiElement::new(img);
+        Menu {showing: false, buttons, number_inputs, gui_element }
+    }
+    pub fn hovering_button(&self, ctx: &Context) -> Option<usize> {
+        let r = self.gui_element.dest_rect;
+        for (i, b) in self.buttons.iter().enumerate() {
+            let b_t = Rect::new(b.x + r.x, b.y + r.y, b.w * r.w, b.h * r.w);
+            if b_t.contains(ctx.mouse.position()) { return Some(i); }
+        }
+        None
+    }
+}
 
 pub struct GuiElement {
     pub middle: Vec2,
@@ -45,6 +122,10 @@ pub struct Rendering {
     pub timer_value: Option<usize>,
 
     pub redraw: bool,
+    pub mouse_in_window: bool,
+    // Menus
+    pub select_menu: Menu,
+    pub custom_menu: Menu,
 }
 
 pub struct MainState {
@@ -86,12 +167,28 @@ impl MainState {
             window_size: PhysicalSize::new(0, 0), min_inner_size: game_config_result.3,
             scale_factor: 1.0, screen_size: Rect::zero(),
             timer_value: None, bombcount_digits: game_config_result.2,
-            redraw: true,
+            redraw: true,  mouse_in_window: false,
+            select_menu: Menu::new(ctx, 68, 34, vec![
+                Rect::new(1.0,  1.0, 66.0, 8.0),
+                Rect::new(1.0,  9.0, 66.0, 8.0),
+                Rect::new(1.0, 17.0, 66.0, 8.0),
+                Rect::new(1.0, 26.0, 66.0, 8.0),
+            ], vec![]),
+            custom_menu: Menu::new(ctx, 68, 50, vec![
+                Rect::new(59.0,  0.0,  9.0, 9.0),
+                Rect::new(20.0, 38.0, 28.0, 9.0),
+                Rect::new(29.0, 10.0, 35.0, 7.0),
+                Rect::new(29.0, 19.0, 35.0, 7.0),
+                Rect::new(29.0, 28.0, 35.0, 7.0),
+            ], vec![
+                NumberInput::new(8, 200, 6),
+                NumberInput::new(8, 100, 6),
+                NumberInput::new(8, 999999, 6),
+            ]),
         };
 
         MainState { game, rendering, 
-            last_hovered_tile: Vec2::MAX, selected_tile: None, erasing_flags: false, holding_button: false,
-            i: 0 }
+            last_hovered_tile: Vec2::MAX, selected_tile: None, erasing_flags: false, holding_button: false, i: 0 }
     }
 
     // Generates GuiElements that change depending on the game, as well as set the window min size
@@ -103,8 +200,8 @@ impl MainState {
         let bombcount_img = Image::new_canvas_image(ctx, ctx.gfx.surface_format(), (10*bombcount_digits)+4, 18, 1);
         
         let min_inner_size: PhysicalSize<f32> = PhysicalSize::from_logical(LogicalSize::new(
-            (minefield_img.width()  + 8) as f32,
-            (minefield_img.height() + 4 + 24) as f32), 1.0);
+            (minefield_img.width().max(9*8+4)  + 8) as f32,
+            (minefield_img.height().max(9*8+4) + 4 + 24) as f32), 1.0);
 
         ctx.gfx.window().set_min_inner_size(Some(min_inner_size));
 
@@ -312,7 +409,8 @@ impl MainState {
         // Unwrap the number
         let t = self.rendering.timer_value.unwrap_or_default();
         if t > 99 * 60 + 59 {
-            // bigger than 99 minutes!! need some kind of easter egg...
+            // bigger than 99 minutes!! make you lose the game for the fun of it lol
+            // TODO
         }
         // The different numbers of the timer (and how far along they are on the texture)
         const ALONG: [f32; 4] = [2.0, 6.0, 12.0, 16.0];

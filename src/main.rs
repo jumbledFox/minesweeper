@@ -10,6 +10,7 @@ use mainstate::{normalize_rect, MainState};
 pub mod minesweeper;
 pub mod mainstate;
 use minesweeper::GameState;
+use rand::{thread_rng, Rng};
 
 use crate::minesweeper::TileType;
 
@@ -34,7 +35,7 @@ fn main() {
     // use when setting your game up.
     // let my_game = MainState2::new(&mut ctx, game, min_window_size);
 
-    let mut main_state = MainState::new(&mut ctx, 9, 9, 10);
+    let mut main_state = MainState::new(&mut ctx, 50, 25, 100);
     main_state.draw_all(&mut ctx);
     // Run!
     event::run(ctx, event_loop, main_state);
@@ -42,14 +43,14 @@ fn main() {
 
 impl EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
-        
+
         // Update the selected tile
         let mouse_pos = Vec2::new(ctx.mouse.position().x, ctx.mouse.position().y);
         let minefield_inner_pos = Vec2::new(self.rendering.minefield.dest_rect.x, self.rendering.minefield.dest_rect.y);
         // We take away 2.0 to account for the border on the minefield
         let hovered_tile_coords = (((mouse_pos-minefield_inner_pos)/self.rendering.scale_factor-2.0)/9.0).floor();
-        // If we're hovering over a new tile
-        if self.last_hovered_tile != hovered_tile_coords {
+        // If we're hovering over a new tile (and the mouse is in the window)
+        if self.last_hovered_tile != hovered_tile_coords && self.rendering.mouse_in_window  {
             self.last_hovered_tile = hovered_tile_coords;
             // Check if we're hovering over an actual tileS
             let hovered_tile_on_board =  hovered_tile_coords.x >= 0.0 && hovered_tile_coords.x < self.game.width as f32 && hovered_tile_coords.y >= 0.0 && hovered_tile_coords.y < self.game.height as f32;
@@ -57,19 +58,29 @@ impl EventHandler for MainState {
                 // If we're hovering over an actual tile, work out where it is!!!
                 let hovering_index = hovered_tile_coords.x as usize % self.game.width + hovered_tile_coords.y as usize * self.game.width;
                 // Remove the flag at this position if we should
-                if self.erasing_flags { self.game.set_flag(true, hovering_index); }
+                if self.erasing_flags {
+                    if self.game.set_flag(true, hovering_index) {
+                        self.rendering.redraw = true;
+                    }
+                }
                 // Make it so we're no-longer holding down anything
-                self.holding_button = false;
+                if self.holding_button {
+                    self.holding_button = false;
+                    self.rendering.redraw = true;
+                }
                 // Make sure we redraw
-                self.rendering.redraw = true;
                 Some(hovering_index)
             } else { None }
         }
 
-
+        println!("{:?}", Rect::new(self.rendering.button.dest_rect.x, self.rendering.button.dest_rect.y,
+            self.rendering.button.dest_rect.w * self.rendering.button.img.width()  as f32,
+            self.rendering.button.dest_rect.h * self.rendering.button.img.height() as f32,
+        ).contains(mouse_pos));
 
         if self.rendering.redraw {
             self.rendering.redraw = false;
+            println!("{:?} - redrew", thread_rng().gen_range(0..999));
             self.draw_all(ctx)?;
         }
 
@@ -110,6 +121,10 @@ impl EventHandler for MainState {
         Ok(())
     }
 
+    fn mouse_enter_or_leave(&mut self, _ctx: &mut Context, entered: bool) -> GameResult {
+        self.rendering.mouse_in_window = entered;
+        Ok(())
+    }
     fn draw(&mut self, ctx: &mut Context) -> GameResult {        
         let mut canvas = graphics::Canvas::from_frame(ctx, Color::from_rgb(192, 203, 220));
         canvas.set_sampler(FilterMode::Nearest);
@@ -146,10 +161,12 @@ impl EventHandler for MainState {
     }
 
     fn resize_event(&mut self, _ctx: &mut Context, _width: f32, _height: f32) -> GameResult {
-        println!("{:?}", _ctx.mouse.position());
         Ok(())
     }
     fn key_down_event(&mut self, ctx: &mut Context, input: KeyInput, _repeat: bool) -> GameResult {
+        if let Some(k) = input.keycode {
+            self.rendering.custom_menu.number_inputs[0].add(k);
+        }
         if input.keycode == Some(KeyCode::Escape) {
             ctx.request_quit();
         }
