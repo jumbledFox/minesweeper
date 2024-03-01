@@ -62,7 +62,7 @@ impl NumberInput {
 }
 
 pub struct Menu {
-    pub showing: bool,
+    pub active: bool,
     pub buttons: Vec<Rect>,
     pub number_inputs: Vec<NumberInput>,
     pub gui_element: GuiElement,
@@ -72,7 +72,7 @@ impl Menu {
     pub fn new(ctx: &Context, width: usize, height: usize, buttons: Vec<Rect>, number_inputs: Vec<NumberInput>) -> Menu {
         let img = Image::new_canvas_image(ctx, ctx.gfx.surface_format(), 19, 19, 1);
         let gui_element = GuiElement::new(img);
-        Menu {showing: false, buttons, number_inputs, gui_element }
+        Menu {active: false, buttons, number_inputs, gui_element }
     }
     pub fn hovering_button(&self, ctx: &Context) -> Option<usize> {
         let r = self.gui_element.dest_rect;
@@ -290,16 +290,6 @@ impl MainState {
             )
         );
         canvas.draw(&self.rendering.spritesheet_batch, DrawParam::new().dest(Vec2::new(2.0, 2.0)));
-        
-        // If a tile is being held down, draw it
-        if let Some(index) = self.selected_tile {
-            if self.holding_button {
-                canvas.draw(&self.rendering.spritesheet, DrawParam::new()
-                    .src(normalize_rect(Rect::new(9.0, 0.0, 9.0, 9.0), &self.rendering.spritesheet))
-                    .dest(index_to_draw_coord(&self.game, index) + Vec2::new(2.0, 2.0))
-                );
-            }
-        }
 
         // TODO: If we've lost, draw all bombs / explosions
         self.rendering.spritesheet_batch.set(
@@ -444,6 +434,17 @@ impl MainState {
         Ok(())
     }
 
+    // Menus
+    pub fn draw_select_menu(&mut self, ctx: &mut Context) -> GameResult {
+        let mut canvas = graphics::Canvas::from_image(ctx, self.rendering.timer.img.clone(), Color::from_rgba(0, 0, 0, 255));
+        canvas.set_sampler(Sampler::nearest_clamp());
+
+        // Draw the background
+        MainState::draw_nineslice(&mut canvas, &mut self.rendering.spritesheet_batch, Rect::new(36.0, 42.0, 3.0, 3.0), 1.0,
+            Rect::new(0.0, 0.0, self.rendering.select_menu.gui_element.img.width() as f32, self.rendering.button.img.height() as f32));
+
+        canvas.finish(ctx)
+    }
     pub fn draw_all(&mut self, ctx: &mut Context) -> GameResult {
         ctx.gfx.begin_frame().unwrap();
 

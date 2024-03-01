@@ -71,14 +71,19 @@ impl Minesweeper {
     }
 
     pub fn dig(&mut self, index: usize) {
-        if self.state == GameState::Prelude {
-            // Generate the board, bombs and stuff
-
-            // Start the timer
-            self.start_time = Instant::now();
-            self.state = GameState::Playing;
+        // If the tile is valid and diggable...
+        if let Some(tile) = self.board.get_mut(index) {
+            if *tile == TileType::Unopened {
+                if self.state == GameState::Prelude {
+                    // Generate the board, bombs and stuff
+        
+                    // Start the timer
+                    self.start_time = Instant::now();
+                    self.state = GameState::Playing;
+                }
+                *tile = TileType::Dug;
+            }
         }
-        self.board[index] = TileType::Dug;
     }
 
     // Toggle a flag at a position, checks if the index is valid, as well as if flagging that tile is a valid move

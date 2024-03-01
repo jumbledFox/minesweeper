@@ -44,6 +44,8 @@ fn main() {
 impl EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
 
+        self.rendering.select_menu.active = true;
+
         // Update the selected tile
         let mouse_pos = Vec2::new(ctx.mouse.position().x, ctx.mouse.position().y);
         let minefield_inner_pos = Vec2::new(self.rendering.minefield.dest_rect.x, self.rendering.minefield.dest_rect.y);
@@ -57,18 +59,12 @@ impl EventHandler for MainState {
             self.selected_tile = if hovered_tile_on_board {
                 // If we're hovering over an actual tile, work out where it is!!!
                 let hovering_index = hovered_tile_coords.x as usize % self.game.width + hovered_tile_coords.y as usize * self.game.width;
-                // Remove the flag at this position if we should
+                // Remove the flag at this position if we should (and redraw!)
                 if self.erasing_flags {
                     if self.game.set_flag(true, hovering_index) {
                         self.rendering.redraw = true;
                     }
                 }
-                // Make it so we're no-longer holding down anything
-                if self.holding_button {
-                    self.holding_button = false;
-                    self.rendering.redraw = true;
-                }
-                // Make sure we redraw
                 Some(hovering_index)
             } else { None }
         }
@@ -80,7 +76,7 @@ impl EventHandler for MainState {
 
         if self.rendering.redraw {
             self.rendering.redraw = false;
-            println!("{:?} - redrew", thread_rng().gen_range(0..999));
+            // println!("{:?} - redrew", thread_rng().gen_range(0..999));
             self.draw_all(ctx)?;
         }
 
@@ -92,6 +88,7 @@ impl EventHandler for MainState {
         match button {
             event::MouseButton::Left => { self.holding_button = true; },
             event::MouseButton::Right => {
+                self.holding_button = false;
                 // We only want to start erasing flags if we right click on a flag
                 self.erasing_flags = self.selected_tile.is_some_and(|i| self.game.board.get(i).is_some_and(|t| *t == TileType::Flag));
                 if let Some(index) = self.selected_tile {
@@ -151,10 +148,19 @@ impl EventHandler for MainState {
         if let Some(index) = self.selected_tile {
             let pos = Vec2::new((index % self.game.width) as f32, (index / self.game.width) as f32) * 9.0 * self.rendering.scale_factor;
             let relative_pos = Vec2::new(self.rendering.minefield.dest_rect.x, self.rendering.minefield.dest_rect.y) + self.rendering.scale_factor + pos;
+            // Draw selection thing
             canvas.draw(&self.rendering.spritesheet, DrawParam::new().src(
                 normalize_rect(Rect::new(73.0, 28.0, 11.0, 11.0), &self.rendering.spritesheet))
                 .dest_rect(Rect::new(relative_pos.x, relative_pos.y, self.rendering.scale_factor, self.rendering.scale_factor))
             );
+            // If holding down and the cell is clickable, draw depressed tile
+            if self.holding_button && self.game.board.get(index).is_some_and(|t| *t == TileType::Unopened) {
+                canvas.draw(&self.rendering.spritesheet, DrawParam::new()
+                    .src(normalize_rect(Rect::new(9.0, 0.0, 9.0, 9.0), &self.rendering.spritesheet))
+                    .dest_rect(Rect::new(relative_pos.x + self.rendering.scale_factor, relative_pos.y + self.rendering.scale_factor,
+                        self.rendering.scale_factor, self.rendering.scale_factor))
+                );
+            }
         }
 
         canvas.finish(ctx)
