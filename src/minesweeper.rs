@@ -55,8 +55,7 @@ impl Minesweeper {
         // This is because we want the cell at the user's first dig, and all of it's neighbours, to never be a bomb.
         // So before that they're empty / filled with dummy values.
 
-        let mut bombs = Vec::with_capacity(bomb_count);
-        bombs.append(&mut vec![0; bomb_count]);
+        let bombs = vec![0; bomb_count];
 
         let mut neighbour_count = Vec::with_capacity(size);
         for _ in 0..size {

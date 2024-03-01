@@ -1,14 +1,17 @@
+use std::collections::HashMap;
+
 use ggez::conf::{WindowMode, WindowSetup};
 use ggez::glam::Vec2;
 use ggez::input::keyboard::{KeyCode, KeyInput};
 use ggez::{Context, ContextBuilder, GameResult};
-use ggez::graphics::{self, Color, DrawParam, FilterMode, Rect};
+use ggez::graphics::{self, Color, DrawParam, FilterMode, Image, Rect};
 use ggez::event::{self, EventHandler};
 
 use mainstate::{normalize_rect, MainState};
 
 pub mod minesweeper;
 pub mod mainstate;
+pub mod gui;
 use minesweeper::GameState;
 use rand::{thread_rng, Rng};
 
@@ -35,7 +38,8 @@ fn main() {
     // use when setting your game up.
     // let my_game = MainState2::new(&mut ctx, game, min_window_size);
 
-    let mut main_state = MainState::new(&mut ctx, 50, 25, 100);
+    // let mut main_state = MainState::new(&mut ctx, 210, 106, 100);
+    let mut main_state = MainState::new(&mut ctx, 5, 5, 2);
     main_state.draw_all(&mut ctx);
     // Run!
     event::run(ctx, event_loop, main_state);
@@ -62,23 +66,20 @@ impl EventHandler for MainState {
                 // Remove the flag at this position if we should (and redraw!)
                 if self.erasing_flags {
                     if self.game.set_flag(true, hovering_index) {
-                        self.rendering.redraw = true;
+        self.i = 0;
+        self.rendering.redraw = true;
                     }
                 }
                 Some(hovering_index)
             } else { None }
         }
 
-        println!("{:?}", Rect::new(self.rendering.button.dest_rect.x, self.rendering.button.dest_rect.y,
-            self.rendering.button.dest_rect.w * self.rendering.button.img.width()  as f32,
-            self.rendering.button.dest_rect.h * self.rendering.button.img.height() as f32,
-        ).contains(mouse_pos));
+        // println!("{:?}", Rect::new(self.rendering.button.dest_rect.x, self.rendering.button.dest_rect.y,
+        //     self.rendering.button.dest_rect.w * self.rendering.button.img.width()  as f32,
+        //     self.rendering.button.dest_rect.h * self.rendering.button.img.height() as f32,
+        // ).contains(mouse_pos));
 
-        if self.rendering.redraw {
-            self.rendering.redraw = false;
-            // println!("{:?} - redrew", thread_rng().gen_range(0..999));
-            self.draw_all(ctx)?;
-        }
+        
 
         Ok(())
     }
@@ -98,6 +99,7 @@ impl EventHandler for MainState {
             _ => {}
         }
         self.rendering.redraw = true;
+        self.i = 0;
         Ok(())
     }
 
@@ -114,6 +116,7 @@ impl EventHandler for MainState {
             event::MouseButton::Right => { self.erasing_flags = false; },
             _ => { return Ok(()); }
         }
+        self.i = 0;
         self.rendering.redraw = true;
         Ok(())
     }
@@ -124,10 +127,11 @@ impl EventHandler for MainState {
     }
     fn draw(&mut self, ctx: &mut Context) -> GameResult {        
         let mut canvas = graphics::Canvas::from_frame(ctx, Color::from_rgb(192, 203, 220));
+        canvas.set_screen_coordinates(Rect::new(0.0, 0.0, 400.0, 300.0));
         canvas.set_sampler(FilterMode::Nearest);
         
         self.update_window_size(ctx.gfx.window().inner_size());
-
+        
         // Redraw the timer if it's value has changed
         let game_timer_elapsed = match self.game.state {
             GameState::Prelude => None,
@@ -139,6 +143,10 @@ impl EventHandler for MainState {
             self.draw_timer(ctx)?;
         }
         self.draw_bombcount(ctx)?;
+        if self.i == 0 {
+            // self.i = 1;
+            self.draw_minefield(ctx)?;
+        }
 
         canvas.draw(&self.rendering.bombcount.img, DrawParam::new().dest_rect(self.rendering.bombcount.dest_rect));
         canvas.draw(&self.rendering.timer    .img, DrawParam::new().dest_rect(self.rendering.timer    .dest_rect));
@@ -163,6 +171,10 @@ impl EventHandler for MainState {
             }
         }
 
+        self.rendering.tr.draw_text(&mut canvas, String::from("does text rendering work? I THINK it does!!! :) :( :P :-)"), DrawParam::new().color(Color::MAGENTA));
+        self.rendering.tr.draw_text(&mut canvas, String::from("black sphinx of quartz, \"judge\" my vow!"), DrawParam::new().color(Color::RED).dest(Vec2::new(1.0, 10.0)));
+        self.rendering.tr.draw_text(&mut canvas, String::from("BLACK, SPHINX. OF! QUARTZ? JUDGE: MY; 'VOW'"), DrawParam::new().color(Color::BLACK).dest(Vec2::new(1.0, 20.0)));
+        self.rendering.tr.draw_text(&mut canvas, String::from("123, 456, numbers!!! >:3 8-200  Width Submit Game Help"), DrawParam::new().color(Color::BLUE).dest(Vec2::new(1.0, 30.0)));
         canvas.finish(ctx)
     }
 
@@ -179,7 +191,7 @@ impl EventHandler for MainState {
         if input.keycode == Some(KeyCode::Q) {
             println!("lose game");
             self.game.state = GameState::Lose;
-            self.draw_all(ctx)?;
+            // self.draw_all(ctx)?;
         }
         if input.keycode == Some(KeyCode::Key1) {
             self.new_game(ctx, 6, 6, 5)?;

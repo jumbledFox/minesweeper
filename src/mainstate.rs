@@ -1,4 +1,5 @@
 use core::f32;
+use std::collections::HashMap;
 
 use ggez::input::keyboard::{self, KeyCode};
 use ggez::winit::dpi::{LogicalSize, PhysicalSize};
@@ -6,6 +7,7 @@ use ggez::{graphics, Context, GameResult};
 use ggez::glam::Vec2;
 use ggez::graphics::{Canvas, Color, DrawParam, Image, InstanceArray, Rect, Sampler};
 
+use crate::gui::TextRenderer;
 use crate::minesweeper::{GameState, Minesweeper, TileType};
 
 // TODO: think about how we render - maybe upscaling a smaller canvas is better than a bunch of upscaled smaller ones meshed together ?? makes drawing easier
@@ -126,6 +128,8 @@ pub struct Rendering {
     // Menus
     pub select_menu: Menu,
     pub custom_menu: Menu,
+
+    pub tr: TextRenderer,
 }
 
 pub struct MainState {
@@ -161,6 +165,7 @@ impl MainState {
         let timer     = GuiElement::new(timer_img);
         let button    = GuiElement::new(button_img);
 
+        let t = Image::from_path(ctx, "/chars.png").unwrap();
         let rendering = Rendering {
             spritesheet, spritesheet_batch,
             minefield, bombcount, timer, button,
@@ -185,6 +190,34 @@ impl MainState {
                 NumberInput::new(8, 100, 6),
                 NumberInput::new(8, 999999, 6),
             ]),
+            tr: TextRenderer::new(ctx, t.clone(), HashMap::from([
+                ('A', (3.0,   5.0)), ('a', (131.0, 5.0)), ('!', (286.0, 2.0)), ('0', (237.0, 5.0)), 
+                ('B', (8.0,   5.0)), ('b', (136.0, 4.0)), ('?', (288.0, 4.0)), ('1', (242.0, 4.0)), 
+                ('C', (13.0,  5.0)), ('c', (140.0, 4.0)), (':', (292.0, 2.0)), ('2', (246.0, 5.0)), 
+                ('D', (18.0,  5.0)), ('d', (144.0, 5.0)), (';', (294.0, 3.0)), ('3', (251.0, 5.0)), 
+                ('E', (23.0,  4.0)), ('e', (149.0, 4.0)), (',', (297.0, 3.0)), ('4', (256.0, 5.0)), 
+                ('F', (27.0,  4.0)), ('f', (153.0, 3.0)), ('.', (300.0, 2.0)), ('5', (261.0, 5.0)), 
+                ('G', (31.0,  5.0)), ('g', (156.0, 4.0)), ('*', (302.0, 4.0)), ('6', (266.0, 5.0)), 
+                ('H', (36.0,  5.0)), ('h', (160.0, 4.0)), ('#', (306.0, 6.0)), ('7', (271.0, 5.0)), 
+                ('I', (41.0,  4.0)), ('i', (164.0, 2.0)), ('"', (312.0, 4.0)), ('8', (276.0, 5.0)), 
+                ('J', (45.0,  4.0)), ('j', (166.0, 4.0)), ('\'',(316.0, 2.0)), ('9', (281.0, 5.0)), 
+                ('K', (49.0,  5.0)), ('k', (170.0, 4.0)), ('[', (318.0, 3.0)),
+                ('L', (54.0,  4.0)), ('l', (174.0, 2.0)), (']', (321.0, 3.0)),
+                ('M', (58.0,  6.0)), ('m', (176.0, 6.0)), ('(', (324.0, 3.0)),
+                ('N', (64.0,  5.0)), ('n', (182.0, 4.0)), (')', (327.0, 3.0)),
+                ('O', (69.0,  5.0)), ('o', (186.0, 4.0)), ('{', (330.0, 4.0)), 
+                ('P', (74.0,  5.0)), ('p', (190.0, 4.0)), ('}', (334.0, 4.0)), 
+                ('Q', (79.0,  5.0)), ('q', (194.0, 4.0)), ('<', (338.0, 4.0)), 
+                ('R', (84.0,  5.0)), ('r', (198.0, 4.0)), ('>', (342.0, 4.0)), 
+                ('S', (89.0,  5.0)), ('s', (202.0, 4.0)), ('-', (346.0, 4.0)), 
+                ('T', (94.0,  4.0)), ('t', (206.0, 4.0)), ('+', (350.0, 4.0)), 
+                ('U', (98.0,  5.0)), ('u', (210.0, 4.0)), ('/', (354.0, 4.0)), 
+                ('V', (103.0, 6.0)), ('v', (214.0, 4.0)), ('=', (358.0, 4.0)), 
+                ('W', (109.0, 6.0)), ('w', (218.0, 6.0)), ('_', (362.0, 5.0)), 
+                ('X', (115.0, 6.0)), ('x', (224.0, 4.0)), (' ', (  0.0, 3.0)), 
+                ('Y', (121.0, 5.0)), ('y', (228.0, 4.0)),
+                ('Z', (126.0, 5.0)), ('z', (232.0, 5.0)),
+            ])),
         };
 
         MainState { game, rendering, 
@@ -224,7 +257,8 @@ impl MainState {
         self.rendering.min_inner_size = result.3;
         self.rendering.window_size = PhysicalSize::new(0, 0);
 
-        self.draw_all(ctx)
+        // self.draw_all(ctx)
+        Ok(())
     }
 
     // TODO: Make this function a LOT better (includes rework GuiElements somewhat)
