@@ -21,7 +21,7 @@ fn main() {
     // Make a Context.
     let (mut ctx, event_loop) = ContextBuilder::new("Minesweeper", "jumbledFox")
         .window_mode(WindowMode {
-            resizable: true,
+            resizable: false,
             visible: false,
             ..Default::default()
         })
@@ -39,7 +39,9 @@ fn main() {
     // let my_game = MainState2::new(&mut ctx, game, min_window_size);
 
     // let mut main_state = MainState::new(&mut ctx, 210, 106, 100);
-    let mut main_state = MainState::new(&mut ctx, 5, 5, 2);
+    // let mut main_state = MainState::new(&mut ctx, 8, 8, 2);
+    // let mut main_state = MainState::new(&mut ctx, 200, 100, 2);
+    let mut main_state = MainState::new(&mut ctx, 30, 16, 99);
     main_state.draw_all(&mut ctx);
     // Run!
     event::run(ctx, event_loop, main_state);
@@ -47,11 +49,15 @@ fn main() {
 
 impl EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
-
         self.rendering.select_menu.active = true;
-
+        
         // Update the selected tile
         let mouse_pos = Vec2::new(ctx.mouse.position().x, ctx.mouse.position().y);
+        self.rendering.b.update(mouse_pos, gui::button::MouseMode::None);
+        if self.rendering.b.pressed() {
+            println!("pressed!!!!!!!!!!!!!!!!!!!!!!!!!");
+        }
+
         let minefield_inner_pos = Vec2::new(self.rendering.minefield.dest_rect.x, self.rendering.minefield.dest_rect.y);
         // We take away 2.0 to account for the border on the minefield
         let hovered_tile_coords = (((mouse_pos-minefield_inner_pos)/self.rendering.scale_factor-2.0)/9.0).floor();
@@ -79,12 +85,21 @@ impl EventHandler for MainState {
         //     self.rendering.button.dest_rect.h * self.rendering.button.img.height() as f32,
         // ).contains(mouse_pos));
 
-        
+        self.rendering.menubar.update(mouse_pos, gui::button::MouseMode::None);
+
+        for b in &mut self.rendering.menubar.items {
+            if b.pressed() {
+                println!("{:?} pressed!", &b.label);
+            }
+        }
 
         Ok(())
     }
 
-    fn mouse_button_down_event(&mut self, ctx: &mut Context, button: event::MouseButton, _x: f32,_y: f32) -> GameResult {
+    fn mouse_button_down_event(&mut self, ctx: &mut Context, button: event::MouseButton, x: f32,y: f32) -> GameResult {
+        self.rendering.menubar.update(Vec2::new(x, y), gui::button::MouseMode::Down);
+        self.rendering.b.update(Vec2::new(x, y), gui::button::MouseMode::Down);
+
         // TODO: Care about states
         match button {
             event::MouseButton::Left => { self.holding_button = true; },
@@ -103,7 +118,10 @@ impl EventHandler for MainState {
         Ok(())
     }
 
-    fn mouse_button_up_event(&mut self, ctx: &mut Context, button: event::MouseButton, _x: f32,_y: f32) -> GameResult {
+    fn mouse_button_up_event(&mut self, ctx: &mut Context, button: event::MouseButton, x: f32,y: f32) -> GameResult {
+        self.rendering.menubar.update(Vec2::new(x, y), gui::button::MouseMode::Up);
+        self.rendering.b.update(Vec2::new(x, y), gui::button::MouseMode::Up);
+
         // TODO: Care about states
         match button {
             event::MouseButton::Left  => {
@@ -127,7 +145,7 @@ impl EventHandler for MainState {
     }
     fn draw(&mut self, ctx: &mut Context) -> GameResult {        
         let mut canvas = graphics::Canvas::from_frame(ctx, Color::from_rgb(192, 203, 220));
-        canvas.set_screen_coordinates(Rect::new(0.0, 0.0, 400.0, 300.0));
+        // canvas.set_screen_coordinates(Rect::new(0.0, 0.0, 400.0, 300.0));
         canvas.set_sampler(FilterMode::Nearest);
         
         self.update_window_size(ctx.gfx.window().inner_size());
@@ -171,10 +189,24 @@ impl EventHandler for MainState {
             }
         }
 
-        self.rendering.tr.draw_text(&mut canvas, String::from("does text rendering work? I THINK it does!!! :) :( :P :-)"), DrawParam::new().color(Color::MAGENTA));
-        self.rendering.tr.draw_text(&mut canvas, String::from("black sphinx of quartz, \"judge\" my vow!"), DrawParam::new().color(Color::RED).dest(Vec2::new(1.0, 10.0)));
-        self.rendering.tr.draw_text(&mut canvas, String::from("BLACK, SPHINX. OF! QUARTZ? JUDGE: MY; 'VOW'"), DrawParam::new().color(Color::BLACK).dest(Vec2::new(1.0, 20.0)));
-        self.rendering.tr.draw_text(&mut canvas, String::from("123, 456, numbers!!! >:3 8-200  Width Submit Game Help"), DrawParam::new().color(Color::BLUE).dest(Vec2::new(1.0, 30.0)));
+        // self.rendering.tr.draw_text(&mut canvas, &String::from("does text rendering work? I THINK it does!!! :) :( :P :-)"), DrawParam::new().color(Color::MAGENTA));
+        // self.rendering.tr.draw_text(&mut canvas, &String::from("black sphinx of quartz, \"judge\" my vow!"), DrawParam::new().color(Color::RED).dest(Vec2::new(1.0, 10.0)));
+        // self.rendering.tr.draw_text(&mut canvas, &String::from("BLACK, SPHINX. OF! QUARTZ? JUDGE: MY; 'VOW'"), DrawParam::new().color(Color::BLACK).dest(Vec2::new(1.0, 20.0)));
+        // self.rendering.tr.draw_text(&mut canvas, &String::from("123, 456, numbers!!! >:3 8-200  Width Submit Game Help"), DrawParam::new().color(Color::BLUE).dest(Vec2::new(1.0, 30.0)));
+        // self.rendering.tr.draw_text(&mut canvas, &String::from("This is the test of a longer bit of text. I'm using a line break HERE ->\nand hopefully it should work."), DrawParam::new().color(Color::BLACK).dest(Vec2::new(1.0, 40.0)));
+        
+        let t = String::from("Short line\nLOOOOOOOOOOOOOOOOOOOOONG line!!!\nshorter line");
+        canvas.draw(
+            &graphics::Quad,
+            graphics::DrawParam::new()
+                .dest(Vec2::new(10.0, 50.0))
+                .scale(self.rendering.tr.text_size(&t))
+                .color(Color::MAGENTA),
+        );
+        self.rendering.tr.draw_text(&mut canvas, &t, DrawParam::new().color(Color::BLACK).dest(Vec2::new(10.0, 50.0)));
+
+        self.rendering.menubar.render(&mut canvas, &mut self.rendering.tr);
+        
         canvas.finish(ctx)
     }
 

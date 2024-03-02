@@ -1,47 +1,11 @@
-// use ggez::{glam::Vec2, graphics::{Image, Rect}, input::keyboard::KeyCode, Context};
-
-use std::collections::HashMap;
-
-use ggez::{glam::Vec2, graphics::{Canvas, DrawParam, Image, InstanceArray, Rect}, Context};
-
-pub struct TextRenderer {
-    map: HashMap<char, (f32, f32, f32)>, // Map of where each char starts and ends in the texture, and it's real length in pixels
-    // image: Image,
-    batch: InstanceArray,
-}
-
-impl TextRenderer {
-    pub fn new(ctx: &mut Context, image: Image, character_map: HashMap<char, (f32, f32)>) -> TextRenderer {
-        // Normalise all of the positions in the character map
-        let mut map: HashMap<char, (f32, f32, f32)> = HashMap::new();
-        for (c, (start, length)) in character_map {
-            map.insert(c, (start / image.width() as f32, length / image.width() as f32, length));
-        }
-        let batch = InstanceArray::new(ctx, image);
-        TextRenderer { map, batch }
-    }
-    pub fn char_len(&self, c: char) -> f32 {
-        if let Some((_, _, length)) = self.map.get(&c) { *length } else { 0.0 }
-    }
-    pub fn text_len(&self, text: String) -> f32 {
-        text.chars().map(|c| self.char_len(c)).sum()
-    }
-    pub fn draw_text(&mut self, canvas: &mut Canvas, text: String, draw_param: DrawParam) {
-        // Work out the x positions of each character
-        let chars: Vec<char> = text.chars().collect();
-        let mut char_x_positions: Vec<f32> = Vec::with_capacity(text.len());
-        for i in 0..chars.len() {
-            // If we're at the first character, start at 0, otherwise set the position to be the previous position plus the length of the previous character
-            char_x_positions.push(if i == 0 { 0.0 } else { char_x_positions[i-1] + self.char_len(chars[i-1]) });
-        }
-        self.batch.set(
-            text.chars()
-            .map(|character| self.map.get(&character)).flatten().enumerate()
-            .map(|(i, char_bounds)| DrawParam::new().src(Rect::new(char_bounds.0, 0.0, char_bounds.1, 1.0)).dest(Vec2::new(char_x_positions[i], 0.0)))
-        );
-        canvas.draw(&self.batch, draw_param);
-    }
-}
+pub mod text_renderer;
+pub mod button;
+pub mod menu_bar;
+pub mod dropdown;
+pub use text_renderer::TextRenderer;
+pub use button::Button;
+pub use menu_bar::MenuBar;
+pub use dropdown::Dropdown;
 
 // // Drawable image
 // pub struct DrawableImage {
