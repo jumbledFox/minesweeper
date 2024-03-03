@@ -126,9 +126,6 @@ pub struct Rendering {
 
     pub redraw: bool,
     pub mouse_in_window: bool,
-    // Menus
-    pub select_menu: Menu,
-    pub custom_menu: Menu,
 
     pub tr: TextRenderer,
     pub b: Button,
@@ -158,7 +155,8 @@ impl MainState {
 
         let game_config_result = MainState::set_window_and_game_specific_elements(ctx, width, height, game.bomb_count);
         let sf = 1.0;
-        ctx.gfx.window().set_inner_size(PhysicalSize::new(game_config_result.3.width * sf, game_config_result.3.height * sf));
+        // ctx.gfx.window().set_inner_size(PhysicalSize::new(game_config_result.3.width * sf, game_config_result.3.height * sf));
+        ctx.gfx.window().set_inner_size(PhysicalSize::new(100.0, 100.0));
         ctx.gfx.window().set_visible(true);
 
         let timer_img     = Image::new_canvas_image(ctx, ctx.gfx.surface_format(), 21, 9, 1);
@@ -171,6 +169,7 @@ impl MainState {
 
         let t = Image::from_path(ctx, "/chars.png").unwrap();
         let tr = TextRenderer::new(ctx, t.clone(), HashMap::from([
+            // TODO: add a 1px width character for aligning text.. a bit hacky but meh
             ('A', (3.0,   5.0)), ('a', (131.0, 5.0)), ('!', (286.0, 2.0)), ('0', (237.0, 5.0)), 
             ('B', (8.0,   5.0)), ('b', (136.0, 4.0)), ('?', (288.0, 4.0)), ('1', (242.0, 4.0)), 
             ('C', (13.0,  5.0)), ('c', (140.0, 4.0)), (':', (292.0, 2.0)), ('2', (246.0, 5.0)), 
@@ -205,24 +204,16 @@ impl MainState {
             scale_factor: 1.0, screen_size: Rect::zero(),
             timer_value: None, bombcount_digits: game_config_result.2,
             redraw: true,  mouse_in_window: false,
-            select_menu: Menu::new(ctx, 68, 34, vec![
-                Rect::new(1.0,  1.0, 66.0, 8.0),
-                Rect::new(1.0,  9.0, 66.0, 8.0),
-                Rect::new(1.0, 17.0, 66.0, 8.0),
-                Rect::new(1.0, 26.0, 66.0, 8.0),
-            ], vec![]),
-            custom_menu: Menu::new(ctx, 68, 50, vec![
-                Rect::new(59.0,  0.0,  9.0, 9.0),
-                Rect::new(20.0, 38.0, 28.0, 9.0),
-                Rect::new(29.0, 10.0, 35.0, 7.0),
-                Rect::new(29.0, 19.0, 35.0, 7.0),
-                Rect::new(29.0, 28.0, 35.0, 7.0),
-            ], vec![
-                NumberInput::new(8, 200, 6),
-                NumberInput::new(8, 100, 6),
-                NumberInput::new(8, 999999, 6),
-            ]),
-            menubar: MenuBar::new(&tr, vec![String::from("Game"), String::from("Scale"), String::from("Help")]),
+            menubar: MenuBar::new(&tr, vec![
+                (String::from("Game"),  0.0, vec![
+                    String::from("Easy      9*9,10"),
+                    String::from("Normal 15*13,40"),
+                    String::from("Hard   30*16,99"),
+                    String::from("Custom...")]),
+                (String::from("Scale"), 0.0, vec![
+                    String::from(" 1x "), String::from(" 2x "), String::from(" 3x "), String::from(" 4x "),
+                    String::from(" 5x "), String::from(" 6x "), String::from(" 7x "), String::from(" 8x ")]),
+                (String::from("Help"),  0.0, vec![String::from("About")])]),
             tr,
             b: Button::new(Rect::new(10.0, 10.0, 20.0, 10.0), crate::gui::button::PressMode::Release, false),
         };
@@ -475,17 +466,6 @@ impl MainState {
         Ok(())
     }
 
-    // Menus
-    pub fn draw_select_menu(&mut self, ctx: &mut Context) -> GameResult {
-        let mut canvas = graphics::Canvas::from_image(ctx, self.rendering.timer.img.clone(), Color::from_rgba(0, 0, 0, 255));
-        canvas.set_sampler(Sampler::nearest_clamp());
-
-        // Draw the background
-        MainState::draw_nineslice(&mut canvas, &mut self.rendering.spritesheet_batch, Rect::new(36.0, 42.0, 3.0, 3.0), 1.0,
-            Rect::new(0.0, 0.0, self.rendering.select_menu.gui_element.img.width() as f32, self.rendering.button.img.height() as f32));
-
-        canvas.finish(ctx)
-    }
     pub fn draw_all(&mut self, ctx: &mut Context) -> GameResult {
         ctx.gfx.begin_frame().unwrap();
 

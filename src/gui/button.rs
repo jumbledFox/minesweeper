@@ -10,15 +10,15 @@ pub enum State {
 pub enum PressMode {
     Immediate, Release
 }
-#[derive(Clone, Copy)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum MouseMode {
     None, Down, Up,
 }
 pub struct Button {
-    pub rect: Rect,
+    pub pressed: bool,
     pub state: State,
+    pub rect: Rect,
     press_mode: PressMode,
-    pressed: bool,
 }
 
 impl Button {
@@ -42,6 +42,8 @@ impl Button {
         };
     }
 
+    pub fn pos(&self) -> Vec2 { Vec2 { x: self.rect.x, y: self.rect.y } }
+
     pub fn pressed(&mut self) -> bool {
         if self.pressed {
             self.pressed = false;
@@ -62,10 +64,17 @@ impl LabeledButton {
         let dimensions = tr.text_size(&label) + Vec2::new(padding.2+padding.3, padding.0+padding.1);
         LabeledButton { b: Button::new(Rect::new(pos.x, pos.y, dimensions.x, dimensions.y), press_mode, disabled), label, padding }
     }
+
     pub fn update(&mut self, mouse_pos: Vec2, mouse_mode: MouseMode) {
         self.b.update(mouse_pos, mouse_mode);
     }
+
     pub fn pressed(&mut self) -> bool {
         self.b.pressed()
+    }
+
+    pub fn pos(&self) -> Vec2 { Vec2 { x: self.b.rect.x, y: self.b.rect.y } }
+    pub fn text_pos(&self) -> Vec2 {
+        Vec2::new(self.b.rect.x + self.padding.2, self.b.rect.y + self.padding.0)
     }
 }

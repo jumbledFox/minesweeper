@@ -18,9 +18,11 @@ impl TextRenderer {
         let batch = InstanceArray::new(ctx, image.clone());
         TextRenderer { map, batch, height: image.height() as f32 }
     }
+    
     pub fn char_len(&self, c: char) -> f32 {
         if let Some((_, _, length)) = self.map.get(&c) { *length } else { 0.0 }
     }
+
     pub fn text_size(&self, text: &String) -> Vec2 {
         let line_breaks: Vec<usize> = text.char_indices().filter_map(|(i, c)| if c == '\n' { Some(i) } else { None }).collect();
         let largest_line_len: f32 = split_vector_by_indexes(&text.chars().collect::<Vec<char>>(), &line_breaks)
@@ -30,6 +32,7 @@ impl TextRenderer {
         // 1.0 is for the 1 pixel gap between lines
         Vec2::new(largest_line_len, self.height + (self.height + 1.0) * (line_breaks.len()) as f32)
     }
+    
     pub fn draw_text(&mut self, canvas: &mut Canvas, text: &String, draw_param: DrawParam) {
         // Work out the positions of each character
         let chars: Vec<char> = text.chars().collect();

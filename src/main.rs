@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use ggez::conf::{WindowMode, WindowSetup};
 use ggez::glam::Vec2;
 use ggez::input::keyboard::{KeyCode, KeyInput};
+use ggez::winit::dpi::LogicalSize;
 use ggez::{Context, ContextBuilder, GameResult};
 use ggez::graphics::{self, Color, DrawParam, FilterMode, Image, Rect};
 use ggez::event::{self, EventHandler};
@@ -49,14 +50,9 @@ fn main() {
 
 impl EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
-        self.rendering.select_menu.active = true;
-        
+
         // Update the selected tile
-        let mouse_pos = Vec2::new(ctx.mouse.position().x, ctx.mouse.position().y);
-        self.rendering.b.update(mouse_pos, gui::button::MouseMode::None);
-        if self.rendering.b.pressed() {
-            println!("pressed!!!!!!!!!!!!!!!!!!!!!!!!!");
-        }
+        let mouse_pos = Vec2::new(ctx.mouse.position().x, ctx.mouse.position().y) / self.rendering.scale_factor;
 
         let minefield_inner_pos = Vec2::new(self.rendering.minefield.dest_rect.x, self.rendering.minefield.dest_rect.y);
         // We take away 2.0 to account for the border on the minefield
@@ -72,8 +68,8 @@ impl EventHandler for MainState {
                 // Remove the flag at this position if we should (and redraw!)
                 if self.erasing_flags {
                     if self.game.set_flag(true, hovering_index) {
-        self.i = 0;
-        self.rendering.redraw = true;
+                        self.i = 0;
+                        self.rendering.redraw = true;
                     }
                 }
                 Some(hovering_index)
@@ -87,9 +83,23 @@ impl EventHandler for MainState {
 
         self.rendering.menubar.update(mouse_pos, gui::button::MouseMode::None);
 
-        for b in &mut self.rendering.menubar.items {
-            if b.pressed() {
-                println!("{:?} pressed!", &b.label);
+        if self.rendering.menubar.menu_button_pressed(0, 0) {
+            println!("Easy!!");
+        }
+        if self.rendering.menubar.menu_button_pressed(0, 1) {
+            println!("Normal!!!");
+        }
+        if self.rendering.menubar.menu_button_pressed(0, 2) {
+            println!("Hard!!!!!");
+        }
+        if self.rendering.menubar.menu_button_pressed(0, 3) {
+            println!("New custom game!!!!!!!!!!!");
+        }
+
+        for i in 0..8 {
+            if self.rendering.menubar.menu_button_pressed(1, i) {
+                self.rendering.scale_factor = (i+1) as f32;
+                ctx.gfx.window().set_inner_size(LogicalSize::new(100.0 * self.rendering.scale_factor, 100.0 * self.rendering.scale_factor));
             }
         }
 
@@ -97,8 +107,7 @@ impl EventHandler for MainState {
     }
 
     fn mouse_button_down_event(&mut self, ctx: &mut Context, button: event::MouseButton, x: f32,y: f32) -> GameResult {
-        self.rendering.menubar.update(Vec2::new(x, y), gui::button::MouseMode::Down);
-        self.rendering.b.update(Vec2::new(x, y), gui::button::MouseMode::Down);
+        self.rendering.menubar.update(Vec2::new(x, y) / self.rendering.scale_factor, gui::button::MouseMode::Down);
 
         // TODO: Care about states
         match button {
@@ -119,8 +128,7 @@ impl EventHandler for MainState {
     }
 
     fn mouse_button_up_event(&mut self, ctx: &mut Context, button: event::MouseButton, x: f32,y: f32) -> GameResult {
-        self.rendering.menubar.update(Vec2::new(x, y), gui::button::MouseMode::Up);
-        self.rendering.b.update(Vec2::new(x, y), gui::button::MouseMode::Up);
+        self.rendering.menubar.update(Vec2::new(x, y) / self.rendering.scale_factor, gui::button::MouseMode::Up);
 
         // TODO: Care about states
         match button {
@@ -145,10 +153,11 @@ impl EventHandler for MainState {
     }
     fn draw(&mut self, ctx: &mut Context) -> GameResult {        
         let mut canvas = graphics::Canvas::from_frame(ctx, Color::from_rgb(192, 203, 220));
-        // canvas.set_screen_coordinates(Rect::new(0.0, 0.0, 400.0, 300.0));
+        let window_size = ctx.gfx.window().inner_size();
+        canvas.set_screen_coordinates(Rect::new(0.0, 0.0, 100.0, 100.0));
         canvas.set_sampler(FilterMode::Nearest);
         
-        self.update_window_size(ctx.gfx.window().inner_size());
+        // self.update_window_size(ctx.gfx.window().inner_size());
         
         // Redraw the timer if it's value has changed
         let game_timer_elapsed = match self.game.state {
@@ -162,7 +171,6 @@ impl EventHandler for MainState {
         }
         self.draw_bombcount(ctx)?;
         if self.i == 0 {
-            // self.i = 1;
             self.draw_minefield(ctx)?;
         }
 
@@ -205,7 +213,7 @@ impl EventHandler for MainState {
         );
         self.rendering.tr.draw_text(&mut canvas, &t, DrawParam::new().color(Color::BLACK).dest(Vec2::new(10.0, 50.0)));
 
-        self.rendering.menubar.render(&mut canvas, &mut self.rendering.tr);
+        self.rendering.menubar.render(&mut canvas, &mut self.rendering.tr, &mut self.rendering.spritesheet_batch);
         
         canvas.finish(ctx)
     }
@@ -215,7 +223,7 @@ impl EventHandler for MainState {
     }
     fn key_down_event(&mut self, ctx: &mut Context, input: KeyInput, _repeat: bool) -> GameResult {
         if let Some(k) = input.keycode {
-            self.rendering.custom_menu.number_inputs[0].add(k);
+            // self.rendering.custom_menu.number_inputs[0].add(k);
         }
         if input.keycode == Some(KeyCode::Escape) {
             ctx.request_quit();
