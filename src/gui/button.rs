@@ -1,6 +1,6 @@
 use ggez::{glam::Vec2, graphics::Rect};
 
-use super::TextRenderer;
+use super::{MousePressMode, TextRenderer};
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum State {
@@ -10,10 +10,7 @@ pub enum State {
 pub enum PressMode {
     Immediate, Release
 }
-#[derive(PartialEq, Clone, Copy)]
-pub enum MouseMode {
-    None, Down, Up,
-}
+
 pub struct Button {
     pub pressed: bool,
     pub state: State,
@@ -26,15 +23,15 @@ impl Button {
         Button { rect, press_mode, pressed: false, state: if disabled { State::Disabled } else { State::Idle } }
     }
 
-    pub fn update(&mut self, mouse_pos: Vec2, mouse_mode: MouseMode) {
+    pub fn update(&mut self, mouse_pos: Vec2, mouse_mode: MousePressMode) {
         if self.state == State::Disabled { return; }
         self.state = match (mouse_mode, self.state, self.rect.contains(mouse_pos)) {
             // If the mouse isn't over the button, idle
             (.., false) => State::Idle,
             // If the mouse is over the button and the mouse has been pressed or released
-            (MouseMode::Down, ..) => {
+            (MousePressMode::Down, ..) => {
                 if self.press_mode == PressMode::Immediate { self.pressed = true; } State::Depressed }
-            (MouseMode::Up,   ..) => {
+            (MousePressMode::Up,   ..) => {
                 if self.press_mode == PressMode::Release   { self.pressed = true; } State::Hovered }
             // If the mouse hasn't been pressed or released, if we're depressed stay depressed, otherwise we're hovering
             (_, State::Depressed, _) => State::Depressed,
@@ -61,11 +58,11 @@ pub struct LabeledButton {
 impl LabeledButton {
     pub fn new(tr: &TextRenderer, label: String, padding: Option<(f32, f32, f32, f32)>, pos: Vec2, press_mode: PressMode, disabled: bool) -> LabeledButton {
         let padding = padding.unwrap_or((2.0, 1.0, 2.0, 1.0));
-        let dimensions = tr.text_size(&label) + Vec2::new(padding.2+padding.3, padding.0+padding.1);
+        let dimensions = tr.text_size_padded(&label, padding);
         LabeledButton { b: Button::new(Rect::new(pos.x, pos.y, dimensions.x, dimensions.y), press_mode, disabled), label, padding }
     }
 
-    pub fn update(&mut self, mouse_pos: Vec2, mouse_mode: MouseMode) {
+    pub fn update(&mut self, mouse_pos: Vec2, mouse_mode: MousePressMode) {
         self.b.update(mouse_pos, mouse_mode);
     }
 

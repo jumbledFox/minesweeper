@@ -206,14 +206,15 @@ impl MainState {
             redraw: true,  mouse_in_window: false,
             menubar: MenuBar::new(&tr, vec![
                 (String::from("Game"),  0.0, vec![
-                    String::from("Easy      9*9,10"),
-                    String::from("Normal 15*13,40"),
-                    String::from("Hard   30*16,99"),
-                    String::from("Custom...")]),
+                    Some(String::from("New game")), None,
+                    Some(String::from("Easy       9*9,10")),
+                    Some(String::from("Normal 15*13,40")),
+                    Some(String::from("Hard   30*16,99")),
+                    Some(String::from("Custom..."))]),
                 (String::from("Scale"), 0.0, vec![
-                    String::from(" 1x "), String::from(" 2x "), String::from(" 3x "), String::from(" 4x "),
-                    String::from(" 5x "), String::from(" 6x "), String::from(" 7x "), String::from(" 8x ")]),
-                (String::from("Help"),  0.0, vec![String::from("About")])]),
+                    Some(String::from(" 1x ")), Some(String::from(" 2x ")), Some(String::from(" 3x ")), Some(String::from(" 4x ")),
+                    Some(String::from(" 5x ")), Some(String::from(" 6x ")), Some(String::from(" 7x ")), Some(String::from(" 8x "))]),
+                (String::from("Help"),  0.0, vec![Some(String::from("About"))])]),
             tr,
             b: Button::new(Rect::new(10.0, 10.0, 20.0, 10.0), crate::gui::button::PressMode::Release, false),
         };

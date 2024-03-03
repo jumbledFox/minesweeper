@@ -13,6 +13,8 @@ use mainstate::{normalize_rect, MainState};
 pub mod minesweeper;
 pub mod mainstate;
 pub mod gui;
+pub mod rendering;
+pub mod game;
 use minesweeper::GameState;
 use rand::{thread_rng, Rng};
 
@@ -28,7 +30,7 @@ fn main() {
         })
         .window_setup(WindowSetup {
             title: String::from("jumbledFox's Minesweeper"),
-            icon: String::from("/icon.png"),
+            // icon: String::from("/icon.png"),
             ..Default::default()
         })
         .build()
@@ -42,9 +44,11 @@ fn main() {
     // let mut main_state = MainState::new(&mut ctx, 210, 106, 100);
     // let mut main_state = MainState::new(&mut ctx, 8, 8, 2);
     // let mut main_state = MainState::new(&mut ctx, 200, 100, 2);
-    let mut main_state = MainState::new(&mut ctx, 30, 16, 99);
-    main_state.draw_all(&mut ctx);
-    // Run!
+    // let mut main_state = MainState::new(&mut ctx, 30, 16, 99);
+    // main_state.draw_all(&mut ctx);
+    // // Run!
+    // event::run(ctx, event_loop, main_state);
+    let main_state = game::MainState::new(&mut ctx);
     event::run(ctx, event_loop, main_state);
 }
 
@@ -54,11 +58,36 @@ impl EventHandler for MainState {
         // Update the selected tile
         let mouse_pos = Vec2::new(ctx.mouse.position().x, ctx.mouse.position().y) / self.rendering.scale_factor;
 
+        self.rendering.menubar.update(mouse_pos, gui::MousePressMode::None);
+        
+        if self.rendering.menubar.menu_button_pressed(0, 0) {
+            println!("New game");
+        }
+        if self.rendering.menubar.menu_button_pressed(0, 2) {
+            println!("Easy!!");
+        }
+        if self.rendering.menubar.menu_button_pressed(0, 3) {
+            println!("Normal!!!");
+        }
+        if self.rendering.menubar.menu_button_pressed(0, 4) {
+            println!("Hard!!!!!");
+        }
+        if self.rendering.menubar.menu_button_pressed(0, 5) {
+            println!("New custom game!!!!!!!!!!!");
+        }
+
+        for i in 0..8 {
+            if self.rendering.menubar.menu_button_pressed(1, i) {
+                self.rendering.scale_factor = (i+1) as f32;
+                ctx.gfx.window().set_inner_size(LogicalSize::new(100.0 * self.rendering.scale_factor, 100.0 * self.rendering.scale_factor));
+            }
+        }
+
         let minefield_inner_pos = Vec2::new(self.rendering.minefield.dest_rect.x, self.rendering.minefield.dest_rect.y);
         // We take away 2.0 to account for the border on the minefield
         let hovered_tile_coords = (((mouse_pos-minefield_inner_pos)/self.rendering.scale_factor-2.0)/9.0).floor();
         // If we're hovering over a new tile (and the mouse is in the window)
-        if self.last_hovered_tile != hovered_tile_coords && self.rendering.mouse_in_window  {
+        if self.last_hovered_tile != hovered_tile_coords && self.rendering.mouse_in_window {
             self.last_hovered_tile = hovered_tile_coords;
             // Check if we're hovering over an actual tileS
             let hovered_tile_on_board =  hovered_tile_coords.x >= 0.0 && hovered_tile_coords.x < self.game.width as f32 && hovered_tile_coords.y >= 0.0 && hovered_tile_coords.y < self.game.height as f32;
@@ -75,39 +104,23 @@ impl EventHandler for MainState {
                 Some(hovering_index)
             } else { None }
         }
+        if self.rendering.menubar.hovering_over {
+            self.selected_tile = None;
+            self.last_hovered_tile = Vec2::INFINITY;
+        }
 
         // println!("{:?}", Rect::new(self.rendering.button.dest_rect.x, self.rendering.button.dest_rect.y,
         //     self.rendering.button.dest_rect.w * self.rendering.button.img.width()  as f32,
         //     self.rendering.button.dest_rect.h * self.rendering.button.img.height() as f32,
         // ).contains(mouse_pos));
-
-        self.rendering.menubar.update(mouse_pos, gui::button::MouseMode::None);
-
-        if self.rendering.menubar.menu_button_pressed(0, 0) {
-            println!("Easy!!");
-        }
-        if self.rendering.menubar.menu_button_pressed(0, 1) {
-            println!("Normal!!!");
-        }
-        if self.rendering.menubar.menu_button_pressed(0, 2) {
-            println!("Hard!!!!!");
-        }
-        if self.rendering.menubar.menu_button_pressed(0, 3) {
-            println!("New custom game!!!!!!!!!!!");
-        }
-
-        for i in 0..8 {
-            if self.rendering.menubar.menu_button_pressed(1, i) {
-                self.rendering.scale_factor = (i+1) as f32;
-                ctx.gfx.window().set_inner_size(LogicalSize::new(100.0 * self.rendering.scale_factor, 100.0 * self.rendering.scale_factor));
-            }
-        }
-
+        
         Ok(())
     }
 
     fn mouse_button_down_event(&mut self, ctx: &mut Context, button: event::MouseButton, x: f32,y: f32) -> GameResult {
-        self.rendering.menubar.update(Vec2::new(x, y) / self.rendering.scale_factor, gui::button::MouseMode::Down);
+        if self.rendering.menubar.update(Vec2::new(x, y) / self.rendering.scale_factor, gui::MousePressMode::Down) {
+            return Ok(())
+        }
 
         // TODO: Care about states
         match button {
@@ -128,7 +141,9 @@ impl EventHandler for MainState {
     }
 
     fn mouse_button_up_event(&mut self, ctx: &mut Context, button: event::MouseButton, x: f32,y: f32) -> GameResult {
-        self.rendering.menubar.update(Vec2::new(x, y) / self.rendering.scale_factor, gui::button::MouseMode::Up);
+        if self.rendering.menubar.update(Vec2::new(x, y) / self.rendering.scale_factor, gui::MousePressMode::Up) {
+            return Ok(());
+        }
 
         // TODO: Care about states
         match button {
@@ -153,7 +168,7 @@ impl EventHandler for MainState {
     }
     fn draw(&mut self, ctx: &mut Context) -> GameResult {        
         let mut canvas = graphics::Canvas::from_frame(ctx, Color::from_rgb(192, 203, 220));
-        let window_size = ctx.gfx.window().inner_size();
+        // let window_size = ctx.gfx.window().inner_size();
         canvas.set_screen_coordinates(Rect::new(0.0, 0.0, 100.0, 100.0));
         canvas.set_sampler(FilterMode::Nearest);
         
@@ -174,10 +189,10 @@ impl EventHandler for MainState {
             self.draw_minefield(ctx)?;
         }
 
-        canvas.draw(&self.rendering.bombcount.img, DrawParam::new().dest_rect(self.rendering.bombcount.dest_rect));
-        canvas.draw(&self.rendering.timer    .img, DrawParam::new().dest_rect(self.rendering.timer    .dest_rect));
-        canvas.draw(&self.rendering.button   .img, DrawParam::new().dest_rect(self.rendering.button   .dest_rect));
-        canvas.draw(&self.rendering.minefield.img, DrawParam::new().dest_rect(self.rendering.minefield.dest_rect));
+        // canvas.draw(&self.rendering.bombcount.img, DrawParam::new().dest_rect(self.rendering.bombcount.dest_rect));
+        // canvas.draw(&self.rendering.timer    .img, DrawParam::new().dest_rect(self.rendering.timer    .dest_rect));
+        // canvas.draw(&self.rendering.button   .img, DrawParam::new().dest_rect(self.rendering.button   .dest_rect));
+        canvas.draw(&self.rendering.minefield.img, DrawParam::new().dest(Vec2::new(10.0, 10.0)));
 
         if let Some(index) = self.selected_tile {
             let pos = Vec2::new((index % self.game.width) as f32, (index / self.game.width) as f32) * 9.0 * self.rendering.scale_factor;
@@ -213,7 +228,7 @@ impl EventHandler for MainState {
         );
         self.rendering.tr.draw_text(&mut canvas, &t, DrawParam::new().color(Color::BLACK).dest(Vec2::new(10.0, 50.0)));
 
-        self.rendering.menubar.render(&mut canvas, &mut self.rendering.tr, &mut self.rendering.spritesheet_batch);
+        // self.rendering.menubar.render(&mut canvas, &mut self.rendering.tr, &mut self.rendering.spritesheet_batch);
         
         canvas.finish(ctx)
     }
