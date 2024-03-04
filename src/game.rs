@@ -67,7 +67,7 @@ impl MainState {
         )];
 
         let menu_bar = MenuBar::new(&tr, menu_bar_items);
-        let rendering = Rendering::new(ctx, tr, (game.width, game.height), menu_bar.height+2.0);
+        let rendering = Rendering::new(ctx, tr, (game.width, game.height, game.bomb_count), menu_bar.height+2.0);
 
         let gui = Gui::new(menu_bar);
         MainState { game, rendering, gui, selected_tile: Some(42), holding_tile: false, erasing_flags: false }
@@ -75,7 +75,7 @@ impl MainState {
 
     fn new_game(&mut self, ctx: &mut Context, width: usize, height: usize, bomb_count: usize) {
         self.game = Minesweeper::new(width, height, bomb_count);
-        self.rendering.new_game(ctx, (self.game.width, self.game.height));
+        self.rendering.new_game(ctx, (self.game.width, self.game.height, self.game.bomb_count));
     }
 
     fn selected_tile_diggable(&self) -> bool {

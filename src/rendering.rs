@@ -20,6 +20,7 @@ struct GameSpecifics {
     pub window_size: Vec2,
     pub window_middle: Vec2,
     pub minefield_image: Image,
+    pub bombcounter_digits: usize,
 }
 pub struct Rendering {
     tr: TextRenderer,
@@ -33,7 +34,11 @@ pub struct Rendering {
     minefield_image: Image,
     pub minefield_pos: Vec2,
     redraw_minefield: bool,
+
     timer_value: Option<usize>,
+    bombcounter_value: usize,
+    bombcounter_value_vec: Vec<Option<usize>>,
+    bombcounter_digits: usize
 }
 
 impl Rendering {
@@ -44,14 +49,14 @@ impl Rendering {
         TextRenderer::new(ctx, font_image, text_renderer::default_char_map())
     }
 
-    pub fn new(ctx: &mut Context, tr: TextRenderer, board_size: (usize, usize), menu_bar_height: f32) -> Rendering {
+    pub fn new(ctx: &mut Context, tr: TextRenderer, board: (usize, usize, usize), menu_bar_height: f32) -> Rendering {
         // Make the spritesheet image and batch
         let spritesheet_image = Image::from_bytes(ctx, SPRITESHEET_IMAGE_BYTES).expect("Unable to load spritesheet from bytes!!");
         let mut spritesheet = InstanceArray::new(ctx, spritesheet_image.clone());
-        spritesheet.resize(ctx, board_size.0 * board_size.1);
+        spritesheet.resize(ctx, board.0 * board.1);
 
         // Generate game-specific things
-        let game_specifics = Rendering::generate_game_specifics(ctx, board_size, menu_bar_height);
+        let game_specifics = Rendering::generate_game_specifics(ctx, board, menu_bar_height);
 
         let mut r = Rendering {
             tr, scale_factor: 1.0, window_size: game_specifics.window_size, window_middle: game_specifics.window_middle, menu_bar_height,
@@ -60,6 +65,7 @@ impl Rendering {
             minefield_pos: Vec2::new(5.0, 24.0+menu_bar_height),
             redraw_minefield: true,
             timer_value: None,
+            bombcounter_value: usize::MAX, bombcounter_value_vec: vec![], bombcounter_digits: game_specifics.bombcounter_digits,
         };
 
         // TODO: Window icon (right now it's all blurry too!!!)
@@ -73,29 +79,31 @@ impl Rendering {
     }
 
     // If we've made a new game, regenerate the game specifics!
-    pub fn new_game(&mut self, ctx: &mut Context, board_size: (usize, usize)) {
-        let game_specifics = Rendering::generate_game_specifics(ctx, board_size, self.menu_bar_height);
-        self.window_size = game_specifics.window_size;
-        self.window_middle = game_specifics.window_middle;
-        self.minefield_image = game_specifics.minefield_image;
-        self.timer_value = None;
+    pub fn new_game(&mut self, ctx: &mut Context, board: (usize, usize, usize)) {
+        let game_specifics = Rendering::generate_game_specifics(ctx, board, self.menu_bar_height);
+        self.window_size        = game_specifics.window_size;
+        self.window_middle      = game_specifics.window_middle;
+        self.minefield_image    = game_specifics.minefield_image;
+        self.timer_value        = None;
+        self.bombcounter_digits = game_specifics.bombcounter_digits;
         self.redraw_minefield();
-        // TODO: Work out the new scale factor and resize the window
+        // Work out the new scale factor and resize the window
         let new_scale_factor = self.scale_factor;
         self.resize(ctx, new_scale_factor as usize);
     }
 
     // Generates parts of 'Rendering' that are specific to a game, such as the board image and the window size
-    fn generate_game_specifics(ctx: &mut Context, board_size: (usize, usize), menu_bar_height: f32) -> GameSpecifics {
+    fn generate_game_specifics(ctx: &mut Context, board: (usize, usize, usize), menu_bar_height: f32) -> GameSpecifics {
         // Stores the minefield (plus the nice borders)
-        let minefield_image = Image::new_canvas_image(ctx, ctx.gfx.surface_format(), board_size.0 as u32*9+4, board_size.1 as u32*9+4, 1);
+        let minefield_image = Image::new_canvas_image(ctx, ctx.gfx.surface_format(), board.0 as u32*9+4, board.1 as u32*9+4, 1);
         let minefield_padding = (24.0, 5.0, 5.0, 5.0); // Up, down, left, right
         // Work out how big the window should be
         let window_size = Vec2::new(
             minefield_image.width()  as f32 + minefield_padding.2 + minefield_padding.3,
             minefield_image.height() as f32 + minefield_padding.0 + minefield_padding.1 + menu_bar_height
         );
-        GameSpecifics { window_size, window_middle: window_size / 2.0, minefield_image }
+        let bombcounter_digits = (board.2.checked_ilog10().unwrap_or(0) + 1) as usize;
+        GameSpecifics { window_size, window_middle: window_size / 2.0, minefield_image, bombcounter_digits }
     }
 
     // Resizes the window to a multiple
@@ -178,6 +186,7 @@ impl Rendering {
     // Draws the minefield, bomb counter, timer, etc
     pub fn render_game(&mut self, ctx: &mut Context, canvas: &mut Canvas, game: &Minesweeper, selected_tile: Option<usize>, selection_depressed: bool) {
         
+        self.render_bombcounter(canvas, game);
         self.render_timer(canvas, game);
 
         // Render the minefield if we must
@@ -187,7 +196,7 @@ impl Rendering {
         }
         // Draw the minefield
         canvas.draw(&self.minefield_image, DrawParam::new().dest(self.minefield_pos));
-        // Draw the selected tile and depressed tile if one is being held
+        // Draw the selected tile / depressed tile if one is being held
         if let Some(selected_tile_index) = selected_tile {
             let selected_tile_pos = index_to_draw_coord(game, selected_tile_index) + self.minefield_pos + 2.0;
 
@@ -200,10 +209,41 @@ impl Rendering {
         }
     }
 
-    pub fn render_timer(&mut self, canvas: &mut Canvas, game: &Minesweeper) {
-        let timer_pos = Vec2::new(self.window_size.x - 28.0, self.menu_bar_height + 7.0);
+    pub fn render_bombcounter(&mut self, canvas: &mut Canvas, game: &Minesweeper) {
+        let pos = Vec2::new(7.0, self.menu_bar_height + 3.0);
         // Draw the background
-        draw_nineslice(canvas, &mut self.spritesheet, Rect::new(39.0, 39.0, 3.0, 3.0), 1.0, Rect::new(timer_pos.x, timer_pos.y, 21.0, 9.0));
+        draw_nineslice(canvas, &mut self.spritesheet, Rect::new(36.0, 39.0, 3.0, 3.0), 1.0,
+            Rect::new(pos.x, pos.y, (self.bombcounter_digits*10) as f32 + 4.0, 18.0));
+
+        // Update the digits if they've changed
+        let bombcounter_value = game.bombs.len().saturating_sub(game.board.iter().filter(|&t| *t == minesweeper::TileType::Flag).count());
+        if self.bombcounter_value != bombcounter_value {
+            // TODO: There's probably a better way to do this.. will do some thinking
+            let mut digits: Vec<Option<usize>> = bombcounter_value.to_string().chars()
+                .map(|c| c.to_digit(10).unwrap() as usize).map(|c| Some(c)).collect();
+            self.bombcounter_value_vec = vec![None; self.bombcounter_digits.saturating_sub(digits.len())];
+            self.bombcounter_value_vec.append(&mut digits);
+        }
+
+        // Draw the digits 
+        // TODO: Maybe store this iterator and regenerate if needed rather than the vector of digits?
+        self.spritesheet.set(
+            self.bombcounter_value_vec.iter().enumerate().rev()
+            .map(|(i, &v)| DrawParam::new()
+            .src(normalize_rect(Rect::new(
+                if v.is_none() {76.0} else {36.0 + ((v.unwrap_or(0)%5)*8) as f32},
+                (v.unwrap_or_default() / 5) as f32 * 14.0,
+                8.0, 14.0
+            ), &self.spritesheet_image))
+            .dest(Vec2::new(i as f32 * 10.0, 0.0)))
+        );
+        canvas.draw(&self.spritesheet, DrawParam::new().dest(pos + Vec2::new(3.0, 2.0)));
+    }
+
+    pub fn render_timer(&mut self, canvas: &mut Canvas, game: &Minesweeper) {
+        let pos = Vec2::new(self.window_size.x - 28.0, self.menu_bar_height + 7.0);
+        // Draw the background
+        draw_nineslice(canvas, &mut self.spritesheet, Rect::new(39.0, 39.0, 3.0, 3.0), 1.0, Rect::new(pos.x, pos.y, 21.0, 9.0));
 
         self.timer_value = match game.state {
             minesweeper::GameState::Playing => Some(game.start_time.elapsed().as_secs() as usize),
@@ -225,9 +265,9 @@ impl Rendering {
                 Some(_) => (38 + 3*value) as f32,
             }, 28.0, 3.0, 5.0), &self.spritesheet_image)))
         );
-        canvas.draw(&self.spritesheet, DrawParam::new().dest(timer_pos + 2.0));
+        canvas.draw(&self.spritesheet, DrawParam::new().dest(pos + 2.0));
         // Draw the colon
-        canvas.draw(&self.spritesheet_image, DrawParam::new().dest(timer_pos + Vec2::new(10.0, 2.0))
+        canvas.draw(&self.spritesheet_image, DrawParam::new().dest(pos + Vec2::new(10.0, 2.0))
             .src(normalize_rect(Rect::new(if self.timer_value.is_none() { 36.0 } else { 37.0 }, 28.0, 1.0, 5.0), &self.spritesheet_image)));
     }
 

@@ -17,6 +17,8 @@ pub struct Gui {
     hovered_on_gui: bool,
 }
 
+// TODO: !!! Message boxes, number fields for customisation
+
 impl Gui {
     pub fn new(menu_bar: MenuBar) -> Gui {
         Gui { menu_bar, hovered_on_gui: false }
