@@ -86,14 +86,13 @@ impl MenuBar {
                 _ => ()
             } 
             // If the current one isn't this button but we're hovering over it, make it the current one,
-            // maybe todo, make hovering over the menu 'swallow' the hovering over a button
+            // maybe TODO, make hovering over the menu 'swallow' the hovering over a button
             if self.current_item.is_some_and(|c| c != i) && menu_item.button.b.state == button::State::Hovered {
                 self.hovering_over = true;
                 self.current_item = Some(i);
                 menu_item.dropdown.init();
             }
         }
-        println!("{:?}", self.hovering_over);
         menu_button_pressed
     }
 }

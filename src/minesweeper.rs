@@ -52,7 +52,8 @@ impl Minesweeper {
 
         let mut board = Vec::with_capacity(size);
         for _ in 0..size {
-            board.push(rand::random());
+            // board.push(rand::random());
+            board.push(TileType::Unopened);
         }
         // The bombs and neighbour_count values are only populated properly after the first move.
         // This is because we want the cell at the user's first dig, and all of it's neighbours, to never be a bomb.
@@ -73,7 +74,7 @@ impl Minesweeper {
         }
     }
 
-    pub fn dig(&mut self, index: usize) {
+    pub fn dig(&mut self, index: usize) -> bool {
         // If the tile is valid and diggable...
         if let Some(tile) = self.board.get_mut(index) {
             if *tile == TileType::Unopened {
@@ -85,8 +86,10 @@ impl Minesweeper {
                     self.state = GameState::Playing;
                 }
                 *tile = TileType::Dug;
+                return true;
             }
         }
+        false
     }
 
     // Toggle a flag at a position, checks if the index is valid, as well as if flagging that tile is a valid move

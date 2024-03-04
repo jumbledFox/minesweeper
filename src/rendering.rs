@@ -1,6 +1,7 @@
 use ggez::{glam::Vec2, graphics::{self, Canvas, Color, DrawParam, Image, InstanceArray, Rect}, winit::dpi::LogicalSize, Context, GameResult};
+use rand::Rng;
 
-use crate::{gui::{self, button, text_renderer, Gui, TextRenderer}, minesweeper::Minesweeper};
+use crate::{gui::{self, button, text_renderer, Gui, TextRenderer}, minesweeper::{self, Minesweeper}};
 
 const SPRITESHEET_IMAGE_BYTES: &[u8] = include_bytes!("../resources/spritesheet.png");
 const ICON_IMAGE_BYTES: &[u8] = include_bytes!("../resources/icon.png");
@@ -29,6 +30,7 @@ pub struct Rendering {
 
     spritesheet_image: Image,
     spritesheet: InstanceArray,
+    redraw_minefield: bool,
     minefield_image: Image,
     pub minefield_pos: Vec2,
 }
@@ -53,6 +55,7 @@ impl Rendering {
         let mut r = Rendering {
             tr, scale_factor: 1.0, window_size: game_specifics.window_size, window_middle: game_specifics.window_middle, menu_bar_height,
             spritesheet_image, spritesheet,
+            redraw_minefield: true,
             minefield_image: game_specifics.minefield_image, minefield_pos: Vec2::new(5.0, 24.0+menu_bar_height)
         };
 
@@ -72,6 +75,7 @@ impl Rendering {
         self.window_size = game_specifics.window_size;
         self.window_middle = game_specifics.window_middle;
         self.minefield_image = game_specifics.minefield_image;
+        self.redraw_minefield();
         // TODO: Work out the new scale factor and resize the window
         let new_scale_factor = self.scale_factor;
         self.resize(ctx, new_scale_factor as usize);
@@ -108,12 +112,12 @@ impl Rendering {
     }
 
     // Renders the whole frame
-    pub fn render(&mut self, ctx: &mut Context, gui: &Gui, game: &Minesweeper, selected_tile: Option<usize>, mouse_down: bool) -> GameResult {
+    pub fn render(&mut self, ctx: &mut Context, gui: &Gui, game: &Minesweeper, selected_tile: Option<usize>, selection_depressed: bool) -> GameResult {
         let mut canvas = Canvas::from_frame(ctx, Color::from_rgb(192, 203, 220));
         canvas.set_screen_coordinates(Rect::new(0.0, 0.0, self.window_size.x, self.window_size.y));
         canvas.set_sampler(graphics::FilterMode::Nearest);
 
-        self.render_game(ctx, &mut canvas, game, selected_tile, mouse_down);
+        self.render_game(ctx, &mut canvas, game, selected_tile, selection_depressed);
         self.render_gui(&mut canvas, gui);
 
         canvas.finish(ctx)
@@ -169,8 +173,12 @@ impl Rendering {
     }
 
     // Draws the minefield, bomb counter, timer, etc
-    pub fn render_game(&mut self, ctx: &mut Context, canvas: &mut Canvas, game: &Minesweeper, selected_tile: Option<usize>, mouse_down: bool) {
-        let _ = self.render_minefield(ctx, game);
+    pub fn render_game(&mut self, ctx: &mut Context, canvas: &mut Canvas, game: &Minesweeper, selected_tile: Option<usize>, selection_depressed: bool) {
+        // Render the minefield if we must
+        if self.redraw_minefield {
+            let _ = self.render_minefield(ctx, game);
+            self.redraw_minefield = false;
+        }
 
         // Draw the minefield
         canvas.draw(&self.minefield_image, DrawParam::new().dest(self.minefield_pos));
@@ -178,7 +186,7 @@ impl Rendering {
         if let Some(selected_tile_index) = selected_tile {
             let selected_tile_pos = index_to_draw_coord(game, selected_tile_index) + self.minefield_pos + 2.0;
 
-            if mouse_down {
+            if selection_depressed {
                 canvas.draw(&self.spritesheet_image, DrawParam::new().dest(selected_tile_pos)
                     .src(normalize_rect(Rect::new( 9.0,  0.0,  9.0,  9.0), &self.spritesheet_image)));
             }
@@ -188,8 +196,13 @@ impl Rendering {
 
     }
 
+    pub fn redraw_minefield(&mut self) {
+        self.redraw_minefield = true;
+    }
     // Renders the minefield to self.minefield_image, only should be called when the minefield is updated for efficiency
     pub fn render_minefield(&mut self, ctx: &mut Context, game: &Minesweeper) -> GameResult {
+        println!("redrew the minefield {:?}", rand::thread_rng().gen_range(10..100));
+
         let mut canvas = graphics::Canvas::from_image(ctx, self.minefield_image.clone(), LIGHT_GRAY);
         canvas.set_sampler(graphics::FilterMode::Nearest);
 
@@ -199,11 +212,36 @@ impl Rendering {
         // Draw the tiles
         self.spritesheet.set(
             game.board
-            .iter().enumerate().map(|(i, _)| DrawParam::new().dest(index_to_draw_coord(&game, i))
-            .src(normalize_rect(Rect::new(0.0, 0.0, 9.0, 9.0), &self.spritesheet_image))
+            .iter().enumerate().map(|(i, tile)| DrawParam::new().dest(index_to_draw_coord(&game, i))
+            .src(normalize_rect(
+                Rect::new(if *tile == minesweeper::TileType::Dug {18.0} else {0.0}, 0.0, 9.0, 9.0), &self.spritesheet_image))
             )
         );
         canvas.draw(&self.spritesheet, DrawParam::new().dest(Vec2::new(2.0, 2.0)));
+
+        // Draw the flags
+        self.spritesheet.set(
+            game.board
+            .iter().enumerate().filter_map(|(i, tile)| match *tile == minesweeper::TileType::Flag {
+                false => None,
+                true => Some(DrawParam::new().dest(index_to_draw_coord(&game, i))
+                .src(normalize_rect(Rect::new(0.0, 27.0, 9.0, 9.0), &self.spritesheet_image)))
+            } )
+        );
+        canvas.draw(&self.spritesheet, DrawParam::new().dest(Vec2::new(2.0, 2.0)));
+        /*
+        self.rendering.spritesheet_batch.set(
+            self.game.board
+            .iter().enumerate()
+            .filter_map(|(i, tile)| match *tile == TileType::Flag {
+                false => None,
+                true  => Some(
+                    DrawParam::new().dest(index_to_draw_coord(&self.game, i))
+                    .src(normalize_rect(Rect::new(0.0, 27.0, 9.0, 9.0), &self.rendering.spritesheet))
+                ),
+            })
+        );
+        canvas.draw(&self.rendering.spritesheet_batch, DrawParam::new().dest(Vec2::new(2.0, 2.0))); */
 
         canvas.finish(ctx)
     }

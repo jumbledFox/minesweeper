@@ -2,7 +2,7 @@ use ggez::glam::Vec2;
 use ggez::{event::EventHandler, Context, GameResult};
 
 use crate::gui::{Gui, MenuBar};
-use crate::minesweeper::Minesweeper;
+use crate::minesweeper::{self, Minesweeper};
 use crate::rendering::Rendering;
 
 pub struct MainState {
@@ -11,6 +11,7 @@ pub struct MainState {
     // That's why 'selected_tile' is defined here. 
     selected_tile: Option<usize>,
     mouse_down: bool,
+    erasing_flags: bool,
 
     gui: Gui,
     rendering: Rendering,
@@ -69,7 +70,7 @@ impl MainState {
         let rendering = Rendering::new(ctx, tr, (game.width, game.height), menu_bar.height+2.0);
 
         let gui = Gui::new(menu_bar);
-        MainState { game, rendering, gui, selected_tile: Some(42), mouse_down: false }
+        MainState { game, rendering, gui, selected_tile: Some(42), mouse_down: false, erasing_flags: false }
     }
 
     fn new_game(&mut self, ctx: &mut Context, width: usize, height: usize, bomb_count: usize) {
@@ -88,7 +89,7 @@ impl MainState {
         }
         // Make new games if the buttons are pressed
         if self.gui.menu_bar.menu_button_pressed(0, 2) {
-            self.new_game(ctx, 9, 9, 10);
+            self.new_game(ctx, 10, 10, 11);
         }
         if self.gui.menu_bar.menu_button_pressed(0, 3) {
             self.new_game(ctx, 15, 13, 40);
@@ -118,16 +119,45 @@ impl MainState {
             return;
         }
         let hovered_tile_index = hovered_tile.y as usize * self.game.width + hovered_tile.x as usize ;
+        // If the selected tile has changed to another valid tile...
         if self.selected_tile != Some(hovered_tile_index) {
+            // If we're erasing flags.. do that (and redraw the minefield if we must)
+            if self.erasing_flags {
+                if self.game.set_flag(self.erasing_flags, hovered_tile_index) { self.rendering.redraw_minefield(); }
+            }
             self.selected_tile = Some(hovered_tile_index);
         }
+    }
+
+    fn dig(&mut self) {
+        // If we've not selected a tile, don't do anything!!
+        if self.selected_tile.is_none() { return; }
+        let selected_tile = self.selected_tile.unwrap();
+
+        // Dig at the selected tile, if it didn't do anything return
+        if !self.game.dig(selected_tile) { return; }
+        self.rendering.redraw_minefield();
+
+        // Check if this made us win the game or not...
+    }
+
+    fn flag(&mut self) {
+        // If we've not selected a tile, don't do anything!!!!!
+        if self.selected_tile.is_none() { return; }
+        let selected_tile = self.selected_tile.unwrap();
+
+        // If we're hovering over a tile and press the right mouse button we want to do one of two things, place a flag or erase a flag
+        // If the tile isn't a flag, we want to try and place one, if it IS a flag, we want to start erasing them!
+        self.erasing_flags = self.game.board[selected_tile] == minesweeper::TileType::Flag;
+        // Flag the selected tile, if it didn't do anything return
+        if !self.game.set_flag(self.erasing_flags, selected_tile) { return };
+        self.rendering.redraw_minefield();
     }
 }
 
 impl EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         let mouse_pos = self.rendering.mouse_pos(ctx);
-        self.mouse_down = ctx.mouse.button_pressed(ggez::event::MouseButton::Left);
 
         if self.gui_logic(ctx, mouse_pos) {
             self.selected_tile = None;
@@ -136,14 +166,34 @@ impl EventHandler for MainState {
         }
         Ok(())
     }
+
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
-        self.rendering.render(ctx, &self.gui, &self.game, self.selected_tile, self.mouse_down)
+        let selection_depressed = self.selected_tile.is_some_and(|s| self.game.board[s] == minesweeper::TileType::Unopened) && self.mouse_down;
+        self.rendering.render(ctx, &self.gui, &self.game, self.selected_tile, selection_depressed)
     }
-    fn mouse_button_down_event(&mut self, _ctx: &mut Context, _button: ggez::event::MouseButton, x: f32, y: f32) -> GameResult {
+
+    fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: ggez::event::MouseButton, x: f32, y: f32) -> GameResult {
+        match button {
+            ggez::event::MouseButton::Left  => self.mouse_down = true,
+            // FLAGGING
+            ggez::event::MouseButton::Right => { self.flag(); },
+            _ => {}
+        }
         self.gui.update(self.rendering.scaled_mouse_pos(x, y), crate::gui::MousePressMode::Down);
         Ok(())
     }
-    fn mouse_button_up_event(&mut self, _ctx: &mut Context, _button: ggez::event::MouseButton, x: f32, y: f32) -> GameResult {
+    fn mouse_button_up_event(&mut self, _ctx: &mut Context, button: ggez::event::MouseButton, x: f32, y: f32) -> GameResult {
+        match button {
+            // Digging!
+            ggez::event::MouseButton::Left  => {
+                self.mouse_down = false;
+                self.dig();
+            }
+            ggez::event::MouseButton::Right => {
+                self.erasing_flags = false;
+            }
+            _ => {}
+        }
         self.gui.update(self.rendering.scaled_mouse_pos(x, y), crate::gui::MousePressMode::Up);
         Ok(())
     }
