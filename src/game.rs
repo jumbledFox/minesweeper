@@ -1,5 +1,3 @@
-use std::ops::Neg;
-
 use ggez::glam::Vec2;
 use ggez::{event::EventHandler, Context, GameResult};
 
@@ -107,8 +105,13 @@ impl MainState {
     }
 
     fn selected_tile_logic(&mut self, mouse_pos: Vec2) {
-        let hovered_tile = (mouse_pos - self.rendering.minefield_pos) / 9.0;
-        // TODO: check the bounds
+        let hovered_tile = (mouse_pos - self.rendering.minefield_pos - 2.0) / 9.0;
+        // Check the bounds
+        if  hovered_tile.x < 0.0 || hovered_tile.x > self.game.width  as f32 || 
+            hovered_tile.y < 0.0 || hovered_tile.y > self.game.height as f32 {
+            self.selected_tile = None;
+            return;
+        }
         let hovered_tile_index = hovered_tile.y as usize * self.game.width + hovered_tile.x as usize ;
         if self.selected_tile != Some(hovered_tile_index) {
             self.selected_tile = Some(hovered_tile_index);
