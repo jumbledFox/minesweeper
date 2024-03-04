@@ -10,7 +10,7 @@ pub struct MainState {
     // The 'Minesweeper' game class should be a black box that you can query, and not be linked with this programs rendering or logic code
     // That's why 'selected_tile' is defined here. 
     selected_tile: Option<usize>,
-    mouse_down: bool,
+    holding_tile: bool,
     erasing_flags: bool,
 
     gui: Gui,
@@ -70,12 +70,16 @@ impl MainState {
         let rendering = Rendering::new(ctx, tr, (game.width, game.height), menu_bar.height+2.0);
 
         let gui = Gui::new(menu_bar);
-        MainState { game, rendering, gui, selected_tile: Some(42), mouse_down: false, erasing_flags: false }
+        MainState { game, rendering, gui, selected_tile: Some(42), holding_tile: false, erasing_flags: false }
     }
 
     fn new_game(&mut self, ctx: &mut Context, width: usize, height: usize, bomb_count: usize) {
         self.game = Minesweeper::new(width, height, bomb_count);
         self.rendering.new_game(ctx, (self.game.width, self.game.height));
+    }
+
+    fn selected_tile_diggable(&self) -> bool {
+        self.selected_tile.is_some_and(|s| self.game.board[s] == minesweeper::TileType::Unopened)
     }
 
     // Returns if the mouse was over the GUI
@@ -168,13 +172,13 @@ impl EventHandler for MainState {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
-        let selection_depressed = self.selected_tile.is_some_and(|s| self.game.board[s] == minesweeper::TileType::Unopened) && self.mouse_down;
+        let selection_depressed = self.selected_tile_diggable() && self.holding_tile;
         self.rendering.render(ctx, &self.gui, &self.game, self.selected_tile, selection_depressed)
     }
 
     fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: ggez::event::MouseButton, x: f32, y: f32) -> GameResult {
         match button {
-            ggez::event::MouseButton::Left  => self.mouse_down = true,
+            ggez::event::MouseButton::Left  => { if self.selected_tile_diggable() { self.holding_tile = true } },
             // FLAGGING
             ggez::event::MouseButton::Right => { self.flag(); },
             _ => {}
@@ -186,8 +190,10 @@ impl EventHandler for MainState {
         match button {
             // Digging!
             ggez::event::MouseButton::Left  => {
-                self.mouse_down = false;
-                self.dig();
+                if self.holding_tile {
+                    self.holding_tile = false;
+                    self.dig();
+                }
             }
             ggez::event::MouseButton::Right => {
                 self.erasing_flags = false;

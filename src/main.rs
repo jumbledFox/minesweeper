@@ -124,7 +124,7 @@ impl EventHandler for MainState {
 
         // TODO: Care about states
         match button {
-            event::MouseButton::Left => { self.holding_button = true; },
+            event::MouseButton::Left => { if !self.rendering.menubar.hovering_over { self.holding_button = true; } },
             event::MouseButton::Right => {
                 self.holding_button = false;
                 // We only want to start erasing flags if we right click on a flag

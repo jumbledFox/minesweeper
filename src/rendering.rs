@@ -30,9 +30,10 @@ pub struct Rendering {
 
     spritesheet_image: Image,
     spritesheet: InstanceArray,
-    redraw_minefield: bool,
     minefield_image: Image,
     pub minefield_pos: Vec2,
+    redraw_minefield: bool,
+    timer_value: Option<usize>,
 }
 
 impl Rendering {
@@ -55,8 +56,10 @@ impl Rendering {
         let mut r = Rendering {
             tr, scale_factor: 1.0, window_size: game_specifics.window_size, window_middle: game_specifics.window_middle, menu_bar_height,
             spritesheet_image, spritesheet,
+            minefield_image: game_specifics.minefield_image,
+            minefield_pos: Vec2::new(5.0, 24.0+menu_bar_height),
             redraw_minefield: true,
-            minefield_image: game_specifics.minefield_image, minefield_pos: Vec2::new(5.0, 24.0+menu_bar_height)
+            timer_value: None,
         };
 
         // TODO: Window icon (right now it's all blurry too!!!)
@@ -75,6 +78,7 @@ impl Rendering {
         self.window_size = game_specifics.window_size;
         self.window_middle = game_specifics.window_middle;
         self.minefield_image = game_specifics.minefield_image;
+        self.timer_value = None;
         self.redraw_minefield();
         // TODO: Work out the new scale factor and resize the window
         let new_scale_factor = self.scale_factor;
@@ -169,17 +173,18 @@ impl Rendering {
                 }
             }
         }
-
     }
 
     // Draws the minefield, bomb counter, timer, etc
     pub fn render_game(&mut self, ctx: &mut Context, canvas: &mut Canvas, game: &Minesweeper, selected_tile: Option<usize>, selection_depressed: bool) {
+        
+        self.render_timer(canvas, game);
+
         // Render the minefield if we must
         if self.redraw_minefield {
             let _ = self.render_minefield(ctx, game);
             self.redraw_minefield = false;
         }
-
         // Draw the minefield
         canvas.draw(&self.minefield_image, DrawParam::new().dest(self.minefield_pos));
         // Draw the selected tile and depressed tile if one is being held
@@ -191,10 +196,41 @@ impl Rendering {
                     .src(normalize_rect(Rect::new( 9.0,  0.0,  9.0,  9.0), &self.spritesheet_image)));
             }
             canvas.draw(&self.spritesheet_image, DrawParam::new().dest(selected_tile_pos - 1.0)
-                .src(normalize_rect(Rect::new(73.0, 28.0, 11.0, 11.0), &self.spritesheet_image)));
+                .src(normalize_rect(Rect::new(62.0, 33.0, 11.0, 11.0), &self.spritesheet_image)));
         }
-
     }
+
+    pub fn render_timer(&mut self, canvas: &mut Canvas, game: &Minesweeper) {
+        let timer_pos = Vec2::new(self.window_size.x - 28.0, self.menu_bar_height + 7.0);
+        // Draw the background
+        draw_nineslice(canvas, &mut self.spritesheet, Rect::new(39.0, 39.0, 3.0, 3.0), 1.0, Rect::new(timer_pos.x, timer_pos.y, 21.0, 9.0));
+
+        self.timer_value = match game.state {
+            minesweeper::GameState::Playing => Some(game.start_time.elapsed().as_secs() as usize),
+            minesweeper::GameState::Prelude => None,
+            _ => self.timer_value,
+        };
+        // The different numbers of the timer (and how far along they should be drawn
+        let t = self.timer_value.unwrap_or_default();
+        let timer_values = [(0.0, (t / 600) % 10),  (4.0, (t / 60) % 10),  (10.0, (t / 10) % 6),  (14.0, (t % 10))];
+
+        // Draw all of the numbers
+        self.spritesheet.set(
+            timer_values.iter()
+            .map(|&(along, value)| DrawParam::new().dest(Vec2::new(along, 0.0))
+            .src(normalize_rect(Rect::new(match self.timer_value {
+                None                               => 68.0, // If the timer is none, draw empty segments
+                Some(v) if v > 99 * 60 + 59        => 71.0, // If the timer is over the max, draw dashes
+                Some(v) if along == 0.0 && v < 600 => 68.0, // If the tens minute place is a zero, draw empty segment
+                Some(_) => (38 + 3*value) as f32,
+            }, 28.0, 3.0, 5.0), &self.spritesheet_image)))
+        );
+        canvas.draw(&self.spritesheet, DrawParam::new().dest(timer_pos + 2.0));
+        // Draw the colon
+        canvas.draw(&self.spritesheet_image, DrawParam::new().dest(timer_pos + Vec2::new(10.0, 2.0))
+            .src(normalize_rect(Rect::new(if self.timer_value.is_none() { 36.0 } else { 37.0 }, 28.0, 1.0, 5.0), &self.spritesheet_image)));
+    }
+
 
     pub fn redraw_minefield(&mut self) {
         self.redraw_minefield = true;
@@ -221,27 +257,23 @@ impl Rendering {
 
         // Draw the flags
         self.spritesheet.set(
-            game.board
-            .iter().enumerate().filter_map(|(i, tile)| match *tile == minesweeper::TileType::Flag {
-                false => None,
-                true => Some(DrawParam::new().dest(index_to_draw_coord(&game, i))
+            game.board.iter().enumerate()
+            .filter(|(_, tile)| **tile == minesweeper::TileType::Flag)
+            .map(|(i, _)| DrawParam::new().dest(index_to_draw_coord(&game, i))
                 .src(normalize_rect(Rect::new(0.0, 27.0, 9.0, 9.0), &self.spritesheet_image)))
-            } )
         );
         canvas.draw(&self.spritesheet, DrawParam::new().dest(Vec2::new(2.0, 2.0)));
-        /*
-        self.rendering.spritesheet_batch.set(
-            self.game.board
-            .iter().enumerate()
-            .filter_map(|(i, tile)| match *tile == TileType::Flag {
-                false => None,
-                true  => Some(
-                    DrawParam::new().dest(index_to_draw_coord(&self.game, i))
-                    .src(normalize_rect(Rect::new(0.0, 27.0, 9.0, 9.0), &self.rendering.spritesheet))
-                ),
-            })
+
+        // Draw the numbers
+        // Funny moduluses and divisions.. i know
+        self.spritesheet.set(
+            game.neighbour_count.iter().enumerate()
+            .filter(|(i, &n)| n > 0 && game.board[*i] == minesweeper::TileType::Dug)
+            .map(|(i, &n)| DrawParam::new().dest(index_to_draw_coord(&game, i)).src(
+                normalize_rect(Rect::new((((n-1) % 4) * 9) as f32, (((n+3) / 4) * 9) as f32, 9.0, 9.0), &self.spritesheet_image)
+            ))
         );
-        canvas.draw(&self.rendering.spritesheet_batch, DrawParam::new().dest(Vec2::new(2.0, 2.0))); */
+        canvas.draw(&self.spritesheet, DrawParam::new().dest(Vec2::new(2.0, 2.0)));
 
         canvas.finish(ctx)
     }
