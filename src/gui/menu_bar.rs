@@ -45,6 +45,8 @@ impl MenuBar {
     // TODO: This function isn't very good.
     // Update each of the buttons in the menu bar, returns if something on the menu was clicked
     pub fn update(&mut self, mouse_pos: Vec2, mouse_mode: super::MousePressMode) -> bool {
+        self.hovering_over = false;
+
         // Update the dropdown
         if let Some(current_item_index) = self.current_item {
             // Hide the menus if we've clicked elsewhere
@@ -62,7 +64,6 @@ impl MenuBar {
         }
 
         // Update the menu items
-        self.hovering_over = false;
         let mut menu_button_pressed = false;
         // Update all of the buttons
         for (i, menu_item) in &mut self.items.iter_mut().enumerate() {
@@ -80,6 +81,10 @@ impl MenuBar {
                 }
                 continue;
             }
+            match menu_item.button.b.state {
+                button::State::Hovered | button::State::Depressed => {self.hovering_over = true;}
+                _ => ()
+            } 
             // If the current one isn't this button but we're hovering over it, make it the current one,
             // maybe todo, make hovering over the menu 'swallow' the hovering over a button
             if self.current_item.is_some_and(|c| c != i) && menu_item.button.b.state == button::State::Hovered {
@@ -88,7 +93,7 @@ impl MenuBar {
                 menu_item.dropdown.init();
             }
         }
-
+        println!("{:?}", self.hovering_over);
         menu_button_pressed
     }
 }

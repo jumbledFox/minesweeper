@@ -108,12 +108,12 @@ impl Rendering {
     }
 
     // Renders the whole frame
-    pub fn render(&mut self, ctx: &mut Context, gui: &Gui, game: &Minesweeper, selected_tile: Option<usize>) -> GameResult {
+    pub fn render(&mut self, ctx: &mut Context, gui: &Gui, game: &Minesweeper, selected_tile: Option<usize>, mouse_down: bool) -> GameResult {
         let mut canvas = Canvas::from_frame(ctx, Color::from_rgb(192, 203, 220));
         canvas.set_screen_coordinates(Rect::new(0.0, 0.0, self.window_size.x, self.window_size.y));
         canvas.set_sampler(graphics::FilterMode::Nearest);
 
-        self.render_game(ctx, &mut canvas, game, selected_tile);
+        self.render_game(ctx, &mut canvas, game, selected_tile, mouse_down);
         self.render_gui(&mut canvas, gui);
 
         canvas.finish(ctx)
@@ -169,7 +169,7 @@ impl Rendering {
     }
 
     // Draws the minefield, bomb counter, timer, etc
-    pub fn render_game(&mut self, ctx: &mut Context, canvas: &mut Canvas, game: &Minesweeper, selected_tile: Option<usize>) {
+    pub fn render_game(&mut self, ctx: &mut Context, canvas: &mut Canvas, game: &Minesweeper, selected_tile: Option<usize>, mouse_down: bool) {
         let _ = self.render_minefield(ctx, game);
 
         // Draw the minefield
@@ -178,8 +178,10 @@ impl Rendering {
         if let Some(selected_tile_index) = selected_tile {
             let selected_tile_pos = index_to_draw_coord(game, selected_tile_index) + self.minefield_pos + 2.0;
 
-            canvas.draw(&self.spritesheet_image, DrawParam::new().dest(selected_tile_pos)
-                .src(normalize_rect(Rect::new( 9.0,  0.0,  9.0,  9.0), &self.spritesheet_image)));
+            if mouse_down {
+                canvas.draw(&self.spritesheet_image, DrawParam::new().dest(selected_tile_pos)
+                    .src(normalize_rect(Rect::new( 9.0,  0.0,  9.0,  9.0), &self.spritesheet_image)));
+            }
             canvas.draw(&self.spritesheet_image, DrawParam::new().dest(selected_tile_pos - 1.0)
                 .src(normalize_rect(Rect::new(73.0, 28.0, 11.0, 11.0), &self.spritesheet_image)));
         }
