@@ -30,6 +30,7 @@ pub struct Rendering {
     spritesheet_image: Image,
     spritesheet: InstanceArray,
     minefield_image: Image,
+    pub minefield_pos: Vec2,
 }
 
 impl Rendering {
@@ -52,7 +53,7 @@ impl Rendering {
         let mut r = Rendering {
             tr, scale_factor: 1.0, window_size: game_specifics.window_size, window_middle: game_specifics.window_middle, menu_bar_height,
             spritesheet_image, spritesheet,
-            minefield_image: game_specifics.minefield_image,
+            minefield_image: game_specifics.minefield_image, minefield_pos: Vec2::new(5.0, 24.0+menu_bar_height)
         };
 
         // TODO: Window icon (right now it's all blurry too!!!)
@@ -107,12 +108,12 @@ impl Rendering {
     }
 
     // Renders the whole frame
-    pub fn render(&mut self, ctx: &mut Context, gui: &Gui, game: &Minesweeper) -> GameResult {
+    pub fn render(&mut self, ctx: &mut Context, gui: &Gui, game: &Minesweeper, selected_tile: Option<usize>) -> GameResult {
         let mut canvas = Canvas::from_frame(ctx, Color::from_rgb(192, 203, 220));
         canvas.set_screen_coordinates(Rect::new(0.0, 0.0, self.window_size.x, self.window_size.y));
         canvas.set_sampler(graphics::FilterMode::Nearest);
 
-        self.render_game(ctx, &mut canvas, game);
+        self.render_game(ctx, &mut canvas, game, selected_tile);
         self.render_gui(&mut canvas, gui);
 
         canvas.finish(ctx)
@@ -168,15 +169,21 @@ impl Rendering {
     }
 
     // Draws the minefield, bomb counter, timer, etc
-    pub fn render_game(&mut self, ctx: &mut Context, canvas: &mut Canvas, game: &Minesweeper) {
+    pub fn render_game(&mut self, ctx: &mut Context, canvas: &mut Canvas, game: &Minesweeper, selected_tile: Option<usize>) {
+        let _ = self.render_minefield(ctx, game);
 
-        // Draw the background
-        // draw_nineslice(canvas, &mut self.spritesheet, Rect::new(55.0, 36.0, 3.0, 3.0), 1.0,
-        //     Rect::new(0.0, self.menu_bar_height, self.window_size.x, self.window_size.y-self.menu_bar_height));
+        // Draw the minefield
+        canvas.draw(&self.minefield_image, DrawParam::new().dest(self.minefield_pos));
+        // Draw the selected tile and depressed tile if one is being held
+        if let Some(selected_tile_index) = selected_tile {
+            let selected_tile_pos = index_to_draw_coord(game, selected_tile_index) + self.minefield_pos + 2.0;
 
-        self.render_minefield(ctx, game);
-        
-        canvas.draw(&self.minefield_image, DrawParam::new().dest(Vec2::new(5.0, 24.0+self.menu_bar_height)));
+            canvas.draw(&self.spritesheet_image, DrawParam::new().dest(selected_tile_pos)
+                .src(normalize_rect(Rect::new( 9.0,  0.0,  9.0,  9.0), &self.spritesheet_image)));
+            canvas.draw(&self.spritesheet_image, DrawParam::new().dest(selected_tile_pos - 1.0)
+                .src(normalize_rect(Rect::new(73.0, 28.0, 11.0, 11.0), &self.spritesheet_image)));
+        }
+
     }
 
     // Renders the minefield to self.minefield_image, only should be called when the minefield is updated for efficiency
@@ -190,7 +197,7 @@ impl Rendering {
         // Draw the tiles
         self.spritesheet.set(
             game.board
-            .iter().enumerate().map(|(i, tile)| DrawParam::new().dest(index_to_draw_coord(&game, i))
+            .iter().enumerate().map(|(i, _)| DrawParam::new().dest(index_to_draw_coord(&game, i))
             .src(normalize_rect(Rect::new(0.0, 0.0, 9.0, 9.0), &self.spritesheet_image))
             )
         );

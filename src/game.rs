@@ -1,3 +1,5 @@
+use std::ops::Neg;
+
 use ggez::glam::Vec2;
 use ggez::{event::EventHandler, Context, GameResult};
 
@@ -7,6 +9,9 @@ use crate::rendering::Rendering;
 
 pub struct MainState {
     game: Minesweeper,
+    // The 'Minesweeper' game class should be a black box that you can query, and not be linked with this programs rendering or logic code
+    // That's why 'selected_tile' is defined here. 
+    selected_tile: Option<usize>,
     gui: Gui,
     rendering: Rendering,
 }
@@ -64,15 +69,15 @@ impl MainState {
         let rendering = Rendering::new(ctx, tr, (game.width, game.height), menu_bar.height+2.0);
 
         let gui = Gui::new(menu_bar);
-        MainState { game, rendering, gui }
+        MainState { game, rendering, gui, selected_tile: Some(42) }
     }
 
-    pub fn new_game(&mut self, ctx: &mut Context, width: usize, height: usize, bomb_count: usize) {
+    fn new_game(&mut self, ctx: &mut Context, width: usize, height: usize, bomb_count: usize) {
         self.game = Minesweeper::new(width, height, bomb_count);
         self.rendering.new_game(ctx, (self.game.width, self.game.height));
     }
 
-    pub fn button_logic(&mut self, ctx: &mut Context, mouse_pos: Vec2) {
+    fn button_logic(&mut self, ctx: &mut Context, mouse_pos: Vec2) {
         self.gui.update(mouse_pos, crate::gui::MousePressMode::None);
         // TODO: Add confirmation pop-ups and text boxes.
         // Exiting
@@ -100,17 +105,26 @@ impl MainState {
             }
         }
     }
+
+    fn selected_tile_logic(&mut self, mouse_pos: Vec2) {
+        let hovered_tile = (mouse_pos - self.rendering.minefield_pos) / 9.0;
+        // TODO: check the bounds
+        let hovered_tile_index = hovered_tile.y as usize * self.game.width + hovered_tile.x as usize ;
+        if self.selected_tile != Some(hovered_tile_index) {
+            self.selected_tile = Some(hovered_tile_index);
+        }
+    }
 }
 
 impl EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         let mouse_pos = self.rendering.mouse_pos(ctx);
         self.button_logic(ctx, mouse_pos);
-        
+        self.selected_tile_logic(mouse_pos);
         Ok(())
     }
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
-        self.rendering.render(ctx, &self.gui, &self.game)
+        self.rendering.render(ctx, &self.gui, &self.game, self.selected_tile)
     }
     fn mouse_button_down_event(&mut self, _ctx: &mut Context, _button: ggez::event::MouseButton, x: f32, y: f32) -> GameResult {
         self.gui.update(self.rendering.scaled_mouse_pos(x, y), crate::gui::MousePressMode::Down);

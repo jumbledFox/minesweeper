@@ -21,7 +21,9 @@ impl rand::distributions::Distribution<TileType> for rand::distributions::Standa
     }
 }
 
+// TODO: Maybe make this struct only hold game logic related things and be pure of rendering
 pub struct Minesweeper {
+    // Game logic
     pub width : usize,
     pub height: usize,
     pub bomb_count: usize,
@@ -30,11 +32,12 @@ pub struct Minesweeper {
     pub bombs: Vec<usize>,
     pub neighbour_count: Vec<u8>,
 
-    pub selected_tile: Option<usize>,
     pub state: GameState,
     pub start_time: Instant,
-
+    
+    // Rendering
     // Used for the lose animation, holds the indexes of all of the bombs that should be drawn as an explosion rather than a bomb.
+    // pub selected_tile: Option<usize>,
     pub exploded_bombs: Vec<usize>,
 }
 
@@ -64,7 +67,8 @@ impl Minesweeper {
 
         Minesweeper { width, height, bomb_count,
             board, bombs, neighbour_count,
-            selected_tile: Some(width + 1), state: GameState::Prelude, start_time: Instant::now(),
+            // selected_tile: Some(width + 1),
+            state: GameState::Prelude, start_time: Instant::now(),
             exploded_bombs: vec![]
         }
     }
