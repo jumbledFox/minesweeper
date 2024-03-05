@@ -38,6 +38,7 @@ pub struct Rendering {
     minefield_image: Image,
     pub minefield_pos: Vec2,
     exploded_bombs: Vec<usize>, // Vec of all the bombs to be drawn as explosions rather than bombs
+    pub losing_tile: Option<usize>,
     redraw_minefield: bool,
 
     timer_value: Option<usize>,
@@ -72,7 +73,7 @@ impl Rendering {
             spritesheet_image, spritesheet, tile_rects,
             minefield_image: game_specifics.minefield_image,
             minefield_pos: Vec2::new(5.0, 24.0+menu_bar_height),
-            redraw_minefield: true, exploded_bombs: vec![],
+            redraw_minefield: true, exploded_bombs: vec![], losing_tile: None,
             timer_value: None,
             bombcounter_value: usize::MAX, bombcounter_value_vec: vec![], bombcounter_digits: game_specifics.bombcounter_digits,
         };
@@ -94,6 +95,7 @@ impl Rendering {
         self.window_middle      = game_specifics.window_middle;
         self.minefield_image    = game_specifics.minefield_image;
         self.timer_value        = None;
+        self.losing_tile        = None;
         self.bombcounter_digits = game_specifics.bombcounter_digits;
         self.redraw_minefield();
         // Work out the new scale factor and resize the window
@@ -300,7 +302,8 @@ impl Rendering {
             game.board
             .iter().enumerate().map(|(i, tile)| DrawParam::new().dest(index_to_draw_coord(&game, i))
             // Draw a dug tile if the tile is dug (duh) or if we've lost the game and there's a mine there and there's not a flag there
-            .src(if *tile == minesweeper::TileType::Dug ||
+            .src(if self.losing_tile.is_some_and(|t| t == i) { self.tile_rects[3] }
+                else if *tile == minesweeper::TileType::Dug ||
                 (game.state == minesweeper::GameState::Lose && game.bombs.contains(&i) && game.board[i] != minesweeper::TileType::Flag)
                 { self.tile_rects[2] } else { self.tile_rects[0] }))
         );
@@ -330,6 +333,19 @@ impl Rendering {
             .map(|(i, &n)| DrawParam::new().dest(index_to_draw_coord(&game, i)).src(self.tile_rects[n as usize+3]))
         );
         canvas.draw(&self.spritesheet, DrawParam::new().dest(Vec2::new(2.0, 2.0)));
+
+        // Draw bombs / explosions
+        if game.state == minesweeper::GameState::Lose {
+            self.spritesheet.set(
+                game.bombs.iter().filter(|&&i| game.board[i] == minesweeper::TileType::Unopened || game.board[i] == minesweeper::TileType::Dug)
+                .map(|&i| DrawParam::new().src(match self.exploded_bombs.contains(&i) {
+                    false => self.tile_rects[13],
+                    true  => self.tile_rects[14],
+                }).dest(index_to_draw_coord(&game, i)))
+            );
+            canvas.draw(&self.spritesheet, DrawParam::new().dest(Vec2::new(2.0, 2.0)));
+        }
+
 
         canvas.finish(ctx)
     }

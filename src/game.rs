@@ -151,10 +151,14 @@ impl MainState {
 
         // Dig at the selected tile, if it didn't do anything return
         if !self.game.dig(selected_tile) { return; }
-        self.rendering.redraw_minefield();
-
+        
         // Check if this made us win the game or not...
-        // self.game.state = minesweeper::GameState::Lose;
+        if self.game.bombs.contains(&selected_tile) {
+            self.game.state = minesweeper::GameState::Lose;
+            self.rendering.losing_tile = Some(selected_tile);
+        }
+        // TODO: For some reason crossed out flags appear a SPLIT second after the board is redrawn with bombs n shit? :///
+        self.rendering.redraw_minefield();
     }
 
     fn flag(&mut self) {
