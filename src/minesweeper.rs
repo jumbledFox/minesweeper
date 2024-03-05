@@ -64,7 +64,7 @@ impl Minesweeper {
 
         let mut neighbour_count = Vec::with_capacity(size);
         for _ in 0..size {
-            neighbour_count.push(thread_rng().gen_range(0..=3));
+            neighbour_count.push(thread_rng().gen_range(0..=8));
         }
 
         Minesweeper { width, height, bomb_count,

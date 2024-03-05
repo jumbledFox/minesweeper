@@ -154,7 +154,7 @@ impl MainState {
         self.rendering.redraw_minefield();
 
         // Check if this made us win the game or not...
-        self.game.state = minesweeper::GameState::Lose;
+        // self.game.state = minesweeper::GameState::Lose;
     }
 
     fn flag(&mut self) {
@@ -235,6 +235,7 @@ impl EventHandler for MainState {
         ) -> Result<(), ggez::GameError> {
         if input.keycode == Some(KeyCode::Space) {
             self.game.state = minesweeper::GameState::Lose;
+            self.rendering.redraw_minefield();
         }
         Ok(())
     }

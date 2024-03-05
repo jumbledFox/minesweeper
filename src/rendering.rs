@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use ggez::{glam::Vec2, graphics::{self, Canvas, Color, DrawParam, Image, InstanceArray, Rect}, winit::dpi::LogicalSize, Context, GameResult};
 use rand::Rng;
 
@@ -31,6 +33,8 @@ pub struct Rendering {
 
     spritesheet_image: Image,
     spritesheet: InstanceArray,
+    tile_rects: Vec<Rect>,
+
     minefield_image: Image,
     pub minefield_pos: Vec2,
     exploded_bombs: Vec<usize>, // Vec of all the bombs to be drawn as explosions rather than bombs
@@ -55,13 +59,17 @@ impl Rendering {
         let spritesheet_image = Image::from_bytes(ctx, SPRITESHEET_IMAGE_BYTES).expect("Unable to load spritesheet from bytes!!");
         let mut spritesheet = InstanceArray::new(ctx, spritesheet_image.clone());
         spritesheet.resize(ctx, board.0 * board.1);
+        // Generate the rects for all the tiles
+        let (tile_amount_x, tile_amount_y) = (4, 5);
+        let tile_rects: Vec<Rect> = (0..tile_amount_x*tile_amount_y).into_iter().map(|i|
+            normalize_rect(Rect::new((i%tile_amount_x) as f32 * 9.0, (i/tile_amount_x) as f32 * 9.0, 9.0, 9.0), &spritesheet_image)).collect();
 
         // Generate game-specific things
         let game_specifics = Rendering::generate_game_specifics(ctx, board, menu_bar_height);
 
         let mut r = Rendering {
             tr, scale_factor: 1.0, window_size: game_specifics.window_size, window_middle: game_specifics.window_middle, menu_bar_height,
-            spritesheet_image, spritesheet,
+            spritesheet_image, spritesheet, tile_rects,
             minefield_image: game_specifics.minefield_image,
             minefield_pos: Vec2::new(5.0, 24.0+menu_bar_height),
             redraw_minefield: true, exploded_bombs: vec![],
@@ -202,8 +210,7 @@ impl Rendering {
             let selected_tile_pos = index_to_draw_coord(game, selected_tile_index) + self.minefield_pos + 2.0;
 
             if selection_depressed {
-                canvas.draw(&self.spritesheet_image, DrawParam::new().dest(selected_tile_pos)
-                    .src(normalize_rect(Rect::new( 9.0,  0.0,  9.0,  9.0), &self.spritesheet_image)));
+                canvas.draw(&self.spritesheet_image, DrawParam::new().dest(selected_tile_pos).src(self.tile_rects[1]));
             }
             canvas.draw(&self.spritesheet_image, DrawParam::new().dest(selected_tile_pos - 1.0)
                 .src(normalize_rect(Rect::new(62.0, 33.0, 11.0, 11.0), &self.spritesheet_image)));
@@ -292,9 +299,10 @@ impl Rendering {
         self.spritesheet.set(
             game.board
             .iter().enumerate().map(|(i, tile)| DrawParam::new().dest(index_to_draw_coord(&game, i))
-            .src(normalize_rect(
-                Rect::new(if *tile == minesweeper::TileType::Dug {18.0} else {0.0}, 0.0, 9.0, 9.0), &self.spritesheet_image))
-            )
+            // Draw a dug tile if the tile is dug (duh) or if we've lost the game and there's a mine there and there's not a flag there
+            .src(if *tile == minesweeper::TileType::Dug ||
+                (game.state == minesweeper::GameState::Lose && game.bombs.contains(&i) && game.board[i] != minesweeper::TileType::Flag)
+                { self.tile_rects[2] } else { self.tile_rects[0] }))
         );
         canvas.draw(&self.spritesheet, DrawParam::new().dest(Vec2::new(2.0, 2.0)));
 
@@ -303,29 +311,23 @@ impl Rendering {
             game.board.iter().enumerate()
             .filter(|(_, tile)| **tile == minesweeper::TileType::Flag)
             .map(|(i, _)| DrawParam::new().dest(index_to_draw_coord(&game, i))
-                .src(normalize_rect(
+                .src(
                 // I do two different if statements because i think it might be faster...
-                // TODO: Maybe a tile rect hashmap? could be good...
                 if game.state == minesweeper::GameState::Lose {
                     if !game.bombs.contains(&i) {
-                        Rect::new(0.0, 36.0, 9.0, 9.0)
+                        self.tile_rects[16]
                     } else {
-                        Rect::new(0.0, 27.0, 9.0, 9.0)
+                        self.tile_rects[12]
                     }
-                } else {
-                    Rect::new(0.0, 27.0, 9.0, 9.0)
-                }, &self.spritesheet_image)))
+                } else { self.tile_rects[12] }))
         );
         canvas.draw(&self.spritesheet, DrawParam::new().dest(Vec2::new(2.0, 2.0)));
 
         // Draw the numbers
-        // Funny moduluses and divisions.. i know
         self.spritesheet.set(
             game.neighbour_count.iter().enumerate()
             .filter(|(i, &n)| n > 0 && game.board[*i] == minesweeper::TileType::Dug)
-            .map(|(i, &n)| DrawParam::new().dest(index_to_draw_coord(&game, i)).src(
-                normalize_rect(Rect::new((((n-1) % 4) * 9) as f32, (((n+3) / 4) * 9) as f32, 9.0, 9.0), &self.spritesheet_image)
-            ))
+            .map(|(i, &n)| DrawParam::new().dest(index_to_draw_coord(&game, i)).src(self.tile_rects[n as usize+3]))
         );
         canvas.draw(&self.spritesheet, DrawParam::new().dest(Vec2::new(2.0, 2.0)));
 
