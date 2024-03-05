@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use ggez::{audio::{self, SoundSource}, glam::Vec2, graphics::{self, Canvas, Color, DrawParam, Image, InstanceArray, Rect}, winit::dpi::LogicalSize, Context, GameResult};
 use rand::Rng;
 
@@ -39,6 +41,11 @@ pub struct Rendering {
     pub losing_tile: Option<usize>,
     redraw_minefield: bool,
 
+    button_sprite_looking: bool,
+    button_sprite_last_look: Instant,
+    button_sprite_next_look: u128,
+    button_sprite_last_blink: Instant,
+    button_sprite_next_blink: u128,
     timer_value: Option<usize>,
     bombcounter_value: usize,
     bombcounter_value_vec: Vec<Option<usize>>,
@@ -78,6 +85,9 @@ impl Rendering {
             minefield_image: game_specifics.minefield_image,
             minefield_pos: Vec2::new(5.0, 24.0+menu_bar_height),
             redraw_minefield: true, exploded_bombs: vec![], losing_tile: None,
+            button_sprite_looking: rand::thread_rng().gen_bool(0.5),
+            button_sprite_last_look : Instant::now(), button_sprite_next_look : 0,
+            button_sprite_last_blink: Instant::now(), button_sprite_next_blink: 0,
             timer_value: None,
             bombcounter_value: usize::MAX, bombcounter_value_vec: vec![], bombcounter_digits: game_specifics.bombcounter_digits,
             explosion_sound, should_play_explosion: false,
@@ -211,7 +221,7 @@ impl Rendering {
         
         self.draw_bombcounter(canvas, game);
         self.draw_timer(canvas, game);
-        self.draw_button(canvas, game, button);
+        self.draw_button(canvas, game, button, selected_tile.1);
 
         // Render the minefield if we must
         if self.redraw_minefield {
@@ -228,7 +238,7 @@ impl Rendering {
                 canvas.draw(&self.spritesheet_image, DrawParam::new().dest(selected_tile_pos).src(self.tile_rects[1]));
             }
             canvas.draw(&self.spritesheet_image, DrawParam::new().dest(selected_tile_pos - 1.0)
-                .src(normalize_rect(Rect::new(73.0, 42.0, 11.0, 11.0), &self.spritesheet_image)));
+                .src(normalize_rect(Rect::new(85.0, 0.0, 11.0, 11.0), &self.spritesheet_image)));
         }
     }
 
@@ -296,10 +306,60 @@ impl Rendering {
             .src(normalize_rect(Rect::new(if self.timer_value.is_none() { 36.0 } else { 37.0 }, 28.0, 1.0, 5.0), &self.spritesheet_image)));
     }
 
-    fn draw_button(&mut self, canvas: &mut Canvas, game: &Minesweeper, button: &gui::Button) {
+    fn draw_button(&mut self, canvas: &mut Canvas, game: &Minesweeper, button: &gui::Button, pressing_tile: bool) {
+        let button_down = button.state == gui::button::State::Depressed;
+        
         draw_nineslice(canvas, &mut self.spritesheet,
-            Rect::new(if button.state == gui::button::State::Depressed {79.0} else {76.0}, 22.0, 3.0, 3.0), 1.0, button.rect);
+            Rect::new(if button_down {79.0} else {76.0}, 22.0, 3.0, 3.0), 1.0, 
+                if button_down { Rect::new(button.rect.x+1.0, button.rect.y+1.0, button.rect.w, button.rect.h)} else { button.rect });
 
+        let sprite = match game.state {
+            minesweeper::GameState::Win  => 3,
+            minesweeper::GameState::Lose => 4,
+            _ if pressing_tile && self.button_sprite_looking => 1 ,
+            _ if pressing_tile => 2 ,
+            _ => 0,
+        };
+
+        let sprite_pos = Vec2::new(button.rect.x, button.rect.y) + if button_down { 2.0 } else { 1.0 };
+        canvas.draw(&self.spritesheet_image, DrawParam::new().dest(sprite_pos)
+            .src(normalize_rect(Rect::new(sprite as f32*17.0, 36.0, 17.0, 17.0), &self.spritesheet_image)));
+
+        // Make the button blink
+        if self.button_sprite_last_blink.elapsed().as_millis() > self.button_sprite_next_blink && game.state != minesweeper::GameState::Lose {
+            // I COULD take the closed eyes from the dead sprite, but what if i want to change it later, huh?!
+            canvas.draw(&self.spritesheet_image, DrawParam::new().dest(sprite_pos + Vec2::new(3.0, 4.0))
+                .src(normalize_rect(Rect::new(0.0, 53.0, 11.0, 6.0), &self.spritesheet_image)));
+            // Reset the blink timer after 80 ms of blinking
+            if self.button_sprite_last_blink.elapsed().as_millis() > self.button_sprite_next_blink + 80 {
+                self.button_sprite_last_blink = Instant::now();
+                // If it's nervous we want it to blink a bit more rapidly
+                self.button_sprite_next_blink = rand::thread_rng().gen_range(match pressing_tile {
+                    true => 200..1500,
+                    _    => 500..3000,
+                });
+            }
+        }
+        // If their nervous, make them look back and forth
+        if self.button_sprite_last_look.elapsed().as_millis() > self.button_sprite_next_look {
+            // Draw middle eyes
+            if pressing_tile {
+                canvas.draw(&self.spritesheet_image, DrawParam::new().dest(sprite_pos + Vec2::new(3.0, 4.0))
+                .src(normalize_rect(Rect::new(11.0, 53.0, 11.0, 6.0), &self.spritesheet_image)));
+            }
+            // Look the other way after 60 ms of looking in the middle
+            if self.button_sprite_last_look.elapsed().as_millis() > self.button_sprite_next_look + 40 {
+                self.button_sprite_last_look = Instant::now();
+                self.button_sprite_next_look = rand::thread_rng().gen_range(700..2000);
+                self.button_sprite_looking = !self.button_sprite_looking;
+            }
+        }
+    }
+
+    // Called when we press the mouse down, used so when nervous, they start looking in the middle
+    pub fn reset_button_looking(&mut self) {
+        self.button_sprite_last_look = Instant::now();
+        self.button_sprite_next_look = 0;
     }
 
     // Renders the minefield to self.minefield_image, only should be called when the minefield is updated for efficiency
@@ -361,7 +421,6 @@ impl Rendering {
             );
             canvas.draw(&self.spritesheet, DrawParam::new().dest(Vec2::new(2.0, 2.0)));
         }
-
 
         canvas.finish(ctx)
     }

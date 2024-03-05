@@ -285,7 +285,10 @@ impl EventHandler for MainState {
         if !self.game.playing_state() { return Ok(()) }
 
         match button {
-            ggez::event::MouseButton::Left  => { if self.selected_tile_diggable() { self.holding_tile = true } },
+            ggez::event::MouseButton::Left  => {
+                self.rendering.reset_button_looking();
+                if self.selected_tile_diggable() { self.holding_tile = true }
+            },
             // FLAGGING
             ggez::event::MouseButton::Right => { self.flag(); },
             _ => {}
