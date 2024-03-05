@@ -81,7 +81,7 @@ impl Minesweeper {
             Difficulty::Custom(w, h, b) => {
                 // Ensure it matches the (somewhat arbitrary) limit.
                 let (width, height) = (w.min(MAX_WIDTH), h.min(MAX_HEIGHT));
-                let bomb_count = b.min(width*height-9);
+                let bomb_count = b.min((width-1)*(height-1));
                 (width, height, bomb_count)
             },
         }

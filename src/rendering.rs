@@ -1,12 +1,11 @@
-use std::collections::HashMap;
-
-use ggez::{glam::Vec2, graphics::{self, Canvas, Color, DrawParam, Image, InstanceArray, Rect}, winit::dpi::LogicalSize, Context, GameResult};
+use ggez::{audio::{self, SoundSource}, glam::Vec2, graphics::{self, Canvas, Color, DrawParam, Image, InstanceArray, Rect}, winit::dpi::LogicalSize, Context, GameResult};
 use rand::Rng;
 
 use crate::{gui::{self, button, text_renderer, Gui, TextRenderer}, minesweeper::{self, Minesweeper}};
 
 const SPRITESHEET_IMAGE_BYTES: &[u8] = include_bytes!("../resources/spritesheet.png");
 const ICON_IMAGE_BYTES: &[u8] = include_bytes!("../resources/icon.png");
+const EXPLOSION_SOUND_BYTES: &[u8] = include_bytes!("../resources/explosion.ogg");
 
 // TODO: Work out colours at runtime from the spritesheet file to make custom skins waaaay easier
 // (Also in general organize the spritesheet better!!!)
@@ -20,16 +19,14 @@ pub const SHADOW:     Color = Color { r:  24.0/255.0, g:  20.0/255.0, b:  37.0/2
 // Variables that change for every new game. This is good as it means we don't have to rebuild the entire renderer each time the game changes.
 struct GameSpecifics {
     pub window_size: Vec2,
-    pub window_middle: Vec2,
     pub minefield_image: Image,
     pub bombcounter_digits: usize,
 }
 pub struct Rendering {
     tr: TextRenderer,
     scale_factor: f32, // Can only be a whole number but stored as a float to make calculations easier (and probably quicker)
-    window_size: Vec2,
-    window_middle: Vec2,
-    menu_bar_height: f32, // Needed for some calculations, better to keep it rather than ask for it each time we call new_game
+    pub window_size: Vec2,
+    pub menu_bar_height: f32, // Needed for some calculations, better to keep it rather than ask for it each time we call new_game
 
     spritesheet_image: Image,
     spritesheet: InstanceArray,
@@ -37,14 +34,18 @@ pub struct Rendering {
 
     minefield_image: Image,
     pub minefield_pos: Vec2,
-    exploded_bombs: Vec<usize>, // Vec of all the bombs to be drawn as explosions rather than bombs
+    pub exploded_bombs: Vec<usize>, // Vec of all the bombs to be drawn as explosions rather than bombs
+
     pub losing_tile: Option<usize>,
     redraw_minefield: bool,
 
     timer_value: Option<usize>,
     bombcounter_value: usize,
     bombcounter_value_vec: Vec<Option<usize>>,
-    bombcounter_digits: usize
+    bombcounter_digits: usize,
+
+    should_play_explosion: bool,
+    explosion_sound: audio::Source,
 }
 
 impl Rendering {
@@ -64,18 +65,22 @@ impl Rendering {
         let (tile_amount_x, tile_amount_y) = (4, 5);
         let tile_rects: Vec<Rect> = (0..tile_amount_x*tile_amount_y).into_iter().map(|i|
             normalize_rect(Rect::new((i%tile_amount_x) as f32 * 9.0, (i/tile_amount_x) as f32 * 9.0, 9.0, 9.0), &spritesheet_image)).collect();
+        
+        let explosion_sound_data = audio::SoundData::from_bytes(EXPLOSION_SOUND_BYTES);
+        let explosion_sound = audio::Source::from_data(ctx, explosion_sound_data).expect("Unable to load explosion sound from bytes!!! :c");
 
         // Generate game-specific things
         let game_specifics = Rendering::generate_game_specifics(ctx, board, menu_bar_height);
 
         let mut r = Rendering {
-            tr, scale_factor: 1.0, window_size: game_specifics.window_size, window_middle: game_specifics.window_middle, menu_bar_height,
+            tr, scale_factor: 1.0, window_size: game_specifics.window_size, menu_bar_height,
             spritesheet_image, spritesheet, tile_rects,
             minefield_image: game_specifics.minefield_image,
             minefield_pos: Vec2::new(5.0, 24.0+menu_bar_height),
             redraw_minefield: true, exploded_bombs: vec![], losing_tile: None,
             timer_value: None,
             bombcounter_value: usize::MAX, bombcounter_value_vec: vec![], bombcounter_digits: game_specifics.bombcounter_digits,
+            explosion_sound, should_play_explosion: false,
         };
 
         // TODO: Window icon (right now it's all blurry too!!!)
@@ -92,11 +97,11 @@ impl Rendering {
     pub fn new_game(&mut self, ctx: &mut Context, board: (usize, usize, usize)) {
         let game_specifics = Rendering::generate_game_specifics(ctx, board, self.menu_bar_height);
         self.window_size        = game_specifics.window_size;
-        self.window_middle      = game_specifics.window_middle;
         self.minefield_image    = game_specifics.minefield_image;
         self.timer_value        = None;
         self.losing_tile        = None;
         self.bombcounter_digits = game_specifics.bombcounter_digits;
+        self.exploded_bombs.clear();
         self.redraw_minefield();
         // Work out the new scale factor and resize the window
         let new_scale_factor = self.scale_factor;
@@ -114,7 +119,7 @@ impl Rendering {
             minefield_image.height() as f32 + minefield_padding.0 + minefield_padding.1 + menu_bar_height
         );
         let bombcounter_digits = (board.2.checked_ilog10().unwrap_or(0) + 1) as usize;
-        GameSpecifics { window_size, window_middle: window_size / 2.0, minefield_image, bombcounter_digits }
+        GameSpecifics { window_size, minefield_image, bombcounter_digits }
     }
 
     // Resizes the window to a multiple
@@ -134,22 +139,29 @@ impl Rendering {
         Vec2 { x: real_mouse_pos.x / self.scale_factor, y: real_mouse_pos.y / self.scale_factor }
     }
 
-    // Renders the whole frame
-    pub fn render(&mut self, ctx: &mut Context, gui: &Gui, game: &Minesweeper, selected_tile: Option<usize>, selection_depressed: bool) -> GameResult {
+    // Draws the whole frame
+    pub fn draw(&mut self, ctx: &mut Context, gui: &Gui, game: &Minesweeper, selected_tile: (Option<usize>, bool), button: &gui::Button) -> GameResult {
         let mut canvas = Canvas::from_frame(ctx, Color::from_rgb(192, 203, 220));
         canvas.set_screen_coordinates(Rect::new(0.0, 0.0, self.window_size.x, self.window_size.y));
         canvas.set_sampler(graphics::FilterMode::Nearest);
 
-        self.render_game(ctx, &mut canvas, game, if game.playing_state() { selected_tile } else { None }, selection_depressed);
-        self.render_gui(&mut canvas, gui);
+        self.draw_game(ctx, &mut canvas, game, if game.playing_state() { selected_tile } else { (None, false) }, button);
+        self.draw_gui(&mut canvas, gui);
+
+        if self.should_play_explosion {
+            self.should_play_explosion = false;
+            self.explosion_sound.set_volume(0.2);
+            let _ = self.explosion_sound.play_detached(ctx);
+            // I'm not really too bothered if the sound fails to play
+        }
 
         canvas.finish(ctx)
     }
 
-    pub fn render_gui(&mut self, canvas: &mut Canvas, gui: &Gui) {
-        // Render the menu bar
+    fn draw_gui(&mut self, canvas: &mut Canvas, gui: &Gui) {
+        // Draw the menu bar
         // Draw the background/border of the menu bar (a tad wasteful as only the top, middle, and bottom are showing but meh)
-        draw_nineslice(canvas, &mut self.spritesheet, Rect::new(55.0, 36.0, 3.0, 3.0), 1.0, Rect::new(-1.0, 0.0, self.window_size.x+2.0, self.menu_bar_height));
+        draw_nineslice(canvas, &mut self.spritesheet, Rect::new(76.0, 22.0, 3.0, 3.0), 1.0, Rect::new(-1.0, 0.0, self.window_size.x+2.0, self.menu_bar_height));
 
         // Render each button at the top
         for (i, menu_item) in gui.menu_bar.items.iter().enumerate() {
@@ -165,14 +177,14 @@ impl Rendering {
             self.tr.draw_text(canvas, &menu_item.button.label, DrawParam::new().color(text_col).dest(menu_item.button.text_pos()));
         }
 
-        // Render the dropdown menu, if there is one
+        // Draw the dropdown menu, if there is one
         if let Some(current_item) = gui.menu_bar.current_item {
             let dropdown = &gui.menu_bar.items[current_item].dropdown;
             // Draw the shadow of it
             canvas.draw(&graphics::Quad, DrawParam::new().color(SHADOW)
                 .dest_rect(Rect::new(dropdown.rect.x + 2.0, dropdown.rect.y + 2.0, dropdown.rect.w, dropdown.rect.h)));
             // Draw the border of it
-            draw_nineslice(canvas, &mut self.spritesheet, Rect::new(55.0, 39.0, 3.0, 3.0), 1.0, dropdown.rect);
+            draw_nineslice(canvas, &mut self.spritesheet, Rect::new(76.0, 22.0, 3.0, 3.0), 1.0, dropdown.rect);
             // Draw each element of the dropdown menu
             for dropdown_item in dropdown.items.iter() {
                 match dropdown_item {
@@ -195,10 +207,11 @@ impl Rendering {
     }
 
     // Draws the minefield, bomb counter, timer, etc
-    pub fn render_game(&mut self, ctx: &mut Context, canvas: &mut Canvas, game: &Minesweeper, selected_tile: Option<usize>, selection_depressed: bool) {
+    fn draw_game(&mut self, ctx: &mut Context, canvas: &mut Canvas, game: &Minesweeper, selected_tile: (Option<usize>, bool), button: &gui::Button) {
         
-        self.render_bombcounter(canvas, game);
-        self.render_timer(canvas, game);
+        self.draw_bombcounter(canvas, game);
+        self.draw_timer(canvas, game);
+        self.draw_button(canvas, game, button);
 
         // Render the minefield if we must
         if self.redraw_minefield {
@@ -208,21 +221,21 @@ impl Rendering {
         // Draw the minefield
         canvas.draw(&self.minefield_image, DrawParam::new().dest(self.minefield_pos));
         // Draw the selected tile / depressed tile if one is being held
-        if let Some(selected_tile_index) = selected_tile {
+        if let Some(selected_tile_index) = selected_tile.0 {
             let selected_tile_pos = index_to_draw_coord(game, selected_tile_index) + self.minefield_pos + 2.0;
 
-            if selection_depressed {
+            if selected_tile.1 {
                 canvas.draw(&self.spritesheet_image, DrawParam::new().dest(selected_tile_pos).src(self.tile_rects[1]));
             }
             canvas.draw(&self.spritesheet_image, DrawParam::new().dest(selected_tile_pos - 1.0)
-                .src(normalize_rect(Rect::new(62.0, 33.0, 11.0, 11.0), &self.spritesheet_image)));
+                .src(normalize_rect(Rect::new(73.0, 42.0, 11.0, 11.0), &self.spritesheet_image)));
         }
     }
 
-    pub fn render_bombcounter(&mut self, canvas: &mut Canvas, game: &Minesweeper) {
+    fn draw_bombcounter(&mut self, canvas: &mut Canvas, game: &Minesweeper) {
         let pos = Vec2::new(7.0, self.menu_bar_height + 3.0);
         // Draw the background
-        draw_nineslice(canvas, &mut self.spritesheet, Rect::new(36.0, 39.0, 3.0, 3.0), 1.0,
+        draw_nineslice(canvas, &mut self.spritesheet, Rect::new(76.0, 14.0, 3.0, 3.0), 1.0,
             Rect::new(pos.x, pos.y, (self.bombcounter_digits*10) as f32 + 4.0, 18.0));
 
         // Update the digits if they've changed
@@ -250,10 +263,10 @@ impl Rendering {
         canvas.draw(&self.spritesheet, DrawParam::new().dest(pos + Vec2::new(3.0, 2.0)));
     }
 
-    pub fn render_timer(&mut self, canvas: &mut Canvas, game: &Minesweeper) {
+    fn draw_timer(&mut self, canvas: &mut Canvas, game: &Minesweeper) {
         let pos = Vec2::new(self.window_size.x - 28.0, self.menu_bar_height + 7.0);
         // Draw the background
-        draw_nineslice(canvas, &mut self.spritesheet, Rect::new(39.0, 39.0, 3.0, 3.0), 1.0, Rect::new(pos.x, pos.y, 21.0, 9.0));
+        draw_nineslice(canvas, &mut self.spritesheet, Rect::new(79.0, 14.0, 3.0, 3.0), 1.0, Rect::new(pos.x, pos.y, 21.0, 9.0));
 
         self.timer_value = match game.state {
             minesweeper::GameState::Playing => Some(game.start_time.elapsed().as_secs() as usize),
@@ -283,29 +296,35 @@ impl Rendering {
             .src(normalize_rect(Rect::new(if self.timer_value.is_none() { 36.0 } else { 37.0 }, 28.0, 1.0, 5.0), &self.spritesheet_image)));
     }
 
+    fn draw_button(&mut self, canvas: &mut Canvas, game: &Minesweeper, button: &gui::Button) {
+        draw_nineslice(canvas, &mut self.spritesheet,
+            Rect::new(if button.state == gui::button::State::Depressed {79.0} else {76.0}, 22.0, 3.0, 3.0), 1.0, button.rect);
 
-    pub fn redraw_minefield(&mut self) {
-        self.redraw_minefield = true;
     }
+
     // Renders the minefield to self.minefield_image, only should be called when the minefield is updated for efficiency
-    pub fn render_minefield(&mut self, ctx: &mut Context, game: &Minesweeper) -> GameResult {
+    fn render_minefield(&mut self, ctx: &mut Context, game: &Minesweeper) -> GameResult {
         println!("redrew the minefield {:?}", rand::thread_rng().gen_range(10..100));
 
         let mut canvas = graphics::Canvas::from_image(ctx, self.minefield_image.clone(), LIGHT_GRAY);
         canvas.set_sampler(graphics::FilterMode::Nearest);
 
         // Draw the border
-        draw_nineslice(&mut canvas, &mut self.spritesheet, Rect::new(36.0, 34.0, 5.0, 5.0), 2.0,
+        draw_nineslice(&mut canvas, &mut self.spritesheet, Rect::new(76.0, 17.0, 5.0, 5.0), 2.0,
             Rect::new(0.0, 0.0, self.minefield_image.width() as f32, self.minefield_image.height() as f32));
         // Draw the tiles
         self.spritesheet.set(
             game.board
             .iter().enumerate().map(|(i, tile)| DrawParam::new().dest(index_to_draw_coord(&game, i))
-            // Draw a dug tile if the tile is dug (duh) or if we've lost the game and there's a mine there and there's not a flag there
-            .src(if self.losing_tile.is_some_and(|t| t == i) { self.tile_rects[3] }
+            .src(self.tile_rects[
+                // If this is the losing tile, draw it in red!
+                if self.losing_tile.is_some_and(|t| t == i) { 3 }
+                // If this tile is dug, or if we've lost the game AND a mine is here AND there's not a flag there, draw a dug
                 else if *tile == minesweeper::TileType::Dug ||
-                (game.state == minesweeper::GameState::Lose && game.bombs.contains(&i) && game.board[i] != minesweeper::TileType::Flag)
-                { self.tile_rects[2] } else { self.tile_rects[0] }))
+                (game.state == minesweeper::GameState::Lose && game.bombs.contains(&i) && game.board[i] != minesweeper::TileType::Flag) { 2 }
+                // Otherwise draw an unopened tile
+                else { 0 }
+            ]))
         );
         canvas.draw(&self.spritesheet, DrawParam::new().dest(Vec2::new(2.0, 2.0)));
 
@@ -314,15 +333,12 @@ impl Rendering {
             game.board.iter().enumerate()
             .filter(|(_, tile)| **tile == minesweeper::TileType::Flag)
             .map(|(i, _)| DrawParam::new().dest(index_to_draw_coord(&game, i))
-                .src(
-                // I do two different if statements because i think it might be faster...
-                if game.state == minesweeper::GameState::Lose {
-                    if !game.bombs.contains(&i) {
-                        self.tile_rects[16]
-                    } else {
-                        self.tile_rects[12]
-                    }
-                } else { self.tile_rects[12] }))
+                .src(self.tile_rects[
+                    // If we've lost the game and this flag was incorrect, draw it as a crossed out incorrect flag
+                    if game.state == minesweeper::GameState::Lose && !game.bombs.contains(&i) { 13 }
+                    // Otherwise just draw a normal flags
+                    else { 12 }
+                ]))
         );
         canvas.draw(&self.spritesheet, DrawParam::new().dest(Vec2::new(2.0, 2.0)));
 
@@ -339,8 +355,8 @@ impl Rendering {
             self.spritesheet.set(
                 game.bombs.iter().filter(|&&i| game.board[i] == minesweeper::TileType::Unopened || game.board[i] == minesweeper::TileType::Dug)
                 .map(|&i| DrawParam::new().src(match self.exploded_bombs.contains(&i) {
-                    false => self.tile_rects[13],
-                    true  => self.tile_rects[14],
+                    false => self.tile_rects[14],
+                    true  => self.tile_rects[15],
                 }).dest(index_to_draw_coord(&game, i)))
             );
             canvas.draw(&self.spritesheet, DrawParam::new().dest(Vec2::new(2.0, 2.0)));
@@ -348,6 +364,14 @@ impl Rendering {
 
 
         canvas.finish(ctx)
+    }
+
+    // These functions are a public way to tell the renderer to do something without exposing internal stuff and making a mess
+    pub fn redraw_minefield(&mut self) {
+        self.redraw_minefield = true;
+    }
+    pub fn play_explosion_sound(&mut self) {
+        self.should_play_explosion = true;
     }
 }
 
