@@ -1,4 +1,5 @@
 use ggez::glam::Vec2;
+use ggez::input::keyboard::KeyCode;
 use ggez::{event::EventHandler, Context, GameResult};
 
 use crate::gui::{Gui, MenuBar};
@@ -7,11 +8,12 @@ use crate::rendering::Rendering;
 
 pub struct MainState {
     game: Minesweeper,
-    // The 'Minesweeper' game class should be a black box that you can query, and not be linked with this programs rendering or logic code
-    // That's why 'selected_tile' is defined here. 
+    // The 'Minesweeper' game struct should be a black box that you can query, and not be linked with this programs rendering or logic code
+    // That's why some minesweeper related things are defined here
+    difficulty: minesweeper::Difficulty,
     selected_tile: Option<usize>,
-    holding_tile: bool,
-    erasing_flags: bool,
+    holding_tile: bool,  // If we're holding down the mouse on a tile
+    erasing_flags: bool, // If we're erasing flags or not
 
     gui: Gui,
     rendering: Rendering,
@@ -19,7 +21,8 @@ pub struct MainState {
 
 impl MainState {
     pub fn new(ctx: &mut Context) -> MainState {
-        let game = Minesweeper::new(10, 10, 9);
+        let difficulty = minesweeper::Difficulty::Easy;
+        let game = Minesweeper::new(difficulty);
         let tr = Rendering::new_text_renderer(ctx);
 
         /* Maybe dropdowns could work like this
@@ -52,7 +55,7 @@ impl MainState {
             (String::from("Game"),  0.0, vec![
                 Some(String::from("New game")),
                 None,
-                Some(String::from("Easy      ¬¬9*9,¬10")),
+                Some(String::from("Easy    10*10, 9")),
                 Some(String::from("Normal 15*13,40")),
                 Some(String::from("Hard   30*16,99")),
                 Some(String::from("Custom...")),
@@ -70,11 +73,16 @@ impl MainState {
         let rendering = Rendering::new(ctx, tr, (game.width, game.height, game.bomb_count), menu_bar.height+2.0);
 
         let gui = Gui::new(menu_bar);
-        MainState { game, rendering, gui, selected_tile: Some(42), holding_tile: false, erasing_flags: false }
+        MainState {
+            game, difficulty,
+            selected_tile: None, holding_tile: false, erasing_flags: false,
+            gui, rendering
+        }
     }
 
-    fn new_game(&mut self, ctx: &mut Context, width: usize, height: usize, bomb_count: usize) {
-        self.game = Minesweeper::new(width, height, bomb_count);
+    fn new_game(&mut self, ctx: &mut Context, difficulty: minesweeper::Difficulty) {
+        self.difficulty = difficulty;
+        self.game = Minesweeper::new(self.difficulty);
         self.rendering.new_game(ctx, (self.game.width, self.game.height, self.game.bomb_count));
     }
 
@@ -82,7 +90,7 @@ impl MainState {
         self.selected_tile.is_some_and(|s| self.game.board[s] == minesweeper::TileType::Unopened)
     }
 
-    // Returns if the mouse was over the GUI
+    // Updates the gui, returns if the mouse was over the GUI
     fn gui_logic(&mut self, ctx: &mut Context, mouse_pos: Vec2) -> bool {
         self.gui.update(mouse_pos, crate::gui::MousePressMode::None);
         // TODO: Add confirmation pop-ups and text boxes.
@@ -92,17 +100,20 @@ impl MainState {
             ctx.request_quit();
         }
         // Make new games if the buttons are pressed
+        if self.gui.menu_bar.menu_button_pressed(0, 0) {
+            self.new_game(ctx, self.difficulty);
+        }
         if self.gui.menu_bar.menu_button_pressed(0, 2) {
-            self.new_game(ctx, 10, 10, 11);
+            self.new_game(ctx, minesweeper::Difficulty::Easy);
         }
         if self.gui.menu_bar.menu_button_pressed(0, 3) {
-            self.new_game(ctx, 15, 13, 40);
+            self.new_game(ctx, minesweeper::Difficulty::Normal);
         }
         if self.gui.menu_bar.menu_button_pressed(0, 4) {
-            self.new_game(ctx, 30, 16, 99);
+            self.new_game(ctx, minesweeper::Difficulty::Hard);
         }
         if self.gui.menu_bar.menu_button_pressed(0, 5) {
-            self.new_game(ctx, 200, 100, 250);
+            self.new_game(ctx, minesweeper::Difficulty::Custom(200, 100, 250));
         }
         // Update scale factor if one of the scale buttons is pressed
         for i in 0..8 {
@@ -143,6 +154,7 @@ impl MainState {
         self.rendering.redraw_minefield();
 
         // Check if this made us win the game or not...
+        self.game.state = minesweeper::GameState::Lose;
     }
 
     fn flag(&mut self) {
@@ -177,16 +189,27 @@ impl EventHandler for MainState {
     }
 
     fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: ggez::event::MouseButton, x: f32, y: f32) -> GameResult {
+        // Update the gui
+        self.gui.update(self.rendering.scaled_mouse_pos(x, y), crate::gui::MousePressMode::Down);
+
+        // If we're not playing the game, we don't wanna interact with it now, do we?
+        if !self.game.playing_state() { return Ok(()) }
+
         match button {
             ggez::event::MouseButton::Left  => { if self.selected_tile_diggable() { self.holding_tile = true } },
             // FLAGGING
             ggez::event::MouseButton::Right => { self.flag(); },
             _ => {}
         }
-        self.gui.update(self.rendering.scaled_mouse_pos(x, y), crate::gui::MousePressMode::Down);
         Ok(())
     }
     fn mouse_button_up_event(&mut self, _ctx: &mut Context, button: ggez::event::MouseButton, x: f32, y: f32) -> GameResult {
+        // Update the gui
+        self.gui.update(self.rendering.scaled_mouse_pos(x, y), crate::gui::MousePressMode::Up);
+
+        // If we're not playing the game, we don't wanna interact with it!!
+        if !self.game.playing_state() { return Ok(()) }
+
         match button {
             // Digging!
             ggez::event::MouseButton::Left  => {
@@ -200,7 +223,19 @@ impl EventHandler for MainState {
             }
             _ => {}
         }
-        self.gui.update(self.rendering.scaled_mouse_pos(x, y), crate::gui::MousePressMode::Up);
+        Ok(())
+    }
+
+    // Temporary, for testing
+    fn key_down_event(
+            &mut self,
+            ctx: &mut Context,
+            input: ggez::input::keyboard::KeyInput,
+            _repeated: bool,
+        ) -> Result<(), ggez::GameError> {
+        if input.keycode == Some(KeyCode::Space) {
+            self.game.state = minesweeper::GameState::Lose;
+        }
         Ok(())
     }
 }

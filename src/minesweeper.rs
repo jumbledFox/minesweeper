@@ -2,6 +2,14 @@ use std::time::Instant;
 
 use rand::prelude::*;
 
+const MAX_WIDTH : usize = 200;
+const MAX_HEIGHT: usize = 100;
+
+#[derive(Clone, Copy)]
+pub enum Difficulty {
+    Easy, Normal, Hard, Custom(usize, usize, usize)
+}
+
 #[derive(PartialEq)]
 pub enum GameState {
     Prelude, Playing, Win, Lose
@@ -34,20 +42,13 @@ pub struct Minesweeper {
 
     pub state: GameState,
     pub start_time: Instant,
-    
-    // Rendering
-    // Used for the lose animation, holds the indexes of all of the bombs that should be drawn as an explosion rather than a bomb.
-    // pub selected_tile: Option<usize>,
-    pub exploded_bombs: Vec<usize>,
 }
 
 impl Minesweeper {
-    pub fn new(width: usize, height: usize, bomb_count: usize) -> Minesweeper {
+    pub fn new(difficulty: Difficulty) -> Minesweeper {
+        let (width, height, bomb_count) = Minesweeper::difficulty_values(difficulty);
         let size = width*height;
 
-        if bomb_count > size.saturating_sub(9) {
-            println!("Bomb count is bigger than max! you silly goose :P");
-        }
         let bomb_count = bomb_count.min(size - 9);
 
         let mut board = Vec::with_capacity(size);
@@ -68,9 +69,28 @@ impl Minesweeper {
 
         Minesweeper { width, height, bomb_count,
             board, bombs, neighbour_count,
-            // selected_tile: Some(width + 1),
             state: GameState::Prelude, start_time: Instant::now(),
-            exploded_bombs: vec![]
+        }
+    }
+
+    pub fn difficulty_values(difficulty: Difficulty) -> (usize, usize, usize) {
+        match difficulty {
+            Difficulty::Easy   => (10, 10,  9),
+            Difficulty::Normal => (15, 13, 40),
+            Difficulty::Hard   => (30, 16, 99),
+            Difficulty::Custom(w, h, b) => {
+                // Ensure it matches the (somewhat arbitrary) limit.
+                let (width, height) = (w.min(MAX_WIDTH), h.min(MAX_HEIGHT));
+                let bomb_count = b.min(width*height-9);
+                (width, height, bomb_count)
+            },
+        }
+    }
+
+    pub fn playing_state(&self) -> bool {
+        match self.state {
+            GameState::Prelude | GameState::Playing => true,
+            _ => false,
         }
     }
 

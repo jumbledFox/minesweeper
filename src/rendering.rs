@@ -33,6 +33,7 @@ pub struct Rendering {
     spritesheet: InstanceArray,
     minefield_image: Image,
     pub minefield_pos: Vec2,
+    exploded_bombs: Vec<usize>, // Vec of all the bombs to be drawn as explosions rather than bombs
     redraw_minefield: bool,
 
     timer_value: Option<usize>,
@@ -63,7 +64,7 @@ impl Rendering {
             spritesheet_image, spritesheet,
             minefield_image: game_specifics.minefield_image,
             minefield_pos: Vec2::new(5.0, 24.0+menu_bar_height),
-            redraw_minefield: true,
+            redraw_minefield: true, exploded_bombs: vec![],
             timer_value: None,
             bombcounter_value: usize::MAX, bombcounter_value_vec: vec![], bombcounter_digits: game_specifics.bombcounter_digits,
         };
@@ -129,7 +130,7 @@ impl Rendering {
         canvas.set_screen_coordinates(Rect::new(0.0, 0.0, self.window_size.x, self.window_size.y));
         canvas.set_sampler(graphics::FilterMode::Nearest);
 
-        self.render_game(ctx, &mut canvas, game, selected_tile, selection_depressed);
+        self.render_game(ctx, &mut canvas, game, if game.playing_state() { selected_tile } else { None }, selection_depressed);
         self.render_gui(&mut canvas, gui);
 
         canvas.finish(ctx)
@@ -248,8 +249,10 @@ impl Rendering {
         self.timer_value = match game.state {
             minesweeper::GameState::Playing => Some(game.start_time.elapsed().as_secs() as usize),
             minesweeper::GameState::Prelude => None,
-            _ => self.timer_value,
+            _ => Some(self.timer_value.unwrap_or(0)), // If SOMEHOW (should never happen but it's good just in case)
+                                                      // your first go is a loss/win, make the timer say 0 instead of being blank
         };
+
         // The different numbers of the timer (and how far along they should be drawn
         let t = self.timer_value.unwrap_or_default();
         let timer_values = [(0.0, (t / 600) % 10),  (4.0, (t / 60) % 10),  (10.0, (t / 10) % 6),  (14.0, (t % 10))];
@@ -300,7 +303,18 @@ impl Rendering {
             game.board.iter().enumerate()
             .filter(|(_, tile)| **tile == minesweeper::TileType::Flag)
             .map(|(i, _)| DrawParam::new().dest(index_to_draw_coord(&game, i))
-                .src(normalize_rect(Rect::new(0.0, 27.0, 9.0, 9.0), &self.spritesheet_image)))
+                .src(normalize_rect(
+                // I do two different if statements because i think it might be faster...
+                // TODO: Maybe a tile rect hashmap? could be good...
+                if game.state == minesweeper::GameState::Lose {
+                    if !game.bombs.contains(&i) {
+                        Rect::new(0.0, 36.0, 9.0, 9.0)
+                    } else {
+                        Rect::new(0.0, 27.0, 9.0, 9.0)
+                    }
+                } else {
+                    Rect::new(0.0, 27.0, 9.0, 9.0)
+                }, &self.spritesheet_image)))
         );
         canvas.draw(&self.spritesheet, DrawParam::new().dest(Vec2::new(2.0, 2.0)));
 
