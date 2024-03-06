@@ -8,6 +8,8 @@ pub mod gui;
 pub mod rendering;
 pub mod game;
 
+pub mod gui_ideas;
+
 fn main() {
     // Make a Context.
     let (mut ctx, event_loop) = ContextBuilder::new("Minesweeper", "jumbledFox")

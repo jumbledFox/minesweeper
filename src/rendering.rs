@@ -355,7 +355,7 @@ impl Rendering {
                 canvas.draw(&self.spritesheet_image, DrawParam::new().dest(sprite_pos + Vec2::new(3.0, 4.0))
                 .src(normalize_rect(Rect::new(11.0, 53.0, 11.0, 6.0), &self.spritesheet_image)));
             }
-            // Look the other way after 60 ms of looking in the middle
+            // Look the other way after 40 ms of looking in the middle
             if self.button_sprite_last_look.elapsed().as_millis() > self.button_sprite_next_look + 40 {
                 self.button_sprite_last_look = Instant::now();
                 self.button_sprite_next_look = rand::thread_rng().gen_range(700..2000);
