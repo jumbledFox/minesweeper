@@ -100,12 +100,15 @@ impl Minesweeper {
             if *tile == TileType::Unopened {
                 if self.state == GameState::Prelude {
                     // Generate the board, bombs and stuff
-        
+                    
                     // Start the timer
                     self.start_time = Instant::now();
                     self.state = GameState::Playing;
                 }
                 *tile = TileType::Dug;
+                if self.bombs.contains(&index) {
+                    self.state = GameState::Lose;
+                }
                 return true;
             }
         }

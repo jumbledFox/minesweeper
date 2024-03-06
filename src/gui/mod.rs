@@ -2,11 +2,13 @@ pub mod text_renderer;
 pub mod button;
 pub mod menu_bar;
 pub mod dropdown;
+pub mod popup;
 use ggez::glam::Vec2;
 pub use text_renderer::TextRenderer;
 pub use button::Button;
 pub use menu_bar::MenuBar;
 pub use dropdown::Dropdown;
+pub use popup::Popup;
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum MousePressMode {
@@ -14,6 +16,7 @@ pub enum MousePressMode {
 }
 pub struct Gui {
     pub menu_bar: MenuBar,
+    pub popup: Option<Popup>,
     hovered_on_gui: bool,
 }
 
@@ -21,22 +24,30 @@ pub struct Gui {
 
 impl Gui {
     pub fn new(menu_bar: MenuBar) -> Gui {
-        Gui { menu_bar, hovered_on_gui: false }
+        Gui { menu_bar, hovered_on_gui: false, popup: None }
     }
     pub fn update(&mut self, mouse_pos: Vec2, mouse_mode: MousePressMode) {
         self.menu_bar.update(mouse_pos, mouse_mode);
-        if self.menu_bar.hovering_over {
+        if let Some(popup) = self.popup.as_mut() {
+            popup.update(mouse_pos);
+        }
+
+        if self.hovering()  {
             self.hovered_on_gui = true;
         }
     }
-    pub fn hovering(&mut self, mouse_pos: Vec2) -> bool {
+    pub fn hovering(&self) -> bool {
         // TODO: make better?
-        self.menu_bar.hovering_over
+        self.menu_bar.hovering_over || self.popup.as_ref().is_some_and(|p| p.hovering_over)
     }
     pub fn check_and_reset_hover_flag(&mut self) -> bool {
         if self.hovered_on_gui {
             self.hovered_on_gui = false;
             return true;
         } else { false }
+    }
+
+    pub fn popup(&mut self, kind: popup::PopupKind, window_middle: Vec2) {
+        self.popup = Some(Popup::new(kind, window_middle))
     }
 }

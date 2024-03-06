@@ -139,6 +139,9 @@ impl Rendering {
         ctx.gfx.window().set_inner_size(LogicalSize::new(self.window_size.x * self.scale_factor, self.window_size.y * self.scale_factor));
     }
 
+    pub fn window_middle(&self) -> Vec2 {
+        (self.window_size + Vec2::new(0.0, self.menu_bar_height)) / 2.0
+    }
     // Turns an x y coordinate on the window to a scaled down mouse position
     pub fn scaled_mouse_pos(&self, x: f32, y: f32) -> Vec2 {
         Vec2 { x: x / self.scale_factor, y: y / self.scale_factor }
@@ -169,6 +172,11 @@ impl Rendering {
     }
 
     fn draw_gui(&mut self, canvas: &mut Canvas, gui: &Gui) {
+        // Draw the popup if there is one
+        if let Some(popup) = &gui.popup {
+            draw_nineslice(canvas, &mut self.spritesheet, Rect::new(76.0, 22.0, 3.0, 3.0), 1.0,  popup.rect);
+        }
+
         // Draw the menu bar
         // Draw the background/border of the menu bar (a tad wasteful as only the top, middle, and bottom are showing but meh)
         draw_nineslice(canvas, &mut self.spritesheet, Rect::new(76.0, 22.0, 3.0, 3.0), 1.0, Rect::new(-1.0, 0.0, self.window_size.x+2.0, self.menu_bar_height));

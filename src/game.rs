@@ -115,8 +115,9 @@ impl MainState {
         // Exiting
         if self.gui.menu_bar.menu_button_pressed(0, 7) {
             // gui.popup(Popup::Quit);
-            ctx.gfx.window().set_visible(false);
-            ctx.request_quit();
+            self.gui.popup(gui::popup::PopupKind::Exit, self.rendering.window_middle());
+            // ctx.gfx.window().set_visible(false);
+            // ctx.request_quit();
         }
         // Make new games if the buttons are pressed
         if self.gui.menu_bar.menu_button_pressed(0, 0) {
@@ -142,7 +143,7 @@ impl MainState {
             }
         }
 
-        self.gui.hovering(mouse_pos)
+        self.gui.hovering()
     }
 
     fn selected_tile_logic(&mut self, mouse_pos: Vec2) {
@@ -201,7 +202,7 @@ impl MainState {
         if !self.game.dig(selected_tile) { return; }
         
         // Check if this made us lose the game
-        if self.game.bombs.contains(&selected_tile) {
+        if self.game.state == minesweeper::GameState::Lose {
             self.rendering.losing_tile = Some(selected_tile);
             self.explode_bomb(Some(selected_tile));
             self.lose();
@@ -276,7 +277,7 @@ impl EventHandler for MainState {
     fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: ggez::event::MouseButton, x: f32, y: f32) -> GameResult {
         let mouse_pos = self.rendering.scaled_mouse_pos(x, y);
         // Update our button if we're not hovering over the gui
-        if !self.gui.hovering(mouse_pos) {
+        if !self.gui.hovering() {
             self.button.update(mouse_pos, gui::MousePressMode::Down);
         }
         // Update the gui
@@ -298,7 +299,7 @@ impl EventHandler for MainState {
     fn mouse_button_up_event(&mut self, _ctx: &mut Context, button: ggez::event::MouseButton, x: f32, y: f32) -> GameResult {
         let mouse_pos = self.rendering.scaled_mouse_pos(x, y);
         // Update our button if we're not hovering over the gui
-        if !self.gui.hovering(mouse_pos) {
+        if !self.gui.hovering() {
             self.button.update(mouse_pos, gui::MousePressMode::Up);
         }
         // Update the gui
