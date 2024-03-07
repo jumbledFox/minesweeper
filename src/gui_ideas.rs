@@ -1,7 +1,9 @@
+use std::any::Any;
+
 use ggez::{glam::Vec2, graphics::{Canvas, Color, DrawParam, Rect}};
 
 
-pub enum Renderer {
+pub struct Renderer {
 
 }
 impl Renderer {
@@ -30,10 +32,15 @@ pub enum MouseAction {
     None, Down, Up,
 }
 
-trait GuiElement {
-    // Returns if the mouse was captured by this element (as in hovering, etc)
+pub trait GuiElement {
+    // Updates the GUI element with the mouse. returns if the mouse was captured by this element (as in hovering, etc)
     fn update(&mut self, _mouse_pos: Vec2, _mouse_action: MouseAction, _parent_pos: Vec2) -> bool { false }
-    fn draw(&self, _parent_pos: Vec2, _canvas: &mut Canvas, _renderer: &mut Renderer) { }
+    // Sets the element to it's default state, should be called if update wasn't called
+    fn default(&mut self) { }
+    fn mouse_over(&self, _mouse_pos: Vec2, _parent_pos: Vec2) -> bool { false }
+    fn draw(&self, _canvas: &mut Canvas, _renderer: &mut Renderer, _parent_pos: Vec2) { }
+
+    fn as_any(&mut self) -> &mut dyn Any;
 }
 
 
@@ -44,7 +51,9 @@ pub struct Label {
 }
 
 impl GuiElement for Label {
-    fn draw(&self, parent_pos: Vec2, canvas: &mut Canvas, renderer: &mut Renderer) {
+    fn as_any(&mut self) -> &mut dyn Any { self }
+
+    fn draw(&self, canvas: &mut Canvas, renderer: &mut Renderer, parent_pos: Vec2) {
         renderer.draw_text(&self.text, canvas, DrawParam::new().color(self.color).dest(parent_pos + self.pos));
     }
 }
@@ -80,12 +89,14 @@ impl Button {
         }
     }
 }
+
 impl GuiElement for Button {
+    fn as_any(&mut self) -> &mut dyn Any { self }
+
     fn update(&mut self, mouse_pos: Vec2, mouse_action: MouseAction, parent_pos: Vec2) -> bool {
         // If the mouse isn't over the button, we don't want to update it, and we don't CARE!!!
-        if !self.rect.translated(parent_pos).contains(mouse_pos) {
-            // Make the button IDLE, unless it's disabled, in which case it'll STAY disabled
-            if self.state != ButtonState::Disabled { self.state = ButtonState::Idle; }
+        if !self.mouse_over(mouse_pos, parent_pos) {
+            self.default();
             return false;
         }
         // Do logic for pressing, releasing, hovering, etc
@@ -104,14 +115,60 @@ impl GuiElement for Button {
         // By this point we've already established the button is being hovered over so we return true after doing this logic
         true
     }
-    fn draw(&self, parent_pos: Vec2, canvas: &mut Canvas, renderer: &mut Renderer) {
+    fn default(&mut self) {
+        // Make the button IDLE, unless it's disabled, in which case it'll STAY disabled
+        if self.state != ButtonState::Disabled { self.state = ButtonState::Idle; }
+    }
+    fn mouse_over(&self, mouse_pos: Vec2, parent_pos: Vec2) -> bool {
+        self.rect.translated(parent_pos).contains(mouse_pos)
+    }
+    fn draw(&self, canvas: &mut Canvas, _renderer: &mut Renderer, parent_pos: Vec2) {
+        let col = match self.state {
+            ButtonState::Idle     => Color::from_rgb(196, 196, 196),
+            ButtonState::Hovered  => Color::from_rgb(240, 240, 240),
+            ButtonState::Pressed  => Color::from_rgb(100, 100, 100),
+            ButtonState::Disabled => Color::from_rgb( 64,   0,   0),
+        };
+        canvas.draw(&ggez::graphics::Quad, DrawParam::new()
+            .dest_rect(self.rect.translated(parent_pos))
+            .color(col));
+    }
+}
 
+pub struct LabeledButton {
+    pos: Vec2,
+    button: Button,
+    label: Label,
+}
+
+impl LabeledButton {
+    // pub fn new(text: String, pos: Vec2, trigger: ButtonTrigger, disabled: bool) -> LabeledButton {
+        
+    // }
+}
+
+impl GuiElement for LabeledButton {
+    fn as_any(&mut self) -> &mut dyn Any { self }
+
+    fn update(&mut self, mouse_pos: Vec2, mouse_action: MouseAction, parent_pos: Vec2) -> bool {
+        self.button.update(mouse_pos, mouse_action, self.pos + parent_pos)
+    }
+    fn default(&mut self) {
+        self.button.default();
+    }
+    fn mouse_over(&self, mouse_pos: Vec2, parent_pos: Vec2) -> bool {
+        self.button.mouse_over(mouse_pos, parent_pos)
+    }
+    fn draw(&self, canvas: &mut Canvas, renderer: &mut Renderer, parent_pos: Vec2) {
+        self.button.draw(canvas, renderer, self.pos + parent_pos);
+        self.label.draw(canvas, renderer, self.pos + parent_pos);
     }
 }
 
 /*
 update() {
     loop through GuiElements until one update returns true, that means it's used the mouse
+    update through the rest and call default()
 }
 draw() {
     loop through GuiElements and call draw();

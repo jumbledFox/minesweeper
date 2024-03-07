@@ -1,13 +1,14 @@
 use std::time::Instant;
 
 use ggez::glam::Vec2;
-use ggez::graphics::Rect;
+use ggez::graphics::{Canvas, Color, Rect};
 use ggez::input::keyboard::KeyCode;
 use ggez::{event::EventHandler, Context, GameResult};
 use rand::seq::IteratorRandom;
 use rand::Rng;
 
 use crate::gui::{self, Gui, MenuBar};
+use crate::gui_ideas;
 use crate::minesweeper::{self, Minesweeper};
 use crate::rendering::Rendering;
 
@@ -25,6 +26,9 @@ pub struct MainState {
     time_until_next_explosion: u128,    // How many ms we should wait until we explode another one
 
     gui: Gui,
+
+    gui_: Box<dyn gui_ideas::GuiElement>,
+
     rendering: Rendering,
 }
 
@@ -90,7 +94,8 @@ impl MainState {
             selected_tile: None, holding_tile: false, erasing_flags: false,
             button,
             last_explosion: Instant::now(), time_until_next_explosion: 0,
-            gui, rendering
+            gui, rendering,
+            gui_: Box::new(gui_ideas::Button::new(Rect::new(10.0, 10.0, 50.0, 20.0), gui_ideas::ButtonTrigger::Release, false)),
         }
     }
 
@@ -233,6 +238,14 @@ impl MainState {
 impl EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         let mouse_pos = self.rendering.mouse_pos(ctx);
+        self.gui_.update(mouse_pos, gui_ideas::MouseAction::None, Vec2::ZERO);
+
+        match self.gui_.as_any().downcast_mut::<gui_ideas::Button>() {
+            Some(b) => { if b.pressed() {println!("pressed!!") }},
+            None => {},
+        };
+        
+        /*
 
         /*
         TODO: maybe this kind of thing can work ??
@@ -265,17 +278,28 @@ impl EventHandler for MainState {
                 self.explode_bomb(None);
             }
         }
-
+        */
         Ok(())
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult {
-        let tile_held = self.selected_tile_diggable() && self.holding_tile;
-        self.rendering.draw(ctx, &self.gui, &self.game, (self.selected_tile, tile_held), &self.button)
+        // let tile_held = self.selected_tile_diggable() && self.holding_tile;
+        // self.rendering.draw(ctx, &self.gui, &self.game, (self.selected_tile, tile_held), &self.button)
+        let mut canvas = Canvas::from_frame(ctx, Color::from_rgb(0, 0, 60));
+        canvas.set_screen_coordinates(Rect::new(0.0, 0.0, self.rendering.window_size.x, self.rendering.window_size.y));
+        canvas.set_sampler(ggez::graphics::FilterMode::Nearest);
+
+        self.gui_.draw(&mut canvas, &mut gui_ideas::Renderer { }, Vec2::ZERO);
+
+        canvas.finish(ctx)
     }
 
     fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: ggez::event::MouseButton, x: f32, y: f32) -> GameResult {
         let mouse_pos = self.rendering.scaled_mouse_pos(x, y);
+
+        self.gui_.update(mouse_pos, gui_ideas::MouseAction::Down, Vec2::ZERO);
+        return Ok(());
+
         // Update our button if we're not hovering over the gui
         if !self.gui.hovering() {
             self.button.update(mouse_pos, gui::MousePressMode::Down);
@@ -298,6 +322,10 @@ impl EventHandler for MainState {
     }
     fn mouse_button_up_event(&mut self, _ctx: &mut Context, button: ggez::event::MouseButton, x: f32, y: f32) -> GameResult {
         let mouse_pos = self.rendering.scaled_mouse_pos(x, y);
+
+        self.gui_.update(mouse_pos, gui_ideas::MouseAction::Up, Vec2::ZERO);
+
+        return Ok(());
         // Update our button if we're not hovering over the gui
         if !self.gui.hovering() {
             self.button.update(mouse_pos, gui::MousePressMode::Up);
