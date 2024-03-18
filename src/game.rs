@@ -25,9 +25,9 @@ pub struct MainState {
     last_explosion: Instant, // When the previous bomb exploded
     time_until_next_explosion: u128,    // How many ms we should wait until we explode another one
 
-    gui: Gui,
+    // gui: Gui,
 
-    gui_: Box<dyn gui_ideas::GuiElement>,
+    // gui_: Box<dyn gui_ideas::GuiElement>,
 
     rendering: Rendering,
 }
@@ -88,14 +88,14 @@ impl MainState {
             ((rendering.window_size.x-19.0)/2.0).floor(),
             rendering.menu_bar_height+2.0, 19.0, 19.0), gui::button::PressMode::Release, false);
 
-        let gui = Gui::new(menu_bar);
+        // let gui = Gui::new(menu_bar);
         MainState {
             game, difficulty,
             selected_tile: None, holding_tile: false, erasing_flags: false,
             button,
             last_explosion: Instant::now(), time_until_next_explosion: 0,
-            gui, rendering,
-            gui_: Box::new(gui_ideas::Button::new(Rect::new(10.0, 10.0, 50.0, 20.0), gui_ideas::ButtonTrigger::Release, false)),
+            rendering, //gui, 
+            // gui_: Box::new(gui_ideas::Button::new(Rect::new(10.0, 10.0, 50.0, 20.0), gui_ideas::ButtonTrigger::Release, false)),
         }
     }
 
@@ -113,7 +113,7 @@ impl MainState {
         self.selected_tile.is_some_and(|s| self.game.board[s] == minesweeper::TileType::Unopened)
     }
 
-    // Updates the gui, returns if the mouse was over the GUI
+    /*// Updates the gui, returns if the mouse was over the GUI
     fn gui_logic(&mut self, ctx: &mut Context, mouse_pos: Vec2) -> bool {
         self.gui.update(mouse_pos, crate::gui::MousePressMode::None);
         // TODO: Add confirmation pop-ups and text boxes.
@@ -151,6 +151,7 @@ impl MainState {
         self.gui.hovering()
     }
 
+    */
     fn selected_tile_logic(&mut self, mouse_pos: Vec2) {
         let hovered_tile = (mouse_pos - self.rendering.minefield_pos - 2.0) / 9.0;
         // Check the bounds
@@ -238,12 +239,12 @@ impl MainState {
 impl EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult {
         let mouse_pos = self.rendering.mouse_pos(ctx);
-        self.gui_.update(mouse_pos, gui_ideas::MouseAction::None, Vec2::ZERO);
+        // self.gui_.update(mouse_pos, gui_ideas::MouseAction::None, Vec2::ZERO);
 
-        match self.gui_.as_any().downcast_mut::<gui_ideas::Button>() {
-            Some(b) => { if b.pressed() {println!("pressed!!") }},
-            None => {},
-        };
+        // match self.gui_.as_any().downcast_mut::<gui_ideas::Button>() {
+        //     Some(b) => { if b.pressed() {println!("pressed!!") }},
+        //     None => {},
+        // };
         
         /*
 
@@ -289,7 +290,7 @@ impl EventHandler for MainState {
         canvas.set_screen_coordinates(Rect::new(0.0, 0.0, self.rendering.window_size.x, self.rendering.window_size.y));
         canvas.set_sampler(ggez::graphics::FilterMode::Nearest);
 
-        self.gui_.draw(&mut canvas, &mut gui_ideas::Renderer { }, Vec2::ZERO);
+        // self.gui_.draw(&mut canvas, &mut gui_ideas::Renderer { }, Vec2::ZERO);
 
         canvas.finish(ctx)
     }
@@ -297,15 +298,15 @@ impl EventHandler for MainState {
     fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: ggez::event::MouseButton, x: f32, y: f32) -> GameResult {
         let mouse_pos = self.rendering.scaled_mouse_pos(x, y);
 
-        self.gui_.update(mouse_pos, gui_ideas::MouseAction::Down, Vec2::ZERO);
+        // self.gui_.update(mouse_pos, gui_ideas::MouseAction::Down, Vec2::ZERO);
         return Ok(());
 
         // Update our button if we're not hovering over the gui
-        if !self.gui.hovering() {
-            self.button.update(mouse_pos, gui::MousePressMode::Down);
-        }
+        // if !self.gui.hovering() {
+        //     self.button.update(mouse_pos, gui::MousePressMode::Down);
+        // }
         // Update the gui
-        self.gui.update(mouse_pos, crate::gui::MousePressMode::Down);
+        // self.gui.update(mouse_pos, crate::gui::MousePressMode::Down);
         // If we're not playing the game, we don't wanna interact with it now, do we?
         if !self.game.playing_state() { return Ok(()) }
 
@@ -323,15 +324,15 @@ impl EventHandler for MainState {
     fn mouse_button_up_event(&mut self, _ctx: &mut Context, button: ggez::event::MouseButton, x: f32, y: f32) -> GameResult {
         let mouse_pos = self.rendering.scaled_mouse_pos(x, y);
 
-        self.gui_.update(mouse_pos, gui_ideas::MouseAction::Up, Vec2::ZERO);
+        // self.gui_.update(mouse_pos, gui_ideas::MouseAction::Up, Vec2::ZERO);
 
         return Ok(());
         // Update our button if we're not hovering over the gui
-        if !self.gui.hovering() {
-            self.button.update(mouse_pos, gui::MousePressMode::Up);
-        }
-        // Update the gui
-        self.gui.update(mouse_pos, crate::gui::MousePressMode::Up);
+        // if !self.gui.hovering() {
+        //     self.button.update(mouse_pos, gui::MousePressMode::Up);
+        // }
+        // // Update the gui
+        // self.gui.update(mouse_pos, crate::gui::MousePressMode::Up);
 
         // If we're not playing the game, we don't wanna interact with it!!
         if !self.game.playing_state() { return Ok(()) }
