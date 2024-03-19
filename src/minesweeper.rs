@@ -1,4 +1,5 @@
 use std::time::Instant;
+use rand::seq::SliceRandom;
 
 const MAX_WIDTH : usize = 200;
 const MAX_HEIGHT: usize = 100;
@@ -35,7 +36,7 @@ pub struct Minesweeper {
 
 impl Minesweeper {
     pub fn new(difficulty: Difficulty) -> Minesweeper {
-        let (width, height, bomb_count) = Minesweeper::difficulty_values(difficulty);
+        let (width, height, bomb_count) = difficulty_values(difficulty);
         let size = width*height;
         
         let board = vec![TileType::Unopened; size];
@@ -52,17 +53,29 @@ impl Minesweeper {
         }
     }
 
-    pub fn difficulty_values(difficulty: Difficulty) -> (usize, usize, usize) {
-        match difficulty {
-            Difficulty::Easy   => (10, 10,  9),
-            Difficulty::Normal => (15, 13, 40),
-            Difficulty::Hard   => (30, 16, 99),
-            Difficulty::Custom{width, height, bomb_count} => {
-                // Ensure the fields match the (somewhat arbitrary) limits.
-                let (w, h) = (width.min(MAX_WIDTH), height.min(MAX_HEIGHT));
-                let b = bomb_count.min((w-1)*(h-1));
-                (w, h, b)
-            },
+    // Populates the bombs and neighbour_count vecs with valid values, making sure there are no bombs in the 3x3 area centered at safe_index
+    fn populate_board(&mut self, safe_index: usize) {
+        // Find out all of the possible positions for bombs, taking into account safe_index
+        let mut possible_positions: Vec<usize> = (0..self.board.len())
+            .filter(|&i| i != safe_index)
+            .collect();
+        // Shuffle the positions
+        possible_positions.shuffle(&mut rand::thread_rng());
+
+        let bomb_count = self.bombs.len();
+        // Logically, bomb_count < possible_positions.len() is always true, so we don't have to worry about a possible panic here
+        self.bombs.copy_from_slice(&possible_positions[..bomb_count]);
+        // Work out all of the neighbour_counts
+        for (tile_index, tile) in self.neighbour_count.iter_mut().enumerate() {
+            *tile = 0;
+            // For each of the neighbours
+            for n in [(-1, 1), (0, 1), (1, 1), (-1, 0), (1, 0), (-1, -1), (0, -1), (1, -1)] {
+                // Get the neighbour index (if it exists), if there's a bomb there add one to the number!
+                match get_index_from_offset(tile_index, n.0, n.1, self.width, self.height) {
+                    Some(n) if self.bombs.contains(&n)=> *tile += 1,
+                    _ => continue,
+                };
+            }
         }
     }
 
@@ -84,7 +97,7 @@ impl Minesweeper {
         if *tile != TileType::Unopened { return false; }
         // If this is the first tile being opened, generate bombs and stuff, and set the state to playing
         if self.state == GameState::Prelude {
-            
+            self.populate_board(index);
             self.state = GameState::Playing;
         }
         // We can only dig when playing
@@ -107,6 +120,12 @@ impl Minesweeper {
                     Some(t) if *t != TileType::Unopened => continue,
                     Some(t) => *t = TileType::Dug,
                 };
+                // Check each neighbour, if it's 
+                for neighbour in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                    if let Some(n) = get_index_from_offset(tile_index, neighbour.0, neighbour.1, self.width, self.height) {
+                        
+                    }
+                }
                 // Look over each neighbour
                 // If the index is valid
                 // If the tile 
@@ -152,4 +171,46 @@ impl Minesweeper {
         }
         return false;
     }
+}
+
+// Returns the width, heigth, and bomb_count given a difficulty. If the difficulty is custom, it's made to match the limits.
+pub fn difficulty_values(difficulty: Difficulty) -> (usize, usize, usize) {
+    match difficulty {
+        Difficulty::Easy   => (10, 10,  9),
+        Difficulty::Normal => (15, 13, 40),
+        Difficulty::Hard   => (30, 16, 99),
+        Difficulty::Custom{width, height, bomb_count} => {
+            // Ensure the fields match the (somewhat arbitrary) limits.
+            let (w, h) = (width.min(MAX_WIDTH), height.min(MAX_HEIGHT));
+            let b = bomb_count.min((w-1)*(h-1));
+            (w, h, b)
+        },
+    }
+}
+
+// Used for indexing the board, takes in an index and x and y offsets and calculates the new index, or None if it was invalid
+pub fn get_index_from_offset(index: usize, x_offset: isize, y_offset: isize, width: usize, height: usize) -> Option<usize> {
+    // Add on the offsets, if either of these are invalid then we know the new index is going to be invalid
+    // The X offset is simple
+    let x = match index.checked_add_signed(x_offset) {
+        None => return None,
+        Some(x) => x,
+    };
+
+    // However the Y offset needs to be multiplied by the width of the board so we move up / down
+    // TODO: Make this better
+    let mut y_offset_actual: isize = 0;
+    for _ in 0..width {
+        match y_offset_actual.checked_add(y_offset) {
+            Some(yi) => y_offset_actual = yi,
+            None => return None,
+        }
+    }
+    let y = match index.checked_add_signed(y_offset_actual) {
+        None => return None,
+        Some(y) => y,
+    };
+
+    if x >= width || y >= height { return None }
+    Some(y * width + x)
 }

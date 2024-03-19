@@ -298,6 +298,8 @@ impl EventHandler for MainState {
     fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: ggez::event::MouseButton, x: f32, y: f32) -> GameResult {
         let mouse_pos = self.rendering.scaled_mouse_pos(x, y);
 
+        println!("0, (1, 0): {:?}", minesweeper::get_index_from_offset(0, 1, 0, self.game.width, self.game.height));
+        println!("0, (0, 1): {:?}", minesweeper::get_index_from_offset(0, 0, 1, self.game.width, self.game.height));
         // self.gui_.update(mouse_pos, gui_ideas::MouseAction::Down, Vec2::ZERO);
         return Ok(());
 
