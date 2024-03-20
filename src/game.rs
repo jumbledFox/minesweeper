@@ -300,6 +300,33 @@ impl EventHandler for MainState {
 
         println!("0, (1, 0): {:?}", minesweeper::get_index_from_offset(0, 1, 0, self.game.width, self.game.height));
         println!("0, (0, 1): {:?}", minesweeper::get_index_from_offset(0, 0, 1, self.game.width, self.game.height));
+
+        for (i, b) in self.game.board.iter().enumerate() {
+            if i % self.game.width == 0 { println!(""); }
+            print!("{}", match b {
+                minesweeper::TileType::Unopened => String::from("[ ]"),
+                minesweeper::TileType::Flag => String::from(" F "),
+                minesweeper::TileType::Dug => match self.game.neighbour_count[i] {
+                    0 => String::from(" . "),
+                    _ => self.game.neighbour_count[i].to_string() + "  ",
+                },
+            });
+        }
+        // println!("{:?}", self.game.board);
+        self.game.dig(0);
+        println!("");
+        for (i, b) in self.game.board.iter().enumerate() {
+            if i % self.game.width == 0 { println!(""); }
+            print!("{}", match b {
+                minesweeper::TileType::Unopened => String::from("[ ]"),
+                minesweeper::TileType::Flag => String::from(" F "),
+                minesweeper::TileType::Dug => match self.game.neighbour_count[i] {
+                    0 => String::from(" . "),
+                    _ => self.game.neighbour_count[i].to_string() + "  ",
+                },
+            });
+        }
+
         // self.gui_.update(mouse_pos, gui_ideas::MouseAction::Down, Vec2::ZERO);
         return Ok(());
 

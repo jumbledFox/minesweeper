@@ -1,6 +1,7 @@
 use std::time::Instant;
 use rand::seq::SliceRandom;
 
+const NEIGHBOUR_OFFSETS: &[(isize, isize)] = &[(-1, 1), (0, 1), (1, 1), (-1, 0), (1, 0), (-1, -1), (0, -1), (1, -1)];
 const MAX_WIDTH : usize = 200;
 const MAX_HEIGHT: usize = 100;
 
@@ -57,7 +58,7 @@ impl Minesweeper {
     fn populate_board(&mut self, safe_index: usize) {
         // Find out all of the possible positions for bombs, taking into account safe_index
         let mut possible_positions: Vec<usize> = (0..self.board.len())
-            .filter(|&i| i != safe_index)
+            .filter(|&i| i != safe_index) // TODO:
             .collect();
         // Shuffle the positions
         possible_positions.shuffle(&mut rand::thread_rng());
@@ -69,7 +70,7 @@ impl Minesweeper {
         for (tile_index, tile) in self.neighbour_count.iter_mut().enumerate() {
             *tile = 0;
             // For each of the neighbours
-            for n in [(-1, 1), (0, 1), (1, 1), (-1, 0), (1, 0), (-1, -1), (0, -1), (1, -1)] {
+            for n in NEIGHBOUR_OFFSETS {
                 // Get the neighbour index (if it exists), if there's a bomb there add one to the number!
                 match get_index_from_offset(tile_index, n.0, n.1, self.width, self.height) {
                     Some(n) if self.bombs.contains(&n)=> *tile += 1,
@@ -110,53 +111,34 @@ impl Minesweeper {
         // Floodfill digging algorithm
         let mut tiles_to_dig = vec![index];
         let mut neighbours: Vec<usize> = vec![];
-        
+
         for _ in 0..self.board.len() {
-            // Loop through each of the tiles we want to dig up
+            // Loop through each of the tiles we're gonna dig up
             for &tile_index in &tiles_to_dig {
-                // Dig up the tile
-                match self.board.get_mut(tile_index) {
-                    None => continue,
-                    Some(t) if *t != TileType::Unopened => continue,
-                    Some(t) => *t = TileType::Dug,
-                };
-                // Check each neighbour, if it's 
-                for neighbour in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                // Dig it up (it's guaranteed that any index in this vec is diggable, so we don't have to do any checking!!!)
+                self.board[tile_index] = TileType::Dug;
+                // If this tile has any bombs adjacent to it, don't add any of it's neighbours.
+                if self.neighbour_count[tile_index] != 0 { continue; }
+                // Otherwise, check each neighbour
+                for neighbour in NEIGHBOUR_OFFSETS {
+                    // If it exists and is unopenned, add it to the neighbours vec
                     if let Some(n) = get_index_from_offset(tile_index, neighbour.0, neighbour.1, self.width, self.height) {
-                        
+                        if self.board[n] == TileType::Unopened { neighbours.push(n); }
                     }
                 }
-                // Look over each neighbour
-                // If the index is valid
-                // If the tile 
-
-                // Add all of the neighbours
-                // up, down, left, right
-                // let neighbour_offsets = [tile_index.checked_sub(self.width), tile_index.checked_add(self.width), tile_index.checked_sub(1), tile_index.checked_add(1)];
-                // for (i, n) in neighbour_offsets.iter().enumerate() {
-                //     if match i {
-                //         /* Up    */ 0 => { tile_index % (self.width-1) == 0 }
-                //         /* Down  */ 1 => { tile_index % (self.width-1) == 0 }
-                //         /* Left  */ 2 => { tile_index }
-                //         /* Right */ _ => { tile_index }
-                //     } { continue; }
-                // }
-                // match tile_index.checked_sub(self.width) {
-                //     Some(s) if s
-                //     None => _
-                // }
             }
             // If there aren't any neighbours, we've finished the flood fill
             if neighbours.is_empty() { break; }
             // Remove any duplicate agents
             neighbours.sort_unstable();
             neighbours.dedup();
-            // Make the new tiles to dig the neighbours, and clear the neighbours
+            // Make it so the new tiles we've got to dig are the neighbours, and clear the neighbours
             std::mem::swap(&mut tiles_to_dig, &mut neighbours);
             neighbours.clear();
         }
         true
     }
+
     // Toggles a flag at a checked position, returns true if something changed
     pub fn set_flag(&mut self, erasing_flags: bool, index: usize) -> bool {
         // Get the tile from the board, making sure it's valid
@@ -190,27 +172,14 @@ pub fn difficulty_values(difficulty: Difficulty) -> (usize, usize, usize) {
 
 // Used for indexing the board, takes in an index and x and y offsets and calculates the new index, or None if it was invalid
 pub fn get_index_from_offset(index: usize, x_offset: isize, y_offset: isize, width: usize, height: usize) -> Option<usize> {
-    // Add on the offsets, if either of these are invalid then we know the new index is going to be invalid
-    // The X offset is simple
-    let x = match index.checked_add_signed(x_offset) {
-        None => return None,
-        Some(x) => x,
+    // Get the coordinates of the new position, making sure it's valid
+    let x = match (index%width).checked_add_signed(x_offset) {
+        Some(x) if x < width => x,
+        _ => return None,
     };
-
-    // However the Y offset needs to be multiplied by the width of the board so we move up / down
-    // TODO: Make this better
-    let mut y_offset_actual: isize = 0;
-    for _ in 0..width {
-        match y_offset_actual.checked_add(y_offset) {
-            Some(yi) => y_offset_actual = yi,
-            None => return None,
-        }
-    }
-    let y = match index.checked_add_signed(y_offset_actual) {
-        None => return None,
-        Some(y) => y,
+    let y = match (index/width).checked_add_signed(-y_offset) {
+        Some(y) if y < height => y,
+        _ => return None,
     };
-
-    if x >= width || y >= height { return None }
     Some(y * width + x)
 }
