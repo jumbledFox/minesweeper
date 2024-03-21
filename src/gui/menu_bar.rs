@@ -1,6 +1,9 @@
 use ggez::glam::Vec2;
 
-use super::{button::{self, LabeledButton}, dropdown, Dropdown, TextRenderer};
+use super::{
+    button::{self, LabeledButton},
+    dropdown, Dropdown, TextRenderer,
+};
 
 pub struct MenuItem {
     pub button: LabeledButton,
@@ -17,18 +20,38 @@ impl MenuBar {
     pub fn new(tr: &TextRenderer, item_names: Vec<(String, f32, Vec<Option<String>>)>) -> MenuBar {
         let padding = (1.0, 1.0, 2.0, 2.0);
         // Make the height of each button be that of the tallest button
-        let height = item_names.iter().map(|(s, ..)| tr.text_size_padded(&s, padding).y).fold(f32::NEG_INFINITY, f32::max);
+        let height = item_names
+            .iter()
+            .map(|(s, ..)| tr.text_size_padded(&s, padding).y)
+            .fold(f32::NEG_INFINITY, f32::max);
         // Generate a vector of all of the buttons and position them
         let mut items: Vec<MenuItem> = Vec::with_capacity(item_names.len());
         let mut x_pos = 0.0;
         for (s, min_w, d) in item_names {
-            let mut button = LabeledButton::new(tr, s, Some(padding), Vec2::new(x_pos, 1.0), button::PressMode::Immediate, false);
+            let mut button = LabeledButton::new(
+                tr,
+                s,
+                Some(padding),
+                Vec2::new(x_pos, 1.0),
+                button::PressMode::Immediate,
+                false,
+            );
             button.b.rect.h = height;
             x_pos += button.b.rect.w;
-            let dropdown = Dropdown::new(tr, d, Vec2::new(button.b.rect.x, button.b.rect.y + button.b.rect.h), min_w);
+            let dropdown = Dropdown::new(
+                tr,
+                d,
+                Vec2::new(button.b.rect.x, button.b.rect.y + button.b.rect.h),
+                min_w,
+            );
             items.push(MenuItem { button, dropdown });
         }
-        MenuBar { items, hovering_over: false, current_item: None, height }
+        MenuBar {
+            items,
+            hovering_over: false,
+            current_item: None,
+            height,
+        }
     }
 
     pub fn menu_button_pressed(&mut self, menu_index: usize, dropdown_index: usize) -> bool {
@@ -51,16 +74,28 @@ impl MenuBar {
         if let Some(current_item_index) = self.current_item {
             // Hide the menus if we've clicked elsewhere
             if mouse_mode == super::MousePressMode::Down {
-                if self.items[current_item_index].button.b.state == super::button::State::Idle && !self.items[current_item_index].dropdown.mouse_over(mouse_pos) {
+                if self.items[current_item_index].button.b.state == super::button::State::Idle
+                    && !self.items[current_item_index]
+                        .dropdown
+                        .mouse_over(mouse_pos)
+                {
                     self.current_item = None;
                 }
             }
             // Update the menu & hide the menus when a dropdown item is pressed
-            if self.items[current_item_index].dropdown.update(mouse_pos, mouse_mode) {
+            if self.items[current_item_index]
+                .dropdown
+                .update(mouse_pos, mouse_mode)
+            {
                 self.current_item = None;
                 return true;
             }
-            if self.items[current_item_index].dropdown.mouse_over(mouse_pos) { self.hovering_over = true; }
+            if self.items[current_item_index]
+                .dropdown
+                .mouse_over(mouse_pos)
+            {
+                self.hovering_over = true;
+            }
         }
 
         // Update the menu items
@@ -82,12 +117,16 @@ impl MenuBar {
                 continue;
             }
             match menu_item.button.b.state {
-                button::State::Hovered | button::State::Depressed => {self.hovering_over = true;}
-                _ => ()
-            } 
+                button::State::Hovered | button::State::Depressed => {
+                    self.hovering_over = true;
+                }
+                _ => (),
+            }
             // If the current one isn't this button but we're hovering over it, make it the current one,
             // maybe TODO, make hovering over the menu 'swallow' the hovering over a button
-            if self.current_item.is_some_and(|c| c != i) && menu_item.button.b.state == button::State::Hovered {
+            if self.current_item.is_some_and(|c| c != i)
+                && menu_item.button.b.state == button::State::Hovered
+            {
                 self.hovering_over = true;
                 self.current_item = Some(i);
                 menu_item.dropdown.init();

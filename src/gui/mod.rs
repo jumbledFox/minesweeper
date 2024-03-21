@@ -1,42 +1,64 @@
-pub mod text_renderer;
 pub mod button;
-pub mod menu_bar;
 pub mod dropdown;
+pub mod menu_bar;
 pub mod popup;
-use ggez::{glam::Vec2, graphics::Rect};
-pub use text_renderer::TextRenderer;
+pub mod text_renderer;
 pub use button::Button;
-pub use menu_bar::MenuBar;
 pub use dropdown::Dropdown;
+use ggez::{glam::Vec2, graphics::Rect};
+pub use menu_bar::MenuBar;
 pub use popup::Popup;
+pub use text_renderer::TextRenderer;
 
 #[derive(Debug)]
 enum DropdownGroupType {
-    None, PickOne,
+    None,
+    PickOne,
 }
 
 const MENU_OPTIONS: &[(&str, &[(DropdownGroupType, &[&str])])] = &[
-    ("Game", &[
-        (DropdownGroupType::None,    &["New Game"]),
-        (DropdownGroupType::PickOne, &["Easy    10*10, 9", "Normal 15*13,40", "Hard   30*16,99", "Custom..."]),
-        // (DropdownGroupType::ToggleEach, &["Question marks"]), // Maybe another day, who needs question marks?
-        (DropdownGroupType::None,    &["Exit"]),
-    ]),
-    ("Scale", &[
-        (DropdownGroupType::PickOne, &[" 1x ", " 2x ", " 3x ", " 4x ", " 5x ", " 6x ", " 7x ", " 8x "]),
-    ]),
-    ("Help", &[
-        (DropdownGroupType::None, &["How to play", "About"]),
-    ]),
+    (
+        "Game",
+        &[
+            (DropdownGroupType::None, &["New Game"]),
+            (
+                DropdownGroupType::PickOne,
+                &[
+                    "Easy    10*10, 9",
+                    "Normal 15*13,40",
+                    "Hard   30*16,99",
+                    "Custom...",
+                ],
+            ),
+            // (DropdownGroupType::ToggleEach, &["Question marks"]), // Maybe another day, who needs question marks?
+            (DropdownGroupType::None, &["Exit"]),
+        ],
+    ),
+    (
+        "Scale",
+        &[(
+            DropdownGroupType::PickOne,
+            &[
+                " 1x ", " 2x ", " 3x ", " 4x ", " 5x ", " 6x ", " 7x ", " 8x ",
+            ],
+        )],
+    ),
+    (
+        "Help",
+        &[(DropdownGroupType::None, &["How to play", "About"])],
+    ),
 ];
 
 enum DropdownGroupInfo {
-    None, PickOne{selected: usize},
+    None,
+    PickOne { selected: usize },
 }
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum MousePressMode {
-    None, Down, Up,
+    None,
+    Down,
+    Up,
 }
 pub struct Gui {
     // menubar: [Button; 3],
@@ -56,7 +78,7 @@ impl Gui {
         println!("{:?}", MENU_OPTIONS);
 
         let menubar: [(Button, Vec<DropdownGroupInfo>, Vec<Button>); MENU_OPTIONS.len()];
-        
+
         todo!();
         // Gui { menu_bar, hovered_on_gui: false, popup: None }
     }
@@ -66,7 +88,7 @@ impl Gui {
             popup.update(mouse_pos);
         }
 
-        if self.hovering()  {
+        if self.hovering() {
             self.hovered_on_gui = true;
         }
     }
@@ -78,7 +100,9 @@ impl Gui {
         if self.hovered_on_gui {
             self.hovered_on_gui = false;
             return true;
-        } else { false }
+        } else {
+            false
+        }
     }
 
     pub fn popup(&mut self, kind: popup::PopupKind, window_middle: Vec2) {

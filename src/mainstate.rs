@@ -95,7 +95,7 @@
 
 // impl GuiElement {
 //     pub fn new(img: Image) -> GuiElement {
-//         GuiElement { 
+//         GuiElement {
 //             middle: Vec2::new(img.width() as f32 / 2.0, img.height() as f32 / 2.0),
 //             dest_rect: Rect::one(),
 //             img,
@@ -170,30 +170,30 @@
 //         let t = Image::from_path(ctx, "/chars.png").unwrap();
 //         let tr = TextRenderer::new(ctx, t.clone(), HashMap::from([
 //             // TODO: add a 1px width character for aligning text.. a bit hacky but meh
-//             ('A', (3.0,   5.0)), ('a', (131.0, 5.0)), ('!', (286.0, 2.0)), ('0', (237.0, 5.0)), 
-//             ('B', (8.0,   5.0)), ('b', (136.0, 4.0)), ('?', (288.0, 4.0)), ('1', (242.0, 4.0)), 
-//             ('C', (13.0,  5.0)), ('c', (140.0, 4.0)), (':', (292.0, 2.0)), ('2', (246.0, 5.0)), 
-//             ('D', (18.0,  5.0)), ('d', (144.0, 5.0)), (';', (294.0, 3.0)), ('3', (251.0, 5.0)), 
-//             ('E', (23.0,  4.0)), ('e', (149.0, 4.0)), (',', (297.0, 3.0)), ('4', (256.0, 5.0)), 
-//             ('F', (27.0,  4.0)), ('f', (153.0, 3.0)), ('.', (300.0, 2.0)), ('5', (261.0, 5.0)), 
-//             ('G', (31.0,  5.0)), ('g', (156.0, 4.0)), ('*', (302.0, 4.0)), ('6', (266.0, 5.0)), 
-//             ('H', (36.0,  5.0)), ('h', (160.0, 4.0)), ('#', (306.0, 6.0)), ('7', (271.0, 5.0)), 
-//             ('I', (41.0,  4.0)), ('i', (164.0, 2.0)), ('"', (312.0, 4.0)), ('8', (276.0, 5.0)), 
-//             ('J', (45.0,  4.0)), ('j', (166.0, 4.0)), ('\'',(316.0, 2.0)), ('9', (281.0, 5.0)), 
+//             ('A', (3.0,   5.0)), ('a', (131.0, 5.0)), ('!', (286.0, 2.0)), ('0', (237.0, 5.0)),
+//             ('B', (8.0,   5.0)), ('b', (136.0, 4.0)), ('?', (288.0, 4.0)), ('1', (242.0, 4.0)),
+//             ('C', (13.0,  5.0)), ('c', (140.0, 4.0)), (':', (292.0, 2.0)), ('2', (246.0, 5.0)),
+//             ('D', (18.0,  5.0)), ('d', (144.0, 5.0)), (';', (294.0, 3.0)), ('3', (251.0, 5.0)),
+//             ('E', (23.0,  4.0)), ('e', (149.0, 4.0)), (',', (297.0, 3.0)), ('4', (256.0, 5.0)),
+//             ('F', (27.0,  4.0)), ('f', (153.0, 3.0)), ('.', (300.0, 2.0)), ('5', (261.0, 5.0)),
+//             ('G', (31.0,  5.0)), ('g', (156.0, 4.0)), ('*', (302.0, 4.0)), ('6', (266.0, 5.0)),
+//             ('H', (36.0,  5.0)), ('h', (160.0, 4.0)), ('#', (306.0, 6.0)), ('7', (271.0, 5.0)),
+//             ('I', (41.0,  4.0)), ('i', (164.0, 2.0)), ('"', (312.0, 4.0)), ('8', (276.0, 5.0)),
+//             ('J', (45.0,  4.0)), ('j', (166.0, 4.0)), ('\'',(316.0, 2.0)), ('9', (281.0, 5.0)),
 //             ('K', (49.0,  5.0)), ('k', (170.0, 4.0)), ('[', (318.0, 3.0)),
 //             ('L', (54.0,  4.0)), ('l', (174.0, 2.0)), (']', (321.0, 3.0)),
 //             ('M', (58.0,  6.0)), ('m', (176.0, 6.0)), ('(', (324.0, 3.0)),
 //             ('N', (64.0,  5.0)), ('n', (182.0, 4.0)), (')', (327.0, 3.0)),
-//             ('O', (69.0,  5.0)), ('o', (186.0, 4.0)), ('{', (330.0, 4.0)), 
-//             ('P', (74.0,  5.0)), ('p', (190.0, 4.0)), ('}', (334.0, 4.0)), 
-//             ('Q', (79.0,  5.0)), ('q', (194.0, 4.0)), ('<', (338.0, 4.0)), 
-//             ('R', (84.0,  5.0)), ('r', (198.0, 4.0)), ('>', (342.0, 4.0)), 
-//             ('S', (89.0,  5.0)), ('s', (202.0, 4.0)), ('-', (346.0, 4.0)), 
-//             ('T', (94.0,  4.0)), ('t', (206.0, 4.0)), ('+', (350.0, 4.0)), 
-//             ('U', (98.0,  5.0)), ('u', (210.0, 4.0)), ('/', (354.0, 4.0)), 
-//             ('V', (103.0, 6.0)), ('v', (214.0, 4.0)), ('=', (358.0, 4.0)), 
-//             ('W', (109.0, 6.0)), ('w', (218.0, 6.0)), ('_', (362.0, 5.0)), 
-//             ('X', (115.0, 6.0)), ('x', (224.0, 4.0)), (' ', (  0.0, 3.0)), 
+//             ('O', (69.0,  5.0)), ('o', (186.0, 4.0)), ('{', (330.0, 4.0)),
+//             ('P', (74.0,  5.0)), ('p', (190.0, 4.0)), ('}', (334.0, 4.0)),
+//             ('Q', (79.0,  5.0)), ('q', (194.0, 4.0)), ('<', (338.0, 4.0)),
+//             ('R', (84.0,  5.0)), ('r', (198.0, 4.0)), ('>', (342.0, 4.0)),
+//             ('S', (89.0,  5.0)), ('s', (202.0, 4.0)), ('-', (346.0, 4.0)),
+//             ('T', (94.0,  4.0)), ('t', (206.0, 4.0)), ('+', (350.0, 4.0)),
+//             ('U', (98.0,  5.0)), ('u', (210.0, 4.0)), ('/', (354.0, 4.0)),
+//             ('V', (103.0, 6.0)), ('v', (214.0, 4.0)), ('=', (358.0, 4.0)),
+//             ('W', (109.0, 6.0)), ('w', (218.0, 6.0)), ('_', (362.0, 5.0)),
+//             ('X', (115.0, 6.0)), ('x', (224.0, 4.0)), (' ', (  0.0, 3.0)),
 //             ('Y', (121.0, 5.0)), ('y', (228.0, 4.0)), ('\n',(  0.0, 0.0)),
 //             ('Z', (126.0, 5.0)), ('z', (232.0, 5.0)),
 //         ]));
@@ -219,18 +219,18 @@
 //             b: Button::new(Rect::new(10.0, 10.0, 20.0, 10.0), crate::gui::button::PressMode::Release, false),
 //         };
 
-//         MainState { game, rendering, 
+//         MainState { game, rendering,
 //             last_hovered_tile: Vec2::MAX, selected_tile: None, erasing_flags: false, holding_button: false, i: 0 }
 //     }
 
 //     // Generates GuiElements that change depending on the game, as well as set the window min size
 //     pub fn set_window_and_game_specific_elements(ctx: &mut Context, width: usize, height: usize, bomb_count: usize) -> (GuiElement, GuiElement, usize, PhysicalSize<f32>) {
-//         // 9 is the size of one tile, 4 is added to make room for the nice border  
+//         // 9 is the size of one tile, 4 is added to make room for the nice border
 //         let minefield_img = Image::new_canvas_image(ctx, ctx.gfx.surface_format(), (width * 9 + 4) as u32, (height * 9 + 4) as u32, 1);
 //         // For the bomb counter, we want to show the minimum amount of digits possible
 //         let bombcount_digits = bomb_count.checked_ilog10().unwrap_or(0) + 1;
 //         let bombcount_img = Image::new_canvas_image(ctx, ctx.gfx.surface_format(), (10*bombcount_digits)+4, 18, 1);
-        
+
 //         let min_inner_size: PhysicalSize<f32> = PhysicalSize::from_logical(LogicalSize::new(
 //             (minefield_img.width().max(9*8+4)  + 8) as f32,
 //             (minefield_img.height().max(9*8+4) + 4 + 24) as f32), 1.0);
@@ -271,10 +271,10 @@
 //             window_size.width  as f32 / self.rendering.min_inner_size.width  as f32,
 //             window_size.height as f32 / self.rendering.min_inner_size.height as f32).floor();
 //         self.rendering.scale_factor = scale_factor;
-        
+
 //         let minefield_pos = Vec2::new(window_size.width as f32, window_size.height as f32 + 20.0 * scale_factor) / 2.0 - self.rendering.minefield.middle * scale_factor;
 //         self.rendering.minefield.goto(minefield_pos, scale_factor);
-        
+
 //         let mut xs: Vec<f32> = vec![];
 //         for i in 0..3 {
 //             let before = (i     as f32/3.0) * window_size.width as f32;
@@ -286,7 +286,7 @@
 
 //         let y_between_top_and_board_top = self.rendering.minefield.dest_rect.y / 2.0;
 //         let mut positions: Vec<Vec2> = vec![];
-        
+
 //         positions.push(Vec2::new(xs[0], y_between_top_and_board_top) - self.rendering.bombcount.middle * scale_factor);
 //         positions.push(Vec2::new(xs[1], y_between_top_and_board_top) - self.rendering.button.middle    * scale_factor);
 //         positions.push(Vec2::new(xs[2], y_between_top_and_board_top) - self.rendering.timer.middle     * scale_factor);
@@ -313,8 +313,8 @@
 //             .iter().enumerate().map(|(i, tile)| DrawParam::new().dest(index_to_draw_coord(&self.game, i))
 //             .dest(index_to_draw_coord(&self.game, i))
 //             // Draw the tile as either unopened or dug
-//             // If the tile has been dug, OR if 
-//             // A) we've lost, B) a bomb is there, AND C) the tile isn't flagged, show an opened tile 
+//             // If the tile has been dug, OR if
+//             // A) we've lost, B) a bomb is there, AND C) the tile isn't flagged, show an opened tile
 //             .src(normalize_rect(Rect::new(
 //                 if *tile == TileType::Dug ||
 //                 (self.game.bombs.contains(&i) && *tile != TileType::Flag && self.game.state == GameState::Lose)
@@ -338,7 +338,7 @@
 //         self.rendering.spritesheet_batch.set(
 //             self.game.neighbour_count
 //             .iter().enumerate()
-//             // We only want to draw the little number if the neighbour count isn't zero and the cell has been dug 
+//             // We only want to draw the little number if the neighbour count isn't zero and the cell has been dug
 //             .filter_map(|(i, count)| match *count != 0 && *self.game.board.get(i).unwrap_or(&TileType::Unopened) == TileType::Dug {
 //                 false => None,
 //                 true  => Some(DrawParam::new().dest(index_to_draw_coord(&self.game, i))
@@ -374,7 +374,7 @@
 //         // Draw the background
 //         MainState::draw_nineslice(&mut canvas, &mut self.rendering.spritesheet_batch, Rect::new(36.0, 42.0, 3.0, 3.0), 1.0,
 //             Rect::new(0.0, 0.0, self.rendering.button.img.width() as f32, self.rendering.button.img.height() as f32));
-        
+
 //         // canvas.draw(&self.rendering.spritesheet, DrawParam::new()
 //         //     .src(normalize_rect(Rect::new(36.0, 0.0, 8.0, 14.0), &self.rendering.spritesheet))
 //         //     .dest(Vec2::new(3.0, 2.0))
@@ -428,7 +428,7 @@
 //         // Draw the background
 //         MainState::draw_nineslice(&mut canvas, &mut self.rendering.spritesheet_batch, Rect::new(39.0, 39.0, 3.0, 3.0), 1.0,
 //             Rect::new(0.0, 0.0, self.rendering.timer.img.width() as f32, self.rendering.timer.img.height() as f32));
-            
+
 //         // Unwrap the number
 //         let t = self.rendering.timer_value.unwrap_or_default();
 //         if t > 99 * 60 + 59 {
@@ -438,11 +438,11 @@
 //         // The different numbers of the timer (and how far along they are on the texture)
 //         const ALONG: [f32; 4] = [2.0, 6.0, 12.0, 16.0];
 //         let values = [(t / 600) % 10, (t / 60) % 10 ,(t / 10) % 6, t % 10];
-        
+
 //         // I originally stored a rect for each of the numbers texture coordinates,
 //         // but since the y value, width, and height are all the same I then changed it to only store the x value
 //         // I then realised they're all the same width and by extension distance apart (3 pixels),
-//         // so now I just add (the width of a number sprite * the value of the digit) to where the first number is, which is what 38.0 represents below 
+//         // so now I just add (the width of a number sprite * the value of the digit) to where the first number is, which is what 38.0 represents below
 
 //         // Draw all of the numbers
 //         self.rendering.spritesheet_batch.set(
@@ -461,7 +461,6 @@
 //         let draw_colon = self.rendering.timer_value.is_some();
 //         canvas.draw(&self.rendering.spritesheet,
 //             DrawParam::new().src(normalize_rect(Rect::new(if draw_colon {37.0} else {36.0}, 28.0, 1.0, 5.0), &self.rendering.spritesheet)).dest(Vec2::new(10.0, 2.0)));
-
 
 //         canvas.finish(ctx)?;
 //         Ok(())
