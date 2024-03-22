@@ -35,13 +35,11 @@ fn main() {
     //     height: 100,
     //     bomb_count: 50,
     // });
-    let mut g = minesweeper::Minesweeper::new(minesweeper::Difficulty::Normal);
-    draw_minefield(&g);
-    g.dig(0);
+    let mut g = minesweeper::Minesweeper::new(minesweeper::Difficulty::Custom { width: 30, height: 30, bomb_count: 2 });
     draw_minefield(&g);
     for _ in 0..99999 {
         let index = rand::thread_rng().gen_range(0..g.board().len());
-        if match rand::thread_rng().gen_bool(0.5) {
+        if match rand::thread_rng().gen_bool(0.0) {
             true  => g.dig(index),
             false => g.set_flag(false, index),
         } == false { continue; }
@@ -53,21 +51,15 @@ fn main() {
 fn draw_minefield(game: &minesweeper::Minesweeper) {
     println!("turns: {:?}", game.turns());
     for (i, b) in game.board().iter().enumerate() {
-        if i % game.width() == 0 {
-            println!("");
-        }
+        if i % game.width() == 0 { println!(""); }
         print!(
-            "{}",
-            match b {
+            "{}", match b {
                 minesweeper::TileType::Unopened => String::from("[ ]"),
                 minesweeper::TileType::Flag => String::from(" F "),
                 minesweeper::TileType::Numbered(n) => format!(" {:?} ", n),
                 minesweeper::TileType::Dug => {
-                    if game.bombs().contains(&i) {
-                        String::from(" * ")
-                    } else {
-                        String::from(" . ")
-                    }
+                    if game.bombs().contains(&i) { String::from(" * ") }
+                    else {  String::from(" . ") }
                 }
             }
         );
