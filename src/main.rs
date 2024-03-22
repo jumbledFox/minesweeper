@@ -36,37 +36,41 @@ fn main() {
     //     bomb_count: 50,
     // });
     let mut g = minesweeper::Minesweeper::new(minesweeper::Difficulty::Normal);
+    draw_minefield(&g);
     g.dig(0);
-    // draw_minefield(&g);
-    // for _ in 0..99999 {
-    //     // std::thread::sleep(std::time::Duration::from_millis(50));
-    //     if g.dig(rand::thread_rng().gen_range(0..g.board.len())) {
-    //         draw_minefield(&g);
-    //     }
-    // }
+    draw_minefield(&g);
+    for _ in 0..99999 {
+        let index = rand::thread_rng().gen_range(0..g.board().len());
+        if match rand::thread_rng().gen_bool(0.5) {
+            true  => g.dig(index),
+            false => g.set_flag(false, index),
+        } == false { continue; }
+        draw_minefield(&g);
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
 }
 
-// fn draw_minefield(game: &minesweeper::Minesweeper) {
-//     println!("turns: {:?}", game.turns);
-//     for (i, b) in game.board.iter().enumerate() {
-//         if i % game.width == 0 {
-//             println!("");
-//         }
-//         print!(
-//             "{}",
-//             match b {
-//                 minesweeper::TileType::Unopened => String::from("[ ]"),
-//                 minesweeper::TileType::Flag => String::from(" F "),
-//                 minesweeper::TileType::Numbered(n) => format!(" {:?} ", n),
-//                 minesweeper::TileType::Dug => {
-//                     if game.bombs.contains(&i) {
-//                         String::from(" * ")
-//                     } else {
-//                         String::from(" . ")
-//                     }
-//                 }
-//             }
-//         );
-//     }
-//     println!("");
-// }
+fn draw_minefield(game: &minesweeper::Minesweeper) {
+    println!("turns: {:?}", game.turns());
+    for (i, b) in game.board().iter().enumerate() {
+        if i % game.width() == 0 {
+            println!("");
+        }
+        print!(
+            "{}",
+            match b {
+                minesweeper::TileType::Unopened => String::from("[ ]"),
+                minesweeper::TileType::Flag => String::from(" F "),
+                minesweeper::TileType::Numbered(n) => format!(" {:?} ", n),
+                minesweeper::TileType::Dug => {
+                    if game.bombs().contains(&i) {
+                        String::from(" * ")
+                    } else {
+                        String::from(" . ")
+                    }
+                }
+            }
+        );
+    }
+    println!("");
+}
