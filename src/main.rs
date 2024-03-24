@@ -1,15 +1,10 @@
 use ggez::conf::{WindowMode, WindowSetup};
-use ggez::event;
 use ggez::ContextBuilder;
 use rand::Rng;
 
-pub mod game;
-pub mod gui;
-pub mod mainstate;
 pub mod minesweeper;
-pub mod rendering;
-
-pub mod gui_ideas;
+pub mod mainstate;
+pub mod elements;
 
 fn main() {
     // Make a Context.
@@ -35,21 +30,26 @@ fn main() {
     //     height: 100,
     //     bomb_count: 50,
     // });
-    let mut g = minesweeper::Minesweeper::new(minesweeper::Difficulty::Custom { width: 30, height: 30, bomb_count: 2 });
+    let mut g = minesweeper::Minesweeper::new(minesweeper::Difficulty::Hard);
     draw_minefield(&g);
+    // println!("start");
     for _ in 0..99999 {
         let index = rand::thread_rng().gen_range(0..g.board().len());
-        if match rand::thread_rng().gen_bool(0.0) {
+        if match rand::thread_rng().gen_bool(0.1) {
             true  => g.dig(index),
             false => g.set_flag(false, index),
         } == false { continue; }
         draw_minefield(&g);
-        std::thread::sleep(std::time::Duration::from_millis(50));
+        std::thread::sleep(std::time::Duration::from_millis(400));
     }
 }
 
 fn draw_minefield(game: &minesweeper::Minesweeper) {
-    println!("turns: {:?}", game.turns());
+    let time_string = match game.start_time() {
+        Some(start_time) => format!("{:?}", start_time.elapsed().as_secs()),
+        None => String::from("---"),
+    };
+    println!("bombs left: {:?}  turns: {:?}  time: {time_string}", game.bombs_remaining(), game.turns());
     for (i, b) in game.board().iter().enumerate() {
         if i % game.width() == 0 { println!(""); }
         print!(
@@ -65,4 +65,22 @@ fn draw_minefield(game: &minesweeper::Minesweeper) {
         );
     }
     println!("");
+}
+
+
+struct MenuBar {
+
+}
+
+impl MenuBar {
+    pub fn update(&mut self, mouse_free: &mut bool) {
+        if !*mouse_free {
+
+        } else {
+            let mouse_over = true;
+            if mouse_over {
+                *mouse_free = true;
+            }
+        }
+    }
 }

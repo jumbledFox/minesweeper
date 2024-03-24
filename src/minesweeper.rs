@@ -74,6 +74,14 @@ impl Minesweeper {
     pub fn start_time(&self) -> Option<Instant> { self.start_time }
     pub fn turns(&self)      -> usize           { self.turns }
 
+    pub fn bombs_remaining(&self) -> usize {
+        let flags_count = self.board
+            .iter()
+            .filter(|&t| *t == TileType::Flag)
+            .count();
+        self.bomb_count.saturating_sub(flags_count)
+    }
+
     // Populates the bombs and neighbour_count vecs with valid values, making sure there are no bombs in the 3x3 area centered at safe_index
     fn populate_board(&mut self, safe_index: usize) {
         // List of positions a bomb can't be (the safe_index and all of it's neighbours)
