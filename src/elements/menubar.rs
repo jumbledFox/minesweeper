@@ -1,6 +1,6 @@
 use ggez::mint::Point2;
 
-use super::button::Button;
+use super::button::{self, Button};
 
 pub struct MenuBar {
     buttons: Vec<Button>
@@ -15,7 +15,8 @@ impl MenuBar {
 
     pub fn draw(&self) {
         for b in &self.buttons {
-            b.draw();
+            // button::draw_button_blank(b);
+            // b.draw();
         }
     }
 }
