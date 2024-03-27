@@ -12,6 +12,12 @@ pub const TEXT_DISABLED     : Color = Color { r:  90.0 / 255.0, g: 105.0 / 255.0
 pub const BACKGROUND_IDLE   : Color = Color { r: 192.0 / 255.0, g: 203.0 / 255.0, b: 220.0 / 255.0, a: 1.0 };
 pub const BACKGROUND_HOVERED: Color = Color { r:  38.0 / 255.0, g:  43.0 / 255.0, b:  68.0 / 255.0, a: 1.0 };
 
+pub enum MouseAction {
+    None,
+    Press,
+    Release,
+}
+
 pub fn draw_9_slice(canvas: &mut Canvas) {
     ()
 }

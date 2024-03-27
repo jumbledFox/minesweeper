@@ -2,6 +2,8 @@ use ggez::{graphics::{Canvas, DrawParam, Image, Rect}, mint::Point2, Context};
 
 use crate::minesweeper::Minesweeper;
 
+use super::MouseAction;
+
 pub struct MinesweeperElement {
     pub game: Minesweeper,
     minefield_image: Image,
@@ -10,7 +12,7 @@ pub struct MinesweeperElement {
 }
 
 impl MinesweeperElement {
-    pub fn update(&mut self, mouse_free: &mut bool, mouse_pos: Point2<f32>) {
+    pub fn update(&mut self, mouse_free: &mut bool, mouse_pos: Point2<f32>, mouse_action: (MouseAction, MouseAction)) {
         
     }
 
