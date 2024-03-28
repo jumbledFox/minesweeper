@@ -2,15 +2,18 @@
 
 use ggez::{event::{EventHandler, MouseButton}, graphics, mint::Point2, GameResult};
 
-use crate::elements::{self, menubar::MenuBar, text_renderer::TextRenderer, MouseAction};
+use crate::elements::{self, menubar::MenuBar, minesweeper_element::MinesweeperElement, text_renderer::TextRenderer, MouseAction};
 
 pub struct MainState {
     text_renderer: TextRenderer,
     menu_bar: MenuBar,
+    minesweeper_element: MinesweeperElement,
 }
 
 impl MainState {
     pub fn new(ctx: &mut ggez::Context) -> MainState {
+        let minesweeper_element = MinesweeperElement::new(ctx, crate::minesweeper::Difficulty::Easy);
+
         let text_renderer = TextRenderer::new_from_default(ctx);
 
         let menu_bar = MenuBar::new(&text_renderer);
@@ -18,6 +21,7 @@ impl MainState {
         MainState {
             text_renderer,
             menu_bar,
+            minesweeper_element,
         }
     }
 }
