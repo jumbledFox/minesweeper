@@ -14,18 +14,26 @@ impl MenuBar {
         MenuBar { buttons }
     }
 
-    pub fn update(&mut self, mouse_free: &mut bool, mouse_pos: Point2<f32>, mouse_action: &(MouseAction, MouseAction)) {
+    pub fn update(&mut self, mouse_free: &mut bool, mouse_pos: Vec2, mouse_action: &(MouseAction, MouseAction)) {
         for b in self.buttons.iter_mut().rev() {
             b.update(mouse_free, mouse_pos, &mouse_action.0);
-            if b.pressed() {
-                println!("{:?} pressed", b.label())
-            }
+            // if b.pressed() {
+            //     println!("{:?} pressed", b.label())
+            // }
         }
     }
 
     pub fn draw(&self, canvas: &mut Canvas, text_renderer: &mut TextRenderer) {
         for b in &self.buttons {
             button::draw_button_flat(&b, canvas, text_renderer);
+        }
+    }
+
+    pub fn pressed(&mut self, id: usize) -> bool {
+        if let Some(button) = self.buttons.get_mut(id) {
+            button.pressed()
+        } else {
+            false
         }
     }
 }

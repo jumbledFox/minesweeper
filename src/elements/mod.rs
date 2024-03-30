@@ -1,6 +1,6 @@
 // ELEMENTS are things that make up the game window, they often have an update() and draw() function
 
-use ggez::graphics::{Canvas, Color};
+use ggez::{glam::Vec2, graphics::{Canvas, Color, Rect}};
 
 pub mod text_renderer;
 pub mod button;
@@ -20,4 +20,18 @@ pub enum MouseAction {
 
 pub fn draw_9_slice(canvas: &mut Canvas) {
     ()
+}
+
+// Makes a new rect that's in the middle of a point
+fn rect_at_middle(point: Vec2, width: f32, height: f32) -> Rect {
+    Rect::new(
+        point.x - (width  / 2.0),
+        point.y - (height / 2.0),
+        width,
+        height,
+    )
+}
+// Rounds a rect
+fn round_rect(rect: Rect) -> Rect {
+    Rect::new(rect.x.round(), rect.y.round(), rect.w.round(), rect.h.round())
 }

@@ -63,7 +63,7 @@ impl Button {
     }
 
     // Updates the button
-    pub fn update(&mut self, mouse_free: &mut bool, mouse_pos: Point2<f32>, left_mouse_action: &MouseAction) {
+    pub fn update(&mut self, mouse_free: &mut bool, mouse_pos: Vec2, left_mouse_action: &MouseAction) {
         // If the mouse isn't free, or if it's not over the button, make the button idle and return
         if !*mouse_free || !self.rect.contains(mouse_pos) {
             if self.state != ButtonState::Disabled {
