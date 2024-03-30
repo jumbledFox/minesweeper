@@ -54,6 +54,11 @@ impl MinesweeperElement {
         self.rect = rect;
     }
 
+    // 
+    pub fn dimensions(&self) -> Vec2 {
+        Vec2::new(self.rect.w, self.rect.h)
+    }
+
     pub fn update(&mut self, mouse_free: &mut bool, mouse_pos: Vec2, mouse_action: (MouseAction, MouseAction)) {
         // If the mouse isn't free, or if it's not over the minefield, return
         if !*mouse_free || !self.rect.contains(mouse_pos) {
