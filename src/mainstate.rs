@@ -49,14 +49,10 @@ impl EventHandler for MainState {
         if self.menu_bar.pressed(0) {
             let window_middle = window_size(ctx) / 2.0;
             // Makes a new minesweeper game
-            self.minesweeper_element.new_game(
-                ctx,
-                crate::minesweeper::Difficulty::Hard,
-                window_middle,
-            );
+            self.minesweeper_element.new_game(ctx, crate::minesweeper::Difficulty::Hard);
             // How big the minesweeper game is, plus some padding
             const TOP_PADDING: f32 = 2.0;
-            let minesweeper_dimensions = self.minesweeper_element.dimensions() + Vec2::new(10.0, 5.0 + TOP_PADDING);
+            let minesweeper_dimensions = self.minesweeper_element.size() + Vec2::new(10.0, 5.0 + TOP_PADDING);
             // Temp
             let menu_bar_height = 10.0;
             let menu_bar_width = 10.0;
@@ -65,7 +61,8 @@ impl EventHandler for MainState {
             let new_window_size = (minesweeper_dimensions + Vec2::new(0.0, menu_bar_height + 21.0)).max(Vec2::new(menu_bar_width, 0.0));
             ctx.gfx.window().set_inner_size(LogicalSize::new(new_window_size.x, new_window_size.y));
             
-            let minesweeper_pos = Vec2::new(new_window_size.x / 2.0, new_window_size.y / 2.0 - 21.0 - TOP_PADDING);
+            let minesweeper_pos = Vec2::new((new_window_size.x - self.minesweeper_element.size().x) / 2.0, (new_window_size.y - self.minesweeper_element.size().y) / 2.0 + 21.0 + TOP_PADDING);
+            self.minesweeper_element.set_pos(minesweeper_pos);
         }
         if self.menu_bar.pressed(1) {
             ctx.request_quit();

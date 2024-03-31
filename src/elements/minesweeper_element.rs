@@ -12,13 +12,14 @@ pub struct MinesweeperElement {
     spritesheet: Image,
     spritesheet_batch: InstanceArray,
     tile_src_rects: Vec<Rect>,
-    rect: Rect,
+    pos: Vec2,
+    size: Vec2,
     selected_tile: Option<usize>,
 }
 
 impl MinesweeperElement {
     pub fn new(ctx: &mut Context, difficulty: Difficulty, window_middle: Vec2) -> MinesweeperElement {
-        let (game, minefield_image, rect) = MinesweeperElement::remake_game_values(ctx, difficulty, window_middle);
+        let (game, minefield_image, size) = MinesweeperElement::remake_game_values(ctx, difficulty);
         
         let spritesheet = Image::from_bytes(ctx, SPRITESHEET_IMAGE_BYTES).expect("Failed to load game spritesheet! Unable to run :/");
         let mut spritesheet_batch = InstanceArray::new(ctx, spritesheet.clone());
@@ -28,13 +29,14 @@ impl MinesweeperElement {
         let tile_src_rects = (0..16).map(|i| Rect::new(((i%4)*9) as f32 / 96.0, ((i/4)*9) as f32 / 64.0, 9.0/96.0, 9.0/64.0)).collect();
 
         MinesweeperElement {
-            game, minefield_image, spritesheet, spritesheet_batch, tile_src_rects, rect,
+            game, minefield_image, spritesheet, spritesheet_batch, tile_src_rects,
+            pos: Vec2::ZERO, size,
             selected_tile: None
         }
     }
 
     // These are things that should get remade when we change the difficulty
-    fn remake_game_values(ctx: &mut Context, difficulty: Difficulty, window_middle: Vec2) -> (Minesweeper, Image, Rect) {
+    fn remake_game_values(ctx: &mut Context, difficulty: Difficulty) -> (Minesweeper, Image, Vec2) {
         let game = Minesweeper::new(difficulty);
         let minefield_image = Image::new_canvas_image(
             ctx,
@@ -43,30 +45,33 @@ impl MinesweeperElement {
             game.height() as u32 * 9,
             1,
         );
-        let rect = round_rect(rect_at_middle(window_middle, minefield_image.width() as f32, minefield_image.height() as f32));
-        (game, minefield_image, rect)
+        let size = Vec2::new(minefield_image.width() as f32, minefield_image.height() as f32);
+        (game, minefield_image, size)
     }
     // Change the difficulty and make a new game
-    pub fn new_game(&mut self, ctx: &mut Context, difficulty: Difficulty, window_middle: Vec2) {
-        let (game, minefield_image, rect) = MinesweeperElement::remake_game_values(ctx, difficulty, window_middle);
+    pub fn new_game(&mut self, ctx: &mut Context, difficulty: Difficulty) {
+        let (game, minefield_image, size) = MinesweeperElement::remake_game_values(ctx, difficulty);
         self.game = game;
         self.minefield_image = minefield_image;
-        self.rect = rect;
+        self.size = size;
     }
 
     // 
-    pub fn dimensions(&self) -> Vec2 {
-        Vec2::new(self.rect.w, self.rect.h)
+    pub fn size(&self) -> Vec2 { self.size }
+    pub fn pos(&self) -> Vec2 { self.pos }
+    pub fn set_pos(&mut self, pos: Vec2) {
+        self.pos = pos;
     }
 
     pub fn update(&mut self, mouse_free: &mut bool, mouse_pos: Vec2, mouse_action: (MouseAction, MouseAction)) {
         // If the mouse isn't free, or if it's not over the minefield, return
-        if !*mouse_free || !self.rect.contains(mouse_pos) {
+        let rect = Rect { x: self.pos.x, y: self.pos.y, w: self.size.x, h: self.size.y };
+        if !*mouse_free || !rect.contains(mouse_pos) {
             self.selected_tile = None;
             return;
         }
         // Update the selected tile
-        let local_mouse_pos = mouse_pos - Vec2::from(self.rect.point());
+        let local_mouse_pos = mouse_pos - self.pos;
         let tile_pos = (local_mouse_pos / 9.0).floor();
         let tile_index = tile_pos.y as usize * self.game.width() + tile_pos.x as usize;
         // If tile index is out of bounds... something has gone very wrong... so i'm just gonna clamp it between valid values
@@ -129,10 +134,10 @@ impl MinesweeperElement {
         // Draw the nice border
         
         // Draw the minefield
-        canvas.draw(&self.minefield_image, DrawParam::new().dest(self.rect.point()));
+        canvas.draw(&self.minefield_image, DrawParam::new().dest(self.pos));
         // Draw the selected tile (if it's valid)
         if let Some(selected_tile) = self.selected_tile {
-            let draw_position = index_to_draw_coord(&self.game, selected_tile) + Vec2::from(self.rect.point());
+            let draw_position = index_to_draw_coord(&self.game, selected_tile) + self.pos;
             canvas.draw(&self.spritesheet, DrawParam::new().dest(draw_position - Vec2::ONE).src(Rect::new(85.0/96.0, 0.0, 11.0/96.0, 11.0/64.0)));
         }
     }
