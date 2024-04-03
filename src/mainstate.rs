@@ -1,11 +1,14 @@
 // The logic of the game
 
-use ggez::{event::{EventHandler, MouseButton}, glam::Vec2, graphics, mint::Point2, winit::dpi::LogicalSize, Context, GameResult};
+use ggez::{event::{EventHandler, MouseButton}, glam::Vec2, graphics::{self, Rect}, mint::Point2, winit::dpi::LogicalSize, Context, GameResult};
 use rand::Rng;
 
 use crate::elements::{self, menubar::MenuBar, minesweeper_element::MinesweeperElement, text_renderer::TextRenderer, MouseAction};
 
 pub struct MainState {
+    scale_factor: f32,
+    window_rect: Rect,
+
     text_renderer: TextRenderer,
     menu_bar: MenuBar,
     minesweeper_element: MinesweeperElement,
@@ -15,17 +18,34 @@ impl MainState {
     pub fn new(ctx: &mut ggez::Context) -> MainState {
         let window_size = window_size(ctx);
 
-        let minesweeper_element = MinesweeperElement::new(ctx, crate::minesweeper::Difficulty::Easy, window_size / 2.0);
+        let minesweeper_element = MinesweeperElement::new(ctx, crate::minesweeper::Difficulty::Easy);
 
         let text_renderer = TextRenderer::new_from_default(ctx);
 
         let menu_bar = MenuBar::new(&text_renderer);
 
         MainState {
+            scale_factor: 10.0,
+            window_rect: Rect::zero(),
+
             text_renderer,
             menu_bar,
             minesweeper_element,
         }
+    }
+
+    // Makes the window fit all of the elements as well as put all of the elements in their correct places
+    pub fn resize_window_and_position_elements(&mut self) {
+        // First we resize the window to fit everything
+        // Then we move the elements into place
+
+        // Vertically, the window has to fit the minesweeper game, the padding below and above it, the stuff above it, and the menubar
+        // Horizontally, the window has to fit the minesweeper game and it's h padding, and the stuff above it
+        let minesweeper_size = self.minesweeper_element.size();
+
+        // Make it so the scale factor automatically fits the window if it'd otherwise be larger than it (or the max window size)
+        let max_scale_factor = 10.0;
+        self.scale_factor = self.scale_factor.min(max_scale_factor)
     }
 }
 
@@ -74,6 +94,7 @@ impl EventHandler for MainState {
         let window_size = window_size(ctx);
 
         let mut canvas = graphics::Canvas::from_frame(ctx, elements::TEXT_DISABLED);
+        // canvas.set_screen_coordinates(Rect::new(0.0, 0.0, ));
         // canvas.set_sampler(ggez::graphics::Sampler::nearest_clamp());
 
         let _ = self.minesweeper_element.render_minefield(ctx);

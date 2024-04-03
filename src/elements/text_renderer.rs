@@ -100,7 +100,7 @@ impl TextRenderer {
     }
 }
 
-// Splits
+// Not the biggest fan of this, there's gotta be a better way to do this but.. meh..
 fn split_vector_by_indexes<T: Clone>(vector: &[T], indexes: &[usize]) -> Vec<Vec<T>> {
     let mut result = Vec::new();
     let mut start_index = 0;
