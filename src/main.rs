@@ -1,37 +1,28 @@
-use ggez::conf::{WindowMode, WindowSetup};
-use ggez::{event, ContextBuilder};
-use mainstate::MainState;
-use rand::Rng;
+use macroquad::prelude::*;
+use ui::UIState;
 
+pub mod ui;
 pub mod minesweeper;
-pub mod mainstate;
-pub mod elements;
 
-fn main() {
-    // Make a Context.
-    let (mut ctx, event_loop) = ContextBuilder::new("Minesweeper", "jumbledFox")
-        .window_mode(WindowMode {
-            resizable: false,
-            // visible: false,
-            ..Default::default()
-        })
-        .window_setup(WindowSetup {
-            title: String::from("jumbledFox's Minesweeper"),
-            ..Default::default()
-        })
-        .build()
-        .expect("Couldn't create GGEZ context!!! wtf!!");
+#[macroquad::main("Minesweeper")]
+async fn main() {
+    let mut ui_state = UIState::new();
+    let mut c = false;
 
-    // Run!!
-    // let main_state = game::MainState::new(&mut ctx);
-    // event::run(ctx, event_loop, main_state);
+    loop {
+        clear_background(Color::from_hex(0x756853));
 
-    // let mut g = minesweeper::Minesweeper::new(minesweeper::Difficulty::Custom {
-    //     width: 200,
-    //     height: 100,
-    //     bomb_count: 50,
-    // });
-    // let mut g = minesweeper::Minesweeper::new(minesweeper::Difficulty::Hard);
-    let main_state = MainState::new(&mut ctx);
-    event::run(ctx, event_loop, main_state);
+        ui_state.prepare();
+        
+        ui_state.checkbox(0, &mut c, 10.0, 10.0, 20.0, 20.0);
+        if c {
+            ui_state.button(1, 10.0, 40.0, 50.0, 20.0);
+        }
+        // ui_state.button(2, 10.0, 10.0, 50.0, 20.0);
+        // ui_state.button(3, 30.0, 15.0, 50.0, 20.0);
+
+        ui_state.finish();
+
+        next_frame().await
+    }
 }
