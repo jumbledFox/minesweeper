@@ -4,27 +4,51 @@
 use rand::seq::SliceRandom;
 use std::time::Instant;
 
-const NEIGHBOUR_OFFSETS: &[(isize, isize)] = &[(-1, 1), (0, 1), (1, 1), (-1, 0), (1, 0), (-1, -1), (0, -1), (1, -1)];
-const MAX_WIDTH : usize = 200;
+const NEIGHBOUR_OFFSETS: &[(isize, isize)] = &[
+    (-1, 1),
+    (0, 1),
+    (1, 1),
+    (-1, 0),
+    (1, 0),
+    (-1, -1),
+    (0, -1),
+    (1, -1),
+];
+const MAX_WIDTH: usize = 200;
 const MAX_HEIGHT: usize = 100;
-const MIN_WIDTH : usize = 4;
+const MIN_WIDTH: usize = 4;
 const MIN_HEIGHT: usize = 4;
+
+// TODO: Make difficulty a struct and make easy, normal, and hard constants
 
 #[derive(Debug, Clone, Copy)]
 pub enum Difficulty {
-    Easy, Normal, Hard,
-    Custom {width: usize, height: usize, bomb_count: usize},
+    Easy,
+    Normal,
+    Hard,
+    Custom {
+        width: usize,
+        height: usize,
+        bomb_count: usize,
+    },
 }
 
 impl Difficulty {
     pub fn value(&self) -> (usize, usize, usize) {
         match *self {
-            Difficulty::Easy   => (10, 10, 9),
+            Difficulty::Easy => (10, 10, 9),
             Difficulty::Normal => (15, 13, 40),
-            Difficulty::Hard   => (30, 16, 99),
-            Difficulty::Custom {width, height, bomb_count} => {
+            Difficulty::Hard => (30, 16, 99),
+            Difficulty::Custom {
+                width,
+                height,
+                bomb_count,
+            } => {
                 // Ensure the fields match the (somewhat arbitrary) limits.
-                let (w, h) = (width.clamp(MIN_WIDTH, MAX_WIDTH), height.clamp(MIN_HEIGHT, MAX_HEIGHT));
+                let (w, h) = (
+                    width.clamp(MIN_WIDTH, MAX_WIDTH),
+                    height.clamp(MIN_HEIGHT, MAX_HEIGHT),
+                );
                 let b = bomb_count.min((w - 1) * (h - 1));
                 (w, h, b)
             }
@@ -32,10 +56,11 @@ impl Difficulty {
     }
 }
 
-
 #[derive(Debug, PartialEq)]
 pub enum GameState {
-    Playing, Win, Lose,
+    Playing,
+    Win,
+    Lose,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub enum TileType {
@@ -69,8 +94,11 @@ impl Minesweeper {
         let bombs = Vec::with_capacity(bomb_count);
 
         Minesweeper {
-            width, height, bomb_count,
-            board, bombs,
+            width,
+            height,
+            bomb_count,
+            board,
+            bombs,
             state: GameState::Playing,
             start_time: None,
             turns: 0,
@@ -78,23 +106,36 @@ impl Minesweeper {
     }
 
     // Getters
-    pub fn width(&self)      -> usize { self.width  }
-    pub fn height(&self)     -> usize { self.height }
-    pub fn bomb_count(&self) -> usize { self.bomb_count }
+    pub fn width(&self) -> usize {
+        self.width
+    }
+    pub fn height(&self) -> usize {
+        self.height
+    }
+    pub fn bomb_count(&self) -> usize {
+        self.bomb_count
+    }
 
-    pub fn board(&self) -> &Vec<TileType> { &self.board }
-    pub fn bombs(&self) -> &Vec<usize>    { &self.bombs }
+    pub fn board(&self) -> &Vec<TileType> {
+        &self.board
+    }
+    pub fn bombs(&self) -> &Vec<usize> {
+        &self.bombs
+    }
 
-    pub fn state(&self)      -> &GameState      { &self.state }
-    pub fn start_time(&self) -> Option<Instant> { self.start_time }
-    pub fn turns(&self)      -> usize           { self.turns }
+    pub fn state(&self) -> &GameState {
+        &self.state
+    }
+    pub fn start_time(&self) -> Option<Instant> {
+        self.start_time
+    }
+    pub fn turns(&self) -> usize {
+        self.turns
+    }
 
     // How many flags the player needs to have flagged all the bombs
     pub fn flags_left(&self) -> usize {
-        let flags_count = self.board
-            .iter()
-            .filter(|&t| *t == TileType::Flag)
-            .count();
+        let flags_count = self.board.iter().filter(|&t| *t == TileType::Flag).count();
         self.bomb_count.saturating_sub(flags_count)
     }
 
@@ -118,7 +159,11 @@ impl Minesweeper {
         if self.state != GameState::Playing {
             return false;
         }
-        if !self.board.get(index).is_some_and(|t| *t == TileType::Unopened) {
+        if !self
+            .board
+            .get(index)
+            .is_some_and(|t| *t == TileType::Unopened)
+        {
             return false;
         }
         if self.turns == 0 {
@@ -137,9 +182,9 @@ impl Minesweeper {
         let mut neighbours: Vec<usize> = Vec::with_capacity(8);
         for _ in 0..self.board.len() {
             for &tile_index in &tiles_to_dig {
-                let valid_neighbours = NEIGHBOUR_OFFSETS
-                    .iter()
-                    .flat_map(|(x, y)| get_index_from_offset(tile_index, *x, *y, self.width, self.height));
+                let valid_neighbours = NEIGHBOUR_OFFSETS.iter().flat_map(|(x, y)| {
+                    get_index_from_offset(tile_index, *x, *y, self.width, self.height)
+                });
                 let neighbouring_bombs: u8 = valid_neighbours
                     .clone()
                     .filter(|i| self.bombs.contains(&i))
@@ -151,7 +196,9 @@ impl Minesweeper {
                     neighbours.extend(valid_neighbours);
                 }
             }
-            if neighbours.is_empty() { break; }
+            if neighbours.is_empty() {
+                break;
+            }
             // Remove all duplicates and non-diggable tiles
             neighbours.sort_unstable();
             neighbours.dedup();
@@ -172,14 +219,30 @@ impl Minesweeper {
             Some(t) => t,
         };
         match erasing_flags {
-            true  => if *tile == TileType::Flag { *tile = TileType::Unopened; return true; }
-            false => if *tile == TileType::Unopened { *tile = TileType::Flag; return true; }
+            true => {
+                if *tile == TileType::Flag {
+                    *tile = TileType::Unopened;
+                    return true;
+                }
+            }
+            false => {
+                if *tile == TileType::Unopened {
+                    *tile = TileType::Flag;
+                    return true;
+                }
+            }
         }
         return false;
     }
 }
 
-fn get_index_from_offset(index: usize, x_offset: isize, y_offset: isize, width: usize, height: usize) -> Option<usize> {
+fn get_index_from_offset(
+    index: usize,
+    x_offset: isize,
+    y_offset: isize,
+    width: usize,
+    height: usize,
+) -> Option<usize> {
     let x = match (index % width).checked_add_signed(x_offset) {
         Some(x) if x < width => x,
         _ => return None,

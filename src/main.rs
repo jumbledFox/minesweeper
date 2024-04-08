@@ -1,13 +1,32 @@
 use macroquad::{miniquad::window::order_quit, prelude::*};
-use ui::{ButtonState, UIState};
+use minesweeper::Difficulty;
+use ui::{ButtonState, Style, UIState};
 
 pub mod ui;
 pub mod minesweeper;
 
 #[macroquad::main("Minesweeper")]
 async fn main() {
-    let mut ui = UIState::new();
-    let mut c = true;
+    // Create the UI
+    let texture = Texture2D::from_file_with_format(include_bytes!("../resources/spritesheet.png"), None);
+    texture.set_filter(FilterMode::Nearest);
+
+    let style = Style {
+        button_idle_source: (Rect { x: 84.0, y: 16.0, w: 3.0, h: 3.0 }, 1.0),
+        button_down_source: (Rect { x: 87.0, y: 16.0, w: 3.0, h: 3.0 }, 1.0),
+        dropdown_bg_source: (Rect { x: 84.0, y: 16.0, w: 3.0, h: 3.0 }, 1.0),
+        menubar_idle:    (Color::from_hex(0xC0CBDC), Color::from_hex(0x181425)),
+        menubar_hovered: (Color::from_hex(0x262B44), Color::from_hex(0xFFFFFF)),
+        separator_col: Color::from_hex(0x8B9BB4),
+    };
+
+    let mut ui = UIState::new(texture, style);
+
+
+    let mut c = false;
+    let mut scale = 1;
+
+    let mut selected_difficulty = 0;
 
     loop {
         clear_background(Color::from_hex(0x756853));
@@ -15,65 +34,43 @@ async fn main() {
         ui.begin();
         
         ui.begin_menubar();
-        if ui.menu_item(String::from("Game"), 50.0) {
-            if ui.dropdown(String::from("New Game"))   {  }
-            ui.dropdown_separator();
-            if ui.dropdown(String::from("Easy"))   {  }
-            if ui.dropdown(String::from("Normal")) {  }
-            if ui.dropdown(String::from("Hard"))   {  }
-            if ui.dropdown(String::from("Custom")) {  }
-            ui.dropdown_separator();
-            if ui.dropdown(String::from("Exit")) { order_quit(); }
+        if ui.menu_item(String::from("Game"), 82.0) {
+            if ui.dropdown_item(String::from("New Game"))   {  }
+            ui.dropdown_item_separator();
+
+            if ui.dropdown_item_radio(String::from("Easy       ¬¬9¬¬*¬¬9¬¬,¬10"), selected_difficulty == 0, &mut selected_difficulty, Some(0)) {  }
+            if ui.dropdown_item_radio(String::from("Normal    15*13,40"),         selected_difficulty == 1, &mut selected_difficulty, Some(1)) {  }
+            if ui.dropdown_item_radio(String::from("Hard      30*16,99"),         selected_difficulty == 2, &mut selected_difficulty, Some(2)) {  }
+            if ui.dropdown_item_radio(String::from("Custom..."),                  selected_difficulty == 3, &mut selected_difficulty, None) {  }
+            ui.dropdown_item_separator();
+
+            ui.dropdown_item_checkbox(String::from("Use Question Marks"), &mut c);
+            ui.dropdown_item_separator();
+
+            if ui.dropdown_item(String::from("Exit")) { order_quit(); }
+            ui.finish_dropdown();
         }
-        if ui.menu_item(String::from("Help"), 25.0) {
-            if ui.dropdown(String::from("About")) {  }
+        if ui.menu_item(String::from("Help"), 35.0) {
+            if ui.dropdown_item(String::from("About")) {  }
+            ui.finish_dropdown();
         }
-        if ui.menu_item(String::from("Scale"), 15.0) {
-            if ui.dropdown(String::from(" 1* ")) {}
-            if ui.dropdown(String::from(" 2* ")) {}
-            if ui.dropdown(String::from(" 3* ")) {}
-            if ui.dropdown(String::from(" 4* ")) {}
-            ui.dropdown_new_column();
-            if ui.dropdown(String::from(" 5* ")) {}
-            if ui.dropdown(String::from(" 6* ")) {}
-            if ui.dropdown(String::from(" 7* ")) {}
-            if ui.dropdown(String::from(" 8* ")) {}
+        if ui.menu_item(String::from("Scale"), 25.0) {
+            for i in 1..=8 {
+                if i == 5 { ui.dropdown_new_column(); }
+                if ui.dropdown_item_radio(format!("{:?}{}*", i, if i == 1 {"¬"} else {""}), scale == i, &mut scale, Some(i)) {
+
+                }
+            }
+            ui.finish_dropdown();
         }
         ui.finish_menubar();
         
-        // ui.checkbox(String::from("cb1"), &mut c, 10.0, 10.0, 20.0, 20.0);
-        // if c {
-        //     ui.label(
-        //         String::from("Hello!! this is a test of the ui label..\nthat should've been a line break.. :3"),
-        //         Color::from_hex(0x00FFFF), 250.0, 40.0
-        //     );
-        //     ui.label(
-        //         String::from("Yippee!! It seems to be working. [] {} () - + = * /"),
-        //         Color::from_hex(0xFF3333), 250.0, 60.0
-        //     );
-        //     ui.label(
-        //         String::from("This invalid character, which isn't in the CHAR_MAP, \nshould be shown as a question mark. -> 🦊 <-. It's actually a fox emoji!"),
-        //         Color::from_hex(0xFFFF00), 250.0, 70.0
-        //     );
-        //     ui.label(
-        //         String::from("jumbledFox"),
-        //         Color::from_hex(0x000000), 250.0, 90.0
-        //     );
-        //     if ui.button(1, 10.0, 40.0, 50.0, 20.0) == ButtonState::Released {
-        //         println!("hello");
-        //     }
-        //     for i in 0..10 {
-        //         if ui.button(i+10, 130.0, i as f32*25.0 + 40.0, 80.0, 20.0) == ButtonState::Released {
-        //             println!("{:?}", i);
-        //         }
-        //     }
+        // if ui.button(String::from("Hello!"), 10.0, 80.0, 50.0, 20.0) == ButtonState::Released {
+        //     println!("hello 2");
         // }
-        if ui.button(String::from("Hello!"), 10.0, 80.0, 50.0, 20.0) == ButtonState::Released {
-            println!("hello 2");
-        }
-        if ui.button(String::from("Quit"), 40.0, 80.0, 70.0, 40.0) == ButtonState::Released {
-            order_quit();
-        }
+        // if ui.button(String::from("Quit"), 40.0, 80.0, 70.0, 40.0) == ButtonState::Released {
+        //     order_quit();
+        // }
 
         ui.finish();
 
