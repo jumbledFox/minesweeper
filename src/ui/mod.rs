@@ -20,11 +20,12 @@ pub mod text_renderer;
 pub struct Style {
     pub button_idle_source: NinesliceSource,
     pub button_down_source: NinesliceSource,
-
+    
     pub menubar_idle: (Color, Color),
     pub menubar_hovered: (Color, Color),
-    pub separator_col: Color,
     pub dropdown_bg_source: NinesliceSource,
+    pub separator_col: Color,
+    pub shadow_col: Color,
 }
 
 
@@ -210,8 +211,6 @@ impl UIState {
 
         self.drawqueue.push(DrawShape::Label { x: rect_x + label_rel_pos.x, y: rect_y + label_rel_pos.y, text, color: tex_col });
         self.drawqueue.push(DrawShape::Rect { x: rect_x, y: rect_y, w, h, color: col });
-        // Draw the shadow
-        // self.drawqueue.push(DrawShape::Rect { x: x + 4.0, y: y + 4.0, w, h, color: Color::from_hex(0x000000) });
 
         // If the button is hot and active, but the mouse isn't down, the user must've released the button
         if !self.mouse_down && self.hot_item == id && self.active_item == id {
@@ -309,6 +308,7 @@ impl UIState {
     }
     pub fn finish_dropdown(&mut self) {
         self.drawqueue.push(DrawShape::nineslice(self.dropdown_rect(), self.style.dropdown_bg_source));
+        self.drawqueue.push(DrawShape::rect_from_rect(self.dropdown_rect().offset(Vec2::splat(3.0)), self.style.shadow_col));
     }
 
     // TODO: Make dropdown buttons their own type of button that has the right behaviour

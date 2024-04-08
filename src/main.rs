@@ -18,6 +18,7 @@ async fn main() {
         menubar_idle:    (Color::from_hex(0xC0CBDC), Color::from_hex(0x181425)),
         menubar_hovered: (Color::from_hex(0x262B44), Color::from_hex(0xFFFFFF)),
         separator_col: Color::from_hex(0x8B9BB4),
+        shadow_col: Color::from_rgba(0, 0, 0, 64),
     };
 
     let mut ui = UIState::new(texture, style);
