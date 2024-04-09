@@ -39,10 +39,8 @@ pub struct TextRenderer {
 
 impl TextRenderer {
     pub fn new() -> TextRenderer {
-        let chars_texture =
-            Texture2D::from_file_with_format(include_bytes!("../../resources/chars.png"), None);
+        let chars_texture = Texture2D::from_file_with_format(include_bytes!("../../resources/chars.png"), None);
         chars_texture.set_filter(FilterMode::Nearest);
-
         TextRenderer { chars_texture }
     }
 
@@ -106,7 +104,7 @@ impl TextRenderer {
     }
 }
 
-// I think there's a better way to do this with slices and fold..
+// TODO: I think there's a better way to do this with slices and fold, but this works for now
 fn split_vector_by_indexes<T: Clone>(vector: &[T], indexes: &[usize]) -> Vec<Vec<T>> {
     let mut result = Vec::new();
     let mut start_index = 0;
