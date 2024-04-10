@@ -22,14 +22,19 @@ async fn main() {
 
 
     let mut c = false;
-    let mut scale = 1;
+    let mut scale = 3;
 
     let mut selected_difficulty = 0;
 
     loop {
         clear_background(Color::from_hex(0x756853));
+        set_camera(&Camera2D {
+            zoom: (scale as f32 * 2.0)/Vec2::new(screen_width(), screen_height()),
+            target: vec2(screen_width(), screen_height()) / (scale as f32 * 2.0),
+            ..Default::default()
+        });
 
-        ui.begin();
+        ui.begin(scale as f32);
         
         ui.begin_menubar();
         if ui.menu_item(String::from("Game"), 85.0) {

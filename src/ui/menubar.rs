@@ -1,7 +1,5 @@
 // UI functions relating to creating a menubar with dropdowns
 
-use macroquad::miniquad::window::screen_size;
-
 use super::*;
 
 // Holds information about the menubar
@@ -45,7 +43,7 @@ impl UIState {
         self.drawqueue.push(DrawShape::Rect {
             x: 0.0,
             y: 0.0,
-            w: screen_size().0,
+            w: self.screen_size.x,
             h: self.menubar.height,
             color: Color::from_hex(0xC0CBDC)
         })
@@ -133,13 +131,13 @@ impl UIState {
         self.drawqueue.push(DrawShape::image_rect(
             Rect::new(
                 self.menubar.dropdown_next.x + 1.0,
-                self.menubar.dropdown_next.y + 1.0,
+                self.menubar.dropdown_next.y,
                 self.menubar.dropdown_item_width - 2.0,
                 self.style.separator_source.h,
             ),
             self.style.separator_source,
         ));
-        self.dropdown_move_down_by(3.0);
+        self.dropdown_move_down_by(2.0);
     }
 
     // Makes the dropdown menu have a new column

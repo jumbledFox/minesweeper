@@ -82,6 +82,7 @@ pub struct UIState {
     mouse_pos: Vec2,
     mouse_down: bool,
     mouse_pressed: bool,
+    screen_size: Vec2,
     hot_item: SelectedItem,
     active_item: SelectedItem,
 
@@ -101,6 +102,7 @@ impl UIState {
             mouse_pos: Vec2::ZERO,
             mouse_down: false,
             mouse_pressed: false,
+            screen_size: Vec2::ONE,
             hot_item: SelectedItem::None,
             active_item: SelectedItem::None,
 
@@ -113,11 +115,15 @@ impl UIState {
         }
     }
 
-    pub fn begin(&mut self) {
+    pub fn begin(&mut self, scale: f32) {
+        self.mouse_pos = Vec2::new(mouse_position().0, mouse_position().1) / scale;
+        
         let mouse_down_prev = self.mouse_down;
-        self.mouse_pos = Vec2::new(mouse_position().0, mouse_position().1);
         self.mouse_down = is_mouse_button_down(MouseButton::Left);
         self.mouse_pressed = self.mouse_down && !mouse_down_prev;
+
+        self.screen_size = Vec2::new(screen_width(), screen_height()) / scale;
+
         self.hot_item = SelectedItem::None;
         self.menubar.reset();
         self.drawqueue = Vec::new();
