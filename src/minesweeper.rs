@@ -19,7 +19,8 @@ const MAX_HEIGHT: usize = 100;
 const MIN_WIDTH: usize = 4;
 const MIN_HEIGHT: usize = 4;
 
-// TODO: Make difficulty a struct and make easy, normal, and hard constants
+// TODO: Make difficulty a struct and make easy, normal, and hard constants maybe ?
+// TODO: Question marks
 
 #[derive(Debug, Clone, Copy)]
 pub enum Difficulty {

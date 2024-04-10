@@ -55,10 +55,12 @@ impl TextRenderer {
             .expect("ERROR_CHAR not a key in CHAR_MAP!")
     }
 
-    pub fn draw_text(&self, text: &String, x: f32, y: f32, color: Color, line_gap: Option<f32>) {
+    // TODO: Think about how and when I use AsRef<str> in this and other parts of the code.
+    // https://www.reddit.com/r/learnrust/comments/14s0k5x/using_asrefstr_as_ref_and_to_owned/
+    pub fn draw_text(&self, text: &impl AsRef<str>, x: f32, y: f32, color: Color, line_gap: Option<f32>) {
         let mut x_pos = 0.0;
         let mut y_pos = 0.0;
-        for c in text.chars() {
+        for c in text.as_ref().chars() {
             if c == '\n' {
                 x_pos = 0.0;
                 y_pos += self.chars_texture.height() + line_gap.unwrap_or(1.0);
@@ -81,8 +83,9 @@ impl TextRenderer {
         }
     }
 
-    pub fn text_size(&self, text: &String, line_gap: Option<f32>) -> Vec2 {
+    pub fn text_size(&self, text: &impl AsRef<str>, line_gap: Option<f32>) -> Vec2 {
         let line_breaks: Vec<usize> = text
+            .as_ref()
             .chars()
             .enumerate()
             .filter_map(|(i, c)| match c {
@@ -91,7 +94,7 @@ impl TextRenderer {
             })
             .collect();
         let largest_line_len: f32 =
-            split_vector_by_indexes(&text.chars().collect::<Vec<char>>(), &line_breaks)
+            split_vector_by_indexes(&text.as_ref().chars().collect::<Vec<char>>(), &line_breaks)
                 .iter()
                 .map(|v| v.iter().map(|c| TextRenderer::character_values(*c).1).sum())
                 .fold(f32::NEG_INFINITY, f32::max);

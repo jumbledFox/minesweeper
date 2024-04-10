@@ -1,5 +1,5 @@
 use macroquad::{miniquad::window::order_quit, prelude::*};
-use ui::{Style, UIState};
+use ui::{menubar::Menubar, Style, UIState};
 
 pub mod ui;
 pub mod minesweeper;
@@ -17,56 +17,50 @@ async fn main() {
         menubar_idle:    (Color::from_hex(0xC0CBDC), Color::from_hex(0x181425)),
         menubar_hovered: (Color::from_hex(0x262B44), Color::from_hex(0xFFFFFF)),
         separator_source: Rect { x: 89.0, y: 11.0, w: 1.0, h: 2.0 },
-        shadow_col: Color::from_rgba(0, 0, 0, 128),
+        shadow_color: Color::from_rgba(0, 0, 0, 128),
     });
+    let mut menubar = Menubar::default();
 
 
     let mut c = false;
     let mut scale = 3;
-
-    let mut t: f32 = 0.0;
 
     let mut selected_difficulty = 0;
 
     loop {
         ui.begin(scale as f32);
         
+        menubar.begin(ui);
+        if menubar.item(String::from("Game"), 85.0) {
+            if menubar.dropdown("New Game") { }
+            menubar.dropdown_separator();
+            // TODO: Secondary colour (maybe with some control character)
+            if menubar.dropdown_radio("Easy       ¬¬9¬¬*¬¬9¬¬,¬10", selected_difficulty == 0) { selected_difficulty = 0 }
+            if menubar.dropdown_radio("Normal    15*13,40",         selected_difficulty == 1) { selected_difficulty = 1 }
+            if menubar.dropdown_radio("Hard      30*16,99",         selected_difficulty == 2) { selected_difficulty = 2 }
+            if menubar.dropdown_radio("Custom...",                  selected_difficulty == 3) {  }
+            menubar.dropdown_separator();
 
-        // TODO: Maybe make menubar hold a reference to the ui and then i can do menubar.begin etc etc...
-        
-        ui.begin_menubar();
-        if ui.menu_item(String::from("Game"), 85.0) {
-            if ui.dropdown_item(String::from("New Game")).into() {  }
-            ui.dropdown_separator();
-            // TODO: Secondary colour
-            if ui.dropdown_item_radio(String::from("Easy       ¬¬9¬¬*¬¬9¬¬,¬10"), selected_difficulty == 0).into() { selected_difficulty = 0 }
-            if ui.dropdown_item_radio(String::from("Normal    15*13,40"),         selected_difficulty == 1).into() { selected_difficulty = 1 }
-            if ui.dropdown_item_radio(String::from("Hard      30*16,99"),         selected_difficulty == 2).into() { selected_difficulty = 2 }
-            if ui.dropdown_item_radio(String::from("Custom..."),                  selected_difficulty == 3).into() {  }
-            ui.dropdown_separator();
+            menubar.dropdown_checkbox("Use Question Marks", &mut c);
+            menubar.dropdown_separator();
 
-            ui.dropdown_item_checkbox(String::from("Use Question Marks"), &mut c);
-            ui.dropdown_separator();
-
-            if ui.dropdown_item(String::from("Exit")).into() { order_quit(); }
-            ui.finish_menu_item();
+            if menubar.dropdown("Exit") { order_quit(); }
+            menubar.finish_item();
         }
-        if ui.menu_item(String::from("Help"), 35.0) {
-            if ui.dropdown_item(String::from("About")).into() {  }
-            ui.finish_menu_item();
+        if menubar.item("Help", 35.0) {
+            menubar.dropdown("About");
+            menubar.finish_item();
         }
-        if ui.menu_item(String::from("Scale"), 22.0) {
+        if menubar.item("Scale", 22.0) {
             for i in 1..=8 {
-                if ui.dropdown_item_radio(format!("{:?}{}*", i, if i == 1 {"¬"} else {""}), scale == i).into() {
-                    scale = i;
+                if menubar.dropdown_radio(format!("{:?}{}*", i, if i == 1 {"¬"} else {""}), scale == i) {
+                    scale = i
                 }
-                if i % 4 == 0 { ui.dropdown_new_column(); }
+                if i == 4 { menubar.dropdown_new_column(); }
             }
-            ui.finish_menu_item();
+            menubar.finish_item();
         }
-        ui.finish_menubar();
-        
-
+        ui = menubar.finish();
 
         if ui.button(String::from("Hello!"), ui::TextAlignment::Left(2.0), 10.0, 70.0, 50.0, 20.0).into() {
             println!("hello 2");
@@ -74,10 +68,9 @@ async fn main() {
         if ui.button(String::from("Quit"), ui::TextAlignment::Center, 40.0, 80.0, 70.0, 40.0).into() {
             order_quit();
         }
-
-
-
         // TODO: Draw a background
+
+        // TODO: Minesweeper elements
 
         ui.finish();
 

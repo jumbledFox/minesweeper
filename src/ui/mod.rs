@@ -17,7 +17,6 @@ pub mod menubar;
 pub mod text_renderer;
 
 use self::text_renderer::TextRenderer;
-use self::menubar::*;
 
 pub struct Style {
     pub button_idle_source: NinesliceSource,
@@ -27,7 +26,7 @@ pub struct Style {
     pub menubar_hovered: (Color, Color),
     pub dropdown_bg_source: NinesliceSource,
     pub separator_source: Rect,
-    pub shadow_col: Color,
+    pub shadow_color: Color,
 }
 
 pub enum DrawShape {
@@ -85,10 +84,8 @@ pub struct UIState {
     hot_item: SelectedItem,
     active_item: SelectedItem,
 
-    menubar: Menubar,
-
     text_renderer: TextRenderer,
-    drawqueue: Vec<DrawShape>,
+    draw_queue: Vec<DrawShape>,
 
     texture: Texture2D,
 }
@@ -105,10 +102,8 @@ impl UIState {
             hot_item: SelectedItem::None,
             active_item: SelectedItem::None,
 
-            menubar: Menubar::default(),
-
             text_renderer: TextRenderer::new(),
-            drawqueue: vec![],
+            draw_queue: vec![],
 
             texture,
         }
@@ -130,10 +125,7 @@ impl UIState {
         });
 
         self.hot_item = SelectedItem::None;
-        self.menubar.reset();
-        self.drawqueue = Vec::new();
-
-        self.deselect_menubar();
+        self.draw_queue = Vec::new();
     }
     
     pub fn finish(&mut self) {
@@ -145,7 +137,7 @@ impl UIState {
             }
         }
         // Draw all of the elements so the first ones are drawn last and appear on top
-        for d in self.drawqueue.iter().rev() {
+        for d in self.draw_queue.iter().rev() {
             match d {
                 // TODO: fix differing &s
                 DrawShape::Label { x, y, text, color } => self.text_renderer.draw_text(text, *x, *y, *color, None),
@@ -194,13 +186,10 @@ impl UIState {
     }
 
     pub fn draw_queue(&mut self) -> &mut Vec<DrawShape> {
-        &mut self.drawqueue
+        &mut self.draw_queue
     }
     pub fn style(&self) -> &Style {
         &self.style
-    }
-    pub fn menubar(&self) -> &Menubar {
-        &self.menubar
     }
 
     pub fn mouse_in_rect(&self, rect: Rect) -> bool {
@@ -218,7 +207,7 @@ impl UIState {
     }
 
     pub fn label(&mut self, text: String, color: Color, x: f32, y: f32) {
-        self.drawqueue.push(DrawShape::Label { x, y, text, color });
+        self.draw_queue.push(DrawShape::Label { x, y, text, color });
     }
 }
 
@@ -238,6 +227,8 @@ pub enum TextAlignment {
     Left(f32),
     // TODO: Right(f32),
 }
+
+// TODO: Redo a whole lot of this file
 
 impl UIState {
     pub fn button(&mut self, text: String, align: TextAlignment, x: f32, y: f32, w: f32, h: f32) -> ButtonState {
@@ -268,8 +259,8 @@ impl UIState {
             TextAlignment::Left(gap) => Vec2::new(gap, (h - self.text_renderer.text_size(&text, None).y) / 2.0),
         };
 
-        self.drawqueue.push(DrawShape::Label { x: rect_x + label_rel_pos.x, y: rect_y + label_rel_pos.y, text, color: tex_col });
-        self.drawqueue.push(DrawShape::Rect { x: rect_x, y: rect_y, w, h, color: col });
+        self.draw_queue.push(DrawShape::Label { x: rect_x + label_rel_pos.x, y: rect_y + label_rel_pos.y, text, color: tex_col });
+        self.draw_queue.push(DrawShape::Rect { x: rect_x, y: rect_y, w, h, color: col });
 
         // If the button is hot and active, but the mouse isn't down, the user must've released the button
         if !self.mouse_down && self.hot_item == id && self.active_item == id {
@@ -284,7 +275,7 @@ impl UIState {
     }
 
     pub fn checkbox(&mut self, label: String, value: &mut bool, x: f32, y: f32, w: f32, h: f32) -> bool {
-        let drawqueue_before_index = self.drawqueue.len();
+        let drawqueue_before_index = self.draw_queue.len();
 
         let offset = match self.button(label, TextAlignment::Center, x, y, w, h) {
             ButtonState::Held => 2.0,
@@ -292,7 +283,7 @@ impl UIState {
             _ => 0.0
         };
         if *value {
-            self.drawqueue.insert(drawqueue_before_index, DrawShape::Rect { x: x+w/4.0+offset, y: y+h/4.0+offset, w: w*(2.0/4.0), h: h*(2.0/4.0), color: Color::from_hex(0x333333) });
+            self.draw_queue.insert(drawqueue_before_index, DrawShape::Rect { x: x+w/4.0+offset, y: y+h/4.0+offset, w: w*(2.0/4.0), h: h*(2.0/4.0), color: Color::from_hex(0x333333) });
         }
         *value
     }
