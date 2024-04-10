@@ -32,6 +32,9 @@ impl Menubar {
         self.dropdown_current = Vec2::ZERO;
         self.dropdown_next = Vec2::ZERO;
     }
+    pub fn height(&self) -> f32 {
+        self.height
+    }
 }
 
 impl UIState {

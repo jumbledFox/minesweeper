@@ -30,7 +30,6 @@ pub struct Style {
     pub shadow_col: Color,
 }
 
-
 pub enum DrawShape {
     Label{x: f32, y: f32, text: String, color: Color},
     Rect{x: f32, y: f32, w: f32, h: f32, color: Color},
@@ -117,12 +116,18 @@ impl UIState {
 
     pub fn begin(&mut self, scale: f32) {
         self.mouse_pos = Vec2::new(mouse_position().0, mouse_position().1) / scale;
-        
+
         let mouse_down_prev = self.mouse_down;
         self.mouse_down = is_mouse_button_down(MouseButton::Left);
         self.mouse_pressed = self.mouse_down && !mouse_down_prev;
 
-        self.screen_size = Vec2::new(screen_width(), screen_height()) / scale;
+        let window_size = Vec2::new(screen_width(), screen_height());
+        self.screen_size = window_size / scale;
+        set_camera(&Camera2D {
+            zoom: (scale* 2.0) / window_size,
+            target: self.screen_size / 2.0,
+            ..Default::default()
+        });
 
         self.hot_item = SelectedItem::None;
         self.menubar.reset();
@@ -186,6 +191,16 @@ impl UIState {
                 },
             }
         }
+    }
+
+    pub fn draw_queue(&mut self) -> &mut Vec<DrawShape> {
+        &mut self.drawqueue
+    }
+    pub fn style(&self) -> &Style {
+        &self.style
+    }
+    pub fn menubar(&self) -> &Menubar {
+        &self.menubar
     }
 
     pub fn mouse_in_rect(&self, rect: Rect) -> bool {
