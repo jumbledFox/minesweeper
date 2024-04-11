@@ -142,14 +142,6 @@ impl UIState {
                 // TODO: fix differing &s
                 DrawShape::Label { x, y, text, color } => self.text_renderer.draw_text(text, *x, *y, *color, None),
                 &DrawShape::Rect { x, y, w, h, color } => draw_rectangle(x, y, w, h, color),
-                &DrawShape::ImageRect { dest, source } => {
-                    let params = DrawTextureParams {
-                        dest_size: Some(dest.size()),
-                        source: Some(source),
-                        ..Default::default()
-                    };
-                    draw_texture_ex(&self.texture, dest.x, dest.y, WHITE, params);
-                }
                 &DrawShape::Nineslice { dest, source, padding } => {
                     fn calculate_parts(rect: Rect, pad: f32) -> [Rect; 9] {
                         let middle_size = Vec2::new(rect.w, rect.h) - pad*2.0;
@@ -181,6 +173,14 @@ impl UIState {
                         draw_texture_ex(&self.texture, d.x, d.y, WHITE, params);
                     }
                 },
+                &DrawShape::ImageRect { dest, source } => {
+                    let params = DrawTextureParams {
+                        dest_size: Some(dest.size()),
+                        source: Some(source),
+                        ..Default::default()
+                    };
+                    draw_texture_ex(&self.texture, dest.x, dest.y, WHITE, params);
+                },
             }
         }
     }
@@ -198,13 +198,6 @@ impl UIState {
         self.mouse_pos.y >= rect.y     &&
         self.mouse_pos.y <  rect.y + rect.h
     }
-    // TODO:
-    pub fn mouse_in_rect2(&self, x: f32, y: f32, w: f32, h: f32) -> bool {
-        self.mouse_pos.x >= x     &&
-        self.mouse_pos.x <  x + w &&
-        self.mouse_pos.y >= y     &&
-        self.mouse_pos.y <  y + h
-    }
 
     pub fn label(&mut self, text: String, color: Color, x: f32, y: f32) {
         self.draw_queue.push(DrawShape::Label { x, y, text, color });
@@ -219,72 +212,5 @@ pub enum ButtonState {
 impl Into<bool> for ButtonState {
     fn into(self) -> bool {
         self == ButtonState::Released
-    }
-}
-
-pub enum TextAlignment {
-    Center,
-    Left(f32),
-    // TODO: Right(f32),
-}
-
-// TODO: Redo a whole lot of this file
-
-impl UIState {
-    pub fn button(&mut self, text: String, align: TextAlignment, x: f32, y: f32, w: f32, h: f32) -> ButtonState {
-        let id = hash_string(&text);
-
-        let mut clicked = false;
-        // Detect whether the button should be hot / active
-        if self.hot_item == SelectedItem::None && self.mouse_in_rect2(x, y, w, h) {
-            self.hot_item = SelectedItem::Some(id);
-            if self.active_item == SelectedItem::None && self.mouse_down {
-                self.active_item = SelectedItem::Some(id);
-                clicked = true;
-            }
-        }
-
-        // Rendering
-        let (rect_x, rect_y, (col, tex_col), state) = match (&self.hot_item, &self.active_item) {
-            // Hot and active (Held)
-            (hot_item, active_item) if *hot_item == id && *active_item == id => (x + 2.0, y + 2.0, self.style.menubar_hovered, ButtonState::Held),
-            // Hot, but not active (Hovered)
-            (hot_item, _) if *hot_item == id => (x, y, self.style.menubar_hovered, ButtonState::Hovered),
-            // Otherwise
-            _  => (x, y, self.style.menubar_idle, ButtonState::Idle),
-        };
-
-        let label_rel_pos = match align {
-            TextAlignment::Center => (Vec2::new(w, h)-self.text_renderer.text_size(&text, None))/2.0,
-            TextAlignment::Left(gap) => Vec2::new(gap, (h - self.text_renderer.text_size(&text, None).y) / 2.0),
-        };
-
-        self.draw_queue.push(DrawShape::Label { x: rect_x + label_rel_pos.x, y: rect_y + label_rel_pos.y, text, color: tex_col });
-        self.draw_queue.push(DrawShape::Rect { x: rect_x, y: rect_y, w, h, color: col });
-
-        // If the button is hot and active, but the mouse isn't down, the user must've released the button
-        if !self.mouse_down && self.hot_item == id && self.active_item == id {
-            return ButtonState::Released;
-        } else {
-            if clicked {
-                return ButtonState::Clicked;
-            } else {
-                return state;
-            }
-        }
-    }
-
-    pub fn checkbox(&mut self, label: String, value: &mut bool, x: f32, y: f32, w: f32, h: f32) -> bool {
-        let drawqueue_before_index = self.draw_queue.len();
-
-        let offset = match self.button(label, TextAlignment::Center, x, y, w, h) {
-            ButtonState::Held => 2.0,
-            ButtonState::Released => {*value = !*value; 0.0}
-            _ => 0.0
-        };
-        if *value {
-            self.draw_queue.insert(drawqueue_before_index, DrawShape::Rect { x: x+w/4.0+offset, y: y+h/4.0+offset, w: w*(2.0/4.0), h: h*(2.0/4.0), color: Color::from_hex(0x333333) });
-        }
-        *value
     }
 }
