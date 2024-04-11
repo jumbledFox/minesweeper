@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc};
 
 use macroquad::{miniquad::window::order_quit, prelude::*};
-use ui::{menubar::Menubar, Style, UIState};
+use ui::{UIState, menubar::Menubar};
 
 pub mod ui;
 pub mod minesweeper;
@@ -12,17 +12,8 @@ async fn main() {
     let texture = Texture2D::from_file_with_format(include_bytes!("../resources/spritesheet.png"), None);
     texture.set_filter(FilterMode::Nearest);
 
-    let ui = Rc::new(RefCell::new(UIState::new(texture, Style {
-        button_idle_source: (Rect { x: 84.0, y: 16.0, w: 3.0, h: 3.0 }, 1.0),
-        button_down_source: (Rect { x: 87.0, y: 16.0, w: 3.0, h: 3.0 }, 1.0),
-        dropdown_bg_source: (Rect { x: 84.0, y: 16.0, w: 3.0, h: 3.0 }, 1.0),
-        menubar_idle:    (Color::from_hex(0xC0CBDC), Color::from_hex(0x181425)),
-        menubar_hovered: (Color::from_hex(0x262B44), Color::from_hex(0xFFFFFF)),
-        separator_source: Rect { x: 89.0, y: 11.0, w: 1.0, h: 2.0 },
-        shadow_color: Color::from_rgba(0, 0, 0, 128),
-    })));
+    let ui = Rc::new(RefCell::new(UIState::new(texture)));
     let mut menubar = Menubar::new(Rc::clone(&ui));
-
 
     let mut use_q_marks = false;
     let mut auto_resize = true;
@@ -70,7 +61,12 @@ async fn main() {
         // TODO: Draw a background
 
         // TODO: Minesweeper elements
-
+        let screen_width  = ui.borrow().screen_size().x;
+        let lower_x = screen_width / 5.0;
+        ui::minesweeper::bomb_counter(&mut ui.borrow_mut(), 18.0, lower_x,                menubar.height() + 3.0, 3, 12);
+        ui::minesweeper::bomb_counter(&mut ui.borrow_mut(), 19.0, screen_width / 2.0,     menubar.height() + 2.0, 1, 14);
+        ui::minesweeper::bomb_counter(&mut ui.borrow_mut(),  9.0, screen_width - lower_x, menubar.height() + 7.0, 2, 0);
+        
         ui.borrow_mut().finish();
 
         next_frame().await

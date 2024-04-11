@@ -1,5 +1,6 @@
-// UI functions relating to creating a menubar with dropdowns
-// I don't know if it's bad practice or not, but this takes ownership of the ui and gives it back when it's done.
+// UI functions relating to creating a menubar with dropdowns.
+// Since a menubar is pretty big and has a lot of functions, as well as members that should persist across frames,
+// I've made it it's own struct that stores a reference to the UI.
 
 use std::{cell::RefCell, rc::Rc};
 
@@ -7,7 +8,7 @@ use super::*;
 
 // Holds information about the menubar
 pub struct Menubar {
-    // A reference to the UI, much nicer than passing ui to the menubar every single time we need it
+    // A reference to the UI, much nicer than passing ui to the menubar every single time we need it.
     // Originally I was gonna use lifetimes but they're a whole can of worms...
     ui: Rc<RefCell<UIState>>,
     // The currently opened menubar
@@ -37,6 +38,10 @@ impl Menubar {
             dropdown_current: Vec2::ZERO, dropdown_next: Vec2::ZERO,
             prev_dropdown_rect: Rect::default()
         }
+    }
+
+    pub fn height(&self) -> f32 {
+        self.height
     }
 
     pub fn reset(&mut self) {
@@ -70,7 +75,7 @@ impl Menubar {
             h: self.height,
             color: Color::from_hex(0xC0CBDC)
         };
-        self.ui.borrow_mut().draw_queue.push(b);
+        self.ui.borrow_mut().draw_queue().push(b);
     }
 
 
@@ -110,12 +115,12 @@ impl Menubar {
         }
 
         let colors = match self.current == Some(id) || state != ButtonState::Idle {
-            true  => ui.style.menubar_hovered,
-            false => ui.style.menubar_idle,
+            true  => spritesheet::menubar_hovered(),
+            false => spritesheet::menubar_idle(),
         };
         // Rendering
-        ui.draw_queue.push(DrawShape::label(rect.x + 2.0, rect.y + 1.0, text.as_ref().to_string(), colors.1));
-        ui.draw_queue.push(DrawShape::rect(rect, colors.0));
+        ui.draw_queue().push(DrawShape::label(rect.x + 2.0, rect.y + 1.0, text.as_ref().to_string(), colors.1));
+        ui.draw_queue().push(DrawShape::rect(rect, colors.0));
 
         self.current == Some(id)
     }
@@ -124,10 +129,8 @@ impl Menubar {
         let mut ui = self.ui.borrow_mut();
         // Draw the box and it's shadow
         let dropdown_rect = self.dropdown_rect();
-        let dropdown_bg_source = ui.style.dropdown_bg_source;
-        let shadow_color = ui.style.shadow_color;
-        ui.draw_queue.push(DrawShape::nineslice(dropdown_rect, dropdown_bg_source));
-        ui.draw_queue.push(DrawShape::rect(dropdown_rect.offset(Vec2::splat(3.0)), shadow_color));
+        ui.draw_queue().push(DrawShape::nineslice(dropdown_rect, spritesheet::DROPDOWN_BACKGROUND));
+        ui.draw_queue().push(DrawShape::rect(dropdown_rect.offset(Vec2::splat(3.0)), spritesheet::shadow()));
 
         // Make it so we can't hover over things through the dropdown
         if dropdown_rect.contains(ui.mouse_pos) && ui.hot_item == SelectedItem::None {
@@ -177,8 +180,8 @@ impl Menubar {
 
         // Rendering
         let colors = match ui.hot_item {
-            SelectedItem::Some(hot_item) if id == hot_item => ui.style.menubar_hovered,
-            _ => ui.style.menubar_idle
+            SelectedItem::Some(hot_item) if id == hot_item => spritesheet::menubar_hovered(),
+            _ => spritesheet::menubar_idle()
         };
 
         if draw_mark {
@@ -191,10 +194,10 @@ impl Menubar {
                 h: 3.0, 
                 color: colors.1,
             };
-            ui.draw_queue.push(mark);
+            ui.draw_queue().push(mark);
         }
-        ui.draw_queue.push(DrawShape::label(rect.x + 7.0, rect.y + 2.0, text.as_ref().to_owned(), colors.1));
-        ui.draw_queue.push(DrawShape::rect(rect, colors.0));
+        ui.draw_queue().push(DrawShape::label(rect.x + 7.0, rect.y + 2.0, text.as_ref().to_owned(), colors.1));
+        ui.draw_queue().push(DrawShape::rect(rect, colors.0));
         drop(ui);
 
         self.dropdown_move_down_by(rect.h);
@@ -219,14 +222,14 @@ impl Menubar {
     }
 
     pub fn dropdown_separator(&mut self) {
-        let source = self.ui.borrow().style.separator_source;
+        let source = spritesheet::DROPDOWN_SEPARATOR;
         let dest = Rect::new(
             self.dropdown_next.x + 1.0,
             self.dropdown_next.y,
             self.dropdown_item_width - 2.0,
             source.h,
         );
-        self.ui.borrow_mut().draw_queue.push(DrawShape::ImageRect { dest, source });
+        self.ui.borrow_mut().draw_queue().push(DrawShape::ImageRect { dest, source });
         self.dropdown_move_down_by(source.h);
     }
 
