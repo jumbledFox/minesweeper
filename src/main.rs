@@ -25,7 +25,7 @@ async fn main() {
         ui.borrow_mut().begin(scale as f32);
         
         menubar.begin();
-        if menubar.item(String::from("Game"), 85.0) {
+        if menubar.item(String::from("Game"), 86.0) {
             if menubar.dropdown("New Game") { }
             menubar.dropdown_separator();
             // TODO: Secondary colour (maybe with some control character)
@@ -43,7 +43,7 @@ async fn main() {
             if menubar.dropdown("Exit") { order_quit(); }
             menubar.finish_item();
         }
-        if menubar.item("Help", 35.0) {
+        if menubar.item("Help", 34.0) {
             menubar.dropdown("About");
             menubar.finish_item();
         }
@@ -66,7 +66,7 @@ async fn main() {
         ui::minesweeper::bomb_counter(&mut ui.borrow_mut(), vec2(lower_x,                 menubar.height() + 12.0), vec2(24.0, 18.0), 3, 0);
         ui::minesweeper::bomb_counter(&mut ui.borrow_mut(), vec2(screen_size.x / 2.0,     menubar.height() + 12.0), vec2(19.0, 19.0), 1, 0);
         ui::minesweeper::bomb_counter(&mut ui.borrow_mut(), vec2(screen_size.x - lower_x, menubar.height() + 12.0), vec2(21.0,  9.0), 2, 0);
-        ui::minesweeper::minefield(&mut ui.borrow_mut(), (screen_size + vec2(0.0, 30.0)) / 2.0);
+        ui::minesweeper::minefield(&mut ui.borrow_mut(), screen_size.x / 2.0, menubar.height() + 24.0);
 
         ui.borrow_mut().draw_queue().push(DrawShape::nineslice(Rect::new(0.0, menubar.height(), screen_size.x, screen_size.y-menubar.height()), spritesheet::BUTTON_IDLE));
 

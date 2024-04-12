@@ -49,10 +49,10 @@ pub fn timer(ui: &mut UIState, ) {
     
 }
 
-pub fn minefield(ui: &mut UIState, middle_pos: Vec2) {
+pub fn minefield(ui: &mut UIState, middle_x: f32, y: f32) {
     let size = vec2(9.0 * 15.0 + 4.0, 9.0 * 13.0 + 4.0);
     ui.draw_queue().push(DrawShape::nineslice(
-        Rect::new(middle_pos.x - size.x/2.0, middle_pos.y - size.y/2.0, size.x, size.y),
+        Rect::new(middle_x - size.x/2.0, y, size.x, size.y),
         spritesheet::MINEFIELD_BORDER
     ));
 }
