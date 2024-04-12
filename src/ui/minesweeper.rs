@@ -1,12 +1,13 @@
-use macroquad::math::{vec2, Rect};
+use macroquad::{math::{vec2, Rect, Vec2}, texture::Image};
 
 use crate::ui::DrawShape;
 
 use super::{spritesheet, UIState};
 
 // GRRRRRRRRR
-pub fn bomb_counter(ui: &mut UIState, height: f32, middle_x: f32, y: f32, digit_count: u32, value: usize) {
-    ui.draw_queue().push(DrawShape::Image { x: middle_x - 4.5, y, source: spritesheet::minefield_tile(value) });
+pub fn bomb_counter(ui: &mut UIState, middle_pos: Vec2, size: Vec2, digit_count: u32, value: usize) {
+    // ui.draw_queue().push(DrawShape::Image { x: middle_x - 4.5, y, source: spritesheet::minefield_tile(value) });
+    ui.draw_queue().push(DrawShape::image_rect(Rect::new(middle_pos.x - size.x/2.0, middle_pos.y - size.y/2.0, size.x, size.y), spritesheet::minefield_tile(value)));
     // const DIGIT_PAD: f32 = 2.0;
 
     // let width = DIGIT_PAD + (ui.style().counter_digit_0.w + DIGIT_PAD) * digit_count as f32;
@@ -46,4 +47,12 @@ pub fn bomb_counter(ui: &mut UIState, height: f32, middle_x: f32, y: f32, digit_
 
 pub fn timer(ui: &mut UIState, ) {
     
+}
+
+pub fn minefield(ui: &mut UIState, middle_pos: Vec2) {
+    let size = vec2(9.0 * 15.0 + 4.0, 9.0 * 13.0 + 4.0);
+    ui.draw_queue().push(DrawShape::nineslice(
+        Rect::new(middle_pos.x - size.x/2.0, middle_pos.y - size.y/2.0, size.x, size.y),
+        spritesheet::MINEFIELD_BORDER
+    ));
 }

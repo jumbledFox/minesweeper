@@ -177,6 +177,7 @@ impl UIState {
                     }
                 },
                 &DrawShape::ImageRect { dest, source } => {
+                    // TODO: 
                     // let (dest, source) = (dest.round(), source.round());
                     let params = DrawTextureParams {
                         dest_size: Some(dest.size()),
