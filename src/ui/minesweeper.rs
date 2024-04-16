@@ -1,6 +1,8 @@
+use std::{cell::RefCell, rc::Rc};
+
 use macroquad::{math::{vec2, Rect, Vec2}, texture::Image};
 
-use crate::ui::DrawShape;
+use crate::{minesweeper::Minesweeper, ui::DrawShape};
 
 use super::{spritesheet, UIState};
 
@@ -49,10 +51,35 @@ pub fn timer(ui: &mut UIState, ) {
     
 }
 
-pub fn minefield(ui: &mut UIState, middle_x: f32, y: f32) {
+pub struct MinesweeperUI {
+    ui: Rc<RefCell<UIState>>,
+    game: Minesweeper,
+}
+
+impl MinesweeperUI {
+    pub fn new(ui: Rc<RefCell<UIState>>) -> MinesweeperUI {
+        MinesweeperUI { ui, game: Minesweeper::new(crate::minesweeper::Difficulty::Normal) }
+    }
+
+    // Renders the minefield ui element and returns how large it is
+    pub fn minefield(&mut self, middle_x: f32, y: f32) -> Vec2 {
+        let size = vec2((self.game.width()*9) as f32, (self.game.height()*9) as f32) + 4.0;
+        let mut ui = self.ui.borrow_mut();
+        ui.draw_queue().push(DrawShape::nineslice(
+            Rect::new(middle_x - size.x/2.0, y - size.y/2.0, size.x, size.y),
+            spritesheet::MINEFIELD_BORDER
+        ));
+        size
+    }
+}
+
+// Draw the minefield, does the logic, and returns how big it was (?)
+// TODO: Maybe make a minefield struct that handles all of the does this kind of stuff
+pub fn minefield(ui: &mut UIState, middle_x: f32, y: f32) -> Vec2 {
     let size = vec2(9.0 * 15.0 + 4.0, 9.0 * 13.0 + 4.0);
     ui.draw_queue().push(DrawShape::nineslice(
-        Rect::new(middle_x - size.x/2.0, y, size.x, size.y),
+        Rect::new(middle_x - size.x/2.0, y - size.y/2.0, size.x, size.y),
         spritesheet::MINEFIELD_BORDER
     ));
+    size
 }

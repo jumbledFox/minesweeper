@@ -108,6 +108,11 @@ impl UIState {
         self.screen_size
     }
 
+    pub fn resize_screen(&mut self, new_size: Vec2) {
+        request_new_screen_size(new_size.x, new_size.y);
+        self.screen_size = Vec2::new(screen_width(), screen_height());
+    }
+
     pub fn begin(&mut self, scale: f32) {
         self.mouse_pos = Vec2::new(mouse_position().0, mouse_position().1) / scale;
 
