@@ -24,9 +24,7 @@ const MIN_HEIGHT: usize = 4;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Difficulty {
-    Easy,
-    Normal,
-    Hard,
+    Easy, Normal, Hard,
     Custom {
         width: usize,
         height: usize,
@@ -40,11 +38,7 @@ impl Difficulty {
             Difficulty::Easy => (10, 10, 9),
             Difficulty::Normal => (15, 13, 40),
             Difficulty::Hard => (30, 16, 99),
-            Difficulty::Custom {
-                width,
-                height,
-                bomb_count,
-            } => {
+            Difficulty::Custom {width, height, bomb_count} => {
                 // Ensure the fields match the (somewhat arbitrary) limits.
                 let (w, h) = (
                     width.clamp(MIN_WIDTH, MAX_WIDTH),

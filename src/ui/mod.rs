@@ -65,6 +65,9 @@ impl PartialEq<u64> for SelectedItem {
 }
 
 impl SelectedItem {
+    pub fn is_none(&self) -> bool {
+        matches!(self, SelectedItem::None)
+    }
     pub fn assign(&mut self, id: u64) {
         *self = SelectedItem::Some(id);
     }
@@ -106,11 +109,6 @@ impl UIState {
     }
     pub fn screen_size(&self) -> Vec2 {
         self.screen_size
-    }
-
-    pub fn resize_screen(&mut self, new_size: Vec2) {
-        request_new_screen_size(new_size.x, new_size.y);
-        self.screen_size = Vec2::new(screen_width(), screen_height());
     }
 
     pub fn begin(&mut self, scale: f32) {
@@ -208,9 +206,30 @@ impl UIState {
         self.mouse_pos.y >= rect.y     &&
         self.mouse_pos.y <  rect.y + rect.h
     }
+
+    pub fn button_state(&mut self, id: u64, hovered: bool, held_when_not_hovered: bool) -> ButtonState {
+        let mut state = ButtonState::Idle;
+        if self.hot_item.is_none() && hovered {
+            self.hot_item.assign(id);
+            if state == ButtonState::Idle {
+                state = ButtonState::Hovered;
+            }
+            if self.active_item.is_none() && self.mouse_down {
+                self.active_item.assign(id);
+                state = ButtonState::Clicked;
+            } 
+        }
+        if (self.hot_item == id || held_when_not_hovered) && self.active_item == id && state != ButtonState::Clicked {
+            state = match self.mouse_down {
+                true  => ButtonState::Held,
+                false => ButtonState::Released,
+            }
+        }
+        state
+    }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum ButtonState {
     Clicked, Released, Held, Hovered, Idle,
 }
@@ -220,3 +239,18 @@ impl Into<bool> for ButtonState {
         self == ButtonState::Released
     }
 }
+
+// The popup window
+// impl UIState {
+//     pub fn new_popup(/* type */) {}
+// }
+
+// // Stores the state of the popup, mainly the fields in the 'custom' popup
+// pub enum PopupState {
+//     Exit{pos: Vec2}, // Are you sure you want to exit?
+//     NewGame{pos: Vec2},
+//     Custom{pos: Vec2, width: usize, height: usize, bomb_count: usize},
+// }
+// impl PopupState {
+//     pub fn new()
+// }

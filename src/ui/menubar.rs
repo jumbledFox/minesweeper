@@ -109,15 +109,9 @@ impl Menubar {
         let id = hash_string(&format!("menubar{:?}", text.as_ref()));
 
         let mut ui = self.ui.borrow_mut();
-        let mut state = ButtonState::Idle;
-        if ui.hot_item == SelectedItem::None && ui.mouse_in_rect(rect) {
-            state = ButtonState::Hovered;
-            ui.hot_item.assign(id);
-            if ui.active_item == SelectedItem::None && ui.mouse_down {
-                state = ButtonState::Clicked;
-                ui.active_item.assign(id)
-            }
-        }
+        let mouse_in_rect = ui.mouse_in_rect(rect);
+        let state = ui.button_state(id, mouse_in_rect, false);
+        // If a dropdown is open and the mouse has hovered over this menu item, or if this menu items been clicked regardless, set the current one to be this one.
         if (state == ButtonState::Hovered && self.current.is_some()) || state == ButtonState::Clicked {
             self.current = Some(id);
         }
@@ -166,6 +160,7 @@ impl Menubar {
         self.dropdown_current = self.dropdown_next;
 
         // Button logic
+        // I do different button logic for the menubar items and dropdowns as they behave slightly differently
         let mut ui = self.ui.borrow_mut();
         let rect = Rect::new(
             self.dropdown_current.x,
@@ -175,7 +170,7 @@ impl Menubar {
         );
         let id = hash_string(&format!("{:?}{}", self.current.unwrap_or(0), text.as_ref()));
         
-        if ui.hot_item == SelectedItem::None && ui.mouse_in_rect(rect) {
+        if ui.hot_item.is_none() && ui.mouse_in_rect(rect) {
             ui.hot_item.assign(id);
             if ui.mouse_down {
                 ui.active_item.assign(id)
