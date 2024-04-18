@@ -2,7 +2,7 @@
 // Only handles minesweeper logic and is separate to any rendering or inputs and whatnot.
 
 use rand::seq::SliceRandom;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 const NEIGHBOUR_OFFSETS: &[(isize, isize)] = &[
     (-1, 1),
@@ -37,7 +37,7 @@ impl Difficulty {
         match *self {
             Difficulty::Easy => (10, 10, 9),
             Difficulty::Normal => (15, 13, 40),
-            Difficulty::Hard => (30, 16, 99),
+            Difficulty::Hard => (30, 16, 100),
             Difficulty::Custom {width, height, bomb_count} => {
                 // Ensure the fields match the (somewhat arbitrary) limits.
                 let (w, h) = (
@@ -51,7 +51,7 @@ impl Difficulty {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum GameState {
     Playing,
     Win,
@@ -65,6 +65,28 @@ pub enum TileType {
     Numbered(u8),
 }
 
+pub enum TimeValue {
+    None,
+    Some(Instant),
+    Frozen(Duration)
+}
+
+impl TimeValue {
+    pub fn freeze(&mut self) {
+        if let TimeValue::Some(instant) = self {
+            *self = TimeValue::Frozen(instant.elapsed())
+        }
+    }
+
+    pub fn duration(&self) -> Duration {
+        match self {
+            TimeValue::None => Duration::new(0, 0),
+            TimeValue::Some(i) => i.elapsed(),
+            TimeValue::Frozen(d) => *d,
+        }
+    }
+}
+
 pub struct Minesweeper {
     width: usize,
     height: usize,
@@ -74,7 +96,7 @@ pub struct Minesweeper {
     bombs: Vec<usize>,
 
     state: GameState,
-    start_time: Option<Instant>,
+    start_time: TimeValue,
     turns: usize,
 }
 
@@ -95,7 +117,7 @@ impl Minesweeper {
             board,
             bombs,
             state: GameState::Playing,
-            start_time: None,
+            start_time: TimeValue::None,
             turns: 0,
         }
     }
@@ -118,11 +140,11 @@ impl Minesweeper {
         &self.bombs
     }
 
-    pub fn state(&self) -> &GameState {
-        &self.state
+    pub fn state(&self) -> GameState {
+        self.state
     }
-    pub fn start_time(&self) -> Option<Instant> {
-        self.start_time
+    pub fn start_time(&self) -> &TimeValue {
+        &self.start_time
     }
     pub fn turns(&self) -> usize {
         self.turns
@@ -154,22 +176,19 @@ impl Minesweeper {
         if self.state != GameState::Playing {
             return false;
         }
-        if !self
-            .board
-            .get(index)
-            .is_some_and(|t| *t == TileType::Unopened)
-        {
+        if !self.board.get(index).is_some_and(|t| *t == TileType::Unopened) {
             return false;
         }
         if self.turns == 0 {
             self.populate_board(index);
-            self.start_time = Some(Instant::now());
+            self.start_time = TimeValue::Some(Instant::now());
         }
         self.turns += 1;
 
         // We dug a bomb! lose the game and return :c
         if self.bombs.contains(&index) {
             self.state = GameState::Lose;
+            self.start_time.freeze();
             return true;
         }
         // Floodfill digging algorithm
@@ -231,13 +250,7 @@ impl Minesweeper {
     }
 }
 
-fn get_index_from_offset(
-    index: usize,
-    x_offset: isize,
-    y_offset: isize,
-    width: usize,
-    height: usize,
-) -> Option<usize> {
+fn get_index_from_offset(index: usize, x_offset: isize, y_offset: isize,  width: usize, height: usize) -> Option<usize> {
     let x = match (index % width).checked_add_signed(x_offset) {
         Some(x) if x < width => x,
         _ => return None,
@@ -246,5 +259,9 @@ fn get_index_from_offset(
         Some(y) if y < height => y,
         _ => return None,
     };
-    Some(y * width + x)
+    // Safe way of doing (y * width + x)
+    match y.checked_mul(width) {
+        Some(i) => i.checked_add(x),
+        None => None,
+    }
 }

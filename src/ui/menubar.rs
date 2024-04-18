@@ -28,13 +28,12 @@ pub struct Menubar {
     prev_dropdown_rect: Rect,
 }
 
-/* TODO:
-Either use try_borrow_mut rather than having possible panicking, or move away entirely from rc refcells.. they're bad i think!!!
+/* TODO: Either use try_borrow_mut rather than having possible panicking, or move away entirely from rc refcells.. they're bad i think!!!
 let mut ui = match self.ui.try_borrow_mut() {
     Ok(ui) => ui,
     Err(_) => return,
 };
- */
+*/
 
 impl Menubar {
     pub fn new(ui: Rc<RefCell<UIState>>) -> Menubar {

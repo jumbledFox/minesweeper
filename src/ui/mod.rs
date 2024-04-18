@@ -1,13 +1,23 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-// TODO:
-// I'd like to have a stack of Windows, which are just an ID and a rect. It could be reordered which would be good,
-// I can use the last frames window stack to see if I should interact with a window / elements or not
-
 pub fn hash_string(input: &String) -> u64 {
     let mut hasher = DefaultHasher::new();
     input.hash(&mut hasher);
     hasher.finish()
+}
+
+pub trait RectFeatures {
+    fn round(&self) -> Self;
+    fn centered(center_x: f32, center_y: f32, w: f32, h: f32) -> Self;
+}
+
+impl RectFeatures for Rect {
+    fn round(&self) -> Self {
+        Rect { x: self.x.round(), y: self.y.round(), w: self.w.round(), h: self.h.round() }
+    }
+    fn centered(center_x: f32, center_y: f32, w: f32, h: f32) -> Self {
+        Rect { x: center_x - w / 2.0, y: center_y - h / 2.0, w, h }
+    }
 }
 
 use macroquad::prelude::*;
@@ -147,8 +157,7 @@ impl UIState {
                 &DrawShape::Rect { x, y, w, h, color } => draw_rectangle(x.round(), y.round(), w.round(), h.round(), color),
                 &DrawShape::Nineslice { dest, source, padding } => {
                     fn calculate_parts(rect: Rect, pad: f32) -> [Rect; 9] {
-                        // TODO: add  rect.round()
-                        let rect = Rect::new(rect.x.round(), rect.y.round(), rect.w.round(), rect.h.round());
+                        let rect = rect.round();
                         let pad = pad.round();
                         let middle_size = Vec2::new(rect.w, rect.h) - pad*2.0;
                         [
@@ -180,8 +189,7 @@ impl UIState {
                     }
                 },
                 &DrawShape::ImageRect { dest, source } => {
-                    // TODO: 
-                    // let (dest, source) = (dest.round(), source.round());
+                    let (dest, source) = (dest.round(), source.round());
                     let params = DrawTextureParams {
                         dest_size: Some(dest.size()),
                         source: Some(source),
@@ -191,7 +199,7 @@ impl UIState {
                 },
                 &DrawShape::Image { x, y, source } => {
                     let params = DrawTextureParams {
-                        source: Some(source), //source.round()
+                        source: Some(source.round()),
                         ..Default::default()
                     };
                     draw_texture_ex(&self.texture, x.round(), y.round(), WHITE, params);
@@ -221,8 +229,8 @@ impl UIState {
         }
         if (self.hot_item == id || held_when_not_hovered) && self.active_item == id && state != ButtonState::Clicked {
             state = match self.mouse_down {
-                true  => ButtonState::Held,
-                false => ButtonState::Released,
+                false if hovered => ButtonState::Released,
+                _     => ButtonState::Held,
             }
         }
         state

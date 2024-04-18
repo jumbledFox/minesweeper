@@ -23,7 +23,7 @@ async fn main() {
 
     let ui = Rc::new(RefCell::new(UIState::new(texture)));
     let mut menubar = Menubar::new(Rc::clone(&ui));
-    let mut difficulty = minesweeper::Difficulty::Normal;
+    let mut difficulty = minesweeper::Difficulty::Hard;
     let mut minesweeper_ui = MinesweeperUI::new(Rc::clone(&ui), difficulty);
 
     let mut use_q_marks = false;
@@ -36,14 +36,14 @@ async fn main() {
         
         // TODO: Maybe make menubar not use an Rc<RefCell<<UIState>> and instead just add functions to the ui struct
         menubar.begin();
-        if menubar.item(String::from("Game"), 86.0) {
+        if menubar.item("Game", 91.0) {
             if menubar.dropdown("New Game") { }
             menubar.dropdown_separator();
             // TODO: Secondary colour (maybe with some control character)
             // TODO: Make it so these display a popup
-            if menubar.dropdown_radio("Easy       ¬¬9¬¬*¬¬9¬¬,¬10", matches!(difficulty, Difficulty::Easy))   { difficulty = Difficulty::Easy }
-            if menubar.dropdown_radio("Normal    15*13,40",         matches!(difficulty, Difficulty::Normal)) { difficulty = Difficulty::Normal }
-            if menubar.dropdown_radio("Hard      30*16,99",         matches!(difficulty, Difficulty::Hard))   { difficulty = Difficulty::Hard }
+            if menubar.dropdown_radio("Easy       ¬¬9¬¬*¬¬9¬¬, ¬¬¬10", matches!(difficulty, Difficulty::Easy))   { difficulty = Difficulty::Easy }
+            if menubar.dropdown_radio("Normal    15*13, ¬¬40",         matches!(difficulty, Difficulty::Normal)) { difficulty = Difficulty::Normal }
+            if menubar.dropdown_radio("Hard      30*16, 100",         matches!(difficulty, Difficulty::Hard))   { difficulty = Difficulty::Hard }
             if menubar.dropdown_radio("Custom...",                  matches!(difficulty, Difficulty::Custom {..})) {  }
             menubar.dropdown_separator();
 
@@ -69,25 +69,19 @@ async fn main() {
         }
         menubar.finish();
 
-        // The space below the menubar but above the minefield, with the countdown timer, button, and timer
-        let game_ui_height = 24.0;
-
-        let screen_size = ui.borrow().screen_size();
-        let lower_x = screen_size.x / 5.0;
-        // Always draw the button first so in case of overlap it's on top
-        ui::minesweeper::bomb_counter(&mut ui.borrow_mut(), vec2(screen_size.x / 2.0,     menubar.height() + 12.0), vec2(19.0, 19.0), 1, 0);
-        ui::minesweeper::bomb_counter(&mut ui.borrow_mut(), vec2(lower_x,                 menubar.height() + 12.0), vec2(24.0, 18.0), 3, 0);
-        ui::minesweeper::bomb_counter(&mut ui.borrow_mut(), vec2(screen_size.x - lower_x, menubar.height() + 12.0), vec2(21.0,  9.0), 2, 0);
-        
+        // The game ui, if the button's been pressed reset the game
+        if minesweeper_ui.game_ui(menubar.height()) {
+            // TODO: 
+        }
         // The actual minefield
-        let minefield_start_height = menubar.height() + game_ui_height;
-        minesweeper_ui.minefield(screen_size.x / 2.0, (screen_size.y - minefield_start_height) / 2.0 + minefield_start_height, minefield_start_height);
-
+        let screen_size = ui.borrow().screen_size();
+        
+        let minefield_start_height = menubar.height() + minesweeper_ui.game_ui_height() - 6.0;
+        minesweeper_ui.minefield(screen_size.x / 2.0, (screen_size.y - minefield_start_height) / 2.0 + minefield_start_height, minefield_start_height + 6.0);
 
         if let Some(new_scale) = resize_scale.take() {
             println!("{:?}", new_scale);
             scale = new_scale;
-            
         }
         
         // Draw the background
@@ -95,6 +89,9 @@ async fn main() {
         ui.borrow_mut().draw_queue().push(DrawShape::nineslice(Rect::new(0.0, menubar.height(), screen_size.x, screen_size.y-menubar.height()), spritesheet::BUTTON_IDLE));
 
         ui.borrow_mut().finish();
-        next_frame().await
+        next_frame().await;
+        // If I don't have this, cpu usage is 100%!
+        // TODO: do more research into this
+        std:: thread ::sleep(std::time::Duration::from_millis(10));
     }
 }
