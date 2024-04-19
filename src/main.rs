@@ -23,7 +23,7 @@ async fn main() {
 
     let ui = Rc::new(RefCell::new(UIState::new(texture)));
     let mut menubar = Menubar::new(Rc::clone(&ui));
-    let mut difficulty = minesweeper::Difficulty::Hard;
+    let mut difficulty = minesweeper::Difficulty::Easy;
     let mut minesweeper_ui = MinesweeperUI::new(Rc::clone(&ui), difficulty);
 
     let mut use_q_marks = false;
@@ -41,10 +41,10 @@ async fn main() {
             menubar.dropdown_separator();
             // TODO: Secondary colour (maybe with some control character)
             // TODO: Make it so these display a popup
-            if menubar.dropdown_radio("Easy       ¬¬9¬¬*¬¬9¬¬, ¬¬¬10", matches!(difficulty, Difficulty::Easy))   { difficulty = Difficulty::Easy }
-            if menubar.dropdown_radio("Normal    15*13, ¬¬40",         matches!(difficulty, Difficulty::Normal)) { difficulty = Difficulty::Normal }
-            if menubar.dropdown_radio("Hard      30*16, 100",         matches!(difficulty, Difficulty::Hard))   { difficulty = Difficulty::Hard }
-            if menubar.dropdown_radio("Custom...",                  matches!(difficulty, Difficulty::Custom {..})) {  }
+            if menubar.dropdown_radio("Easy       ¬¬9¬¬*¬¬9¬¬,  ¬¬¬9", matches!(difficulty, Difficulty::Easy))        { difficulty = Difficulty::Easy;   minesweeper_ui.new_game(difficulty) }
+            if menubar.dropdown_radio("Normal    16*16, ¬¬40",         matches!(difficulty, Difficulty::Normal))      { difficulty = Difficulty::Normal; minesweeper_ui.new_game(difficulty) }
+            if menubar.dropdown_radio("Hard      30*16, 100",          matches!(difficulty, Difficulty::Hard))        { difficulty = Difficulty::Hard;   minesweeper_ui.new_game(difficulty) }
+            if menubar.dropdown_radio("Custom...",                     matches!(difficulty, Difficulty::Custom {..})) { difficulty = Difficulty::Custom { width: 99995, height: 599999, bomb_count: 41353 }; minesweeper_ui.new_game(difficulty) }
             menubar.dropdown_separator();
 
             menubar.dropdown_checkbox("Use Question Marks", &mut use_q_marks);
@@ -71,7 +71,7 @@ async fn main() {
 
         // The game ui, if the button's been pressed reset the game
         if minesweeper_ui.game_ui(menubar.height()) {
-            // TODO: 
+            minesweeper_ui.new_game(difficulty);
         }
         // The actual minefield
         let screen_size = ui.borrow().screen_size();

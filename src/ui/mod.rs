@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
 pub fn hash_string(input: &String) -> u64 {
@@ -85,8 +86,7 @@ impl SelectedItem {
 
 pub struct UIState {
     mouse_pos: Vec2,
-    mouse_down: bool,
-    mouse_pressed: bool,
+    mouse_buttons:    HashMap<MouseButton, (bool, bool)>, // (Down, Pressed)
     screen_size: Vec2,
     hot_item: SelectedItem,
     active_item: SelectedItem,
@@ -101,8 +101,11 @@ impl UIState {
     pub fn new(texture: Texture2D) -> UIState {
         UIState {
             mouse_pos: Vec2::ZERO,
-            mouse_down: false,
-            mouse_pressed: false,
+            mouse_buttons: HashMap::from([
+                (MouseButton::Left,   (false, false)),
+                (MouseButton::Right,  (false, false)),
+                (MouseButton::Middle, (false, false)),
+            ]),
             screen_size: Vec2::ONE,
             hot_item: SelectedItem::None,
             active_item: SelectedItem::None,
@@ -124,9 +127,11 @@ impl UIState {
     pub fn begin(&mut self, scale: f32) {
         self.mouse_pos = Vec2::new(mouse_position().0, mouse_position().1) / scale;
 
-        let mouse_down_prev = self.mouse_down;
-        self.mouse_down = is_mouse_button_down(MouseButton::Left);
-        self.mouse_pressed = self.mouse_down && !mouse_down_prev;
+        for (&button, (down, pressed)) in &mut self.mouse_buttons.iter_mut() {
+            let down_prev = *down;
+            *down = is_mouse_button_down(button);
+            *pressed = *down && !down_prev;
+        }
 
         let window_size = Vec2::new(screen_width(), screen_height());
         self.screen_size = window_size / scale;
@@ -141,7 +146,7 @@ impl UIState {
     }
     
     pub fn finish(&mut self) {
-        if !self.mouse_down {
+        if !self.mouse_down(MouseButton::Left) {
             self.active_item = SelectedItem::None;
         } else {
             if self.active_item == SelectedItem::None {
@@ -208,6 +213,16 @@ impl UIState {
         }
     }
 
+    fn mouse_button_values(&self, button: MouseButton) -> (bool, bool) {
+        *self.mouse_buttons.get(&button).unwrap_or(&(false, false))
+    }
+    pub fn mouse_down(&self, button: MouseButton) -> bool {
+        self.mouse_button_values(button).0
+    }
+    pub fn mouse_pressed(&self, button: MouseButton) -> bool {
+        self.mouse_button_values(button).1
+    }
+
     pub fn mouse_in_rect(&self, rect: Rect) -> bool {
         self.mouse_pos.x >= rect.x     &&
         self.mouse_pos.x <  rect.x + rect.w &&
@@ -222,13 +237,13 @@ impl UIState {
             if state == ButtonState::Idle {
                 state = ButtonState::Hovered;
             }
-            if self.active_item.is_none() && self.mouse_down {
+            if self.active_item.is_none() && self.mouse_down(MouseButton::Left) {
                 self.active_item.assign(id);
                 state = ButtonState::Clicked;
             } 
         }
         if (self.hot_item == id || held_when_not_hovered) && self.active_item == id && state != ButtonState::Clicked {
-            state = match self.mouse_down {
+            state = match self.mouse_down(MouseButton::Left) {
                 false if hovered => ButtonState::Released,
                 _     => ButtonState::Held,
             }

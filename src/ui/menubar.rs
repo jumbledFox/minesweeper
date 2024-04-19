@@ -66,7 +66,7 @@ impl Menubar {
         // Deselect the menubar if elsewhere is clicked
         let mouse_pos = self.ui.borrow().mouse_pos;
         if self.current.is_some()
-        && self.ui.borrow().mouse_pressed
+        && self.ui.borrow().mouse_pressed(MouseButton::Left)
         && !self.prev_dropdown_rect.contains(mouse_pos)
         {
             self.ui.borrow_mut().active_item = SelectedItem::Unavailable;
@@ -171,11 +171,11 @@ impl Menubar {
         
         if ui.hot_item.is_none() && ui.mouse_in_rect(rect) {
             ui.hot_item.assign(id);
-            if ui.mouse_down {
+            if ui.mouse_down(MouseButton::Left) {
                 ui.active_item.assign(id)
             }
         }
-        let released = ui.hot_item == id && ui.active_item == id && !ui.mouse_down;
+        let released = ui.hot_item == id && ui.active_item == id && !ui.mouse_down(MouseButton::Left);
         if released {
             self.current = None;
         }

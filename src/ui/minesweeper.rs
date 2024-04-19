@@ -1,8 +1,8 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, time::Instant};
 
-use macroquad::math::{vec2, Rect, Vec2};
+use macroquad::{input::MouseButton, math::{vec2, Rect, Vec2}};
 
-use crate::{minesweeper::{Difficulty, Minesweeper, TileType, TimeValue}, ui::DrawShape};
+use crate::{minesweeper::{Difficulty, GameState, Minesweeper, Tile, TimeValue}, ui::DrawShape};
 
 use super::{hash_string, spritesheet, ButtonState, RectFeatures, UIState};
 
@@ -11,6 +11,10 @@ pub struct MinesweeperUI {
 
     game: Minesweeper,
     selected_cell: Option<usize>,
+    erasing_flags: bool,
+
+    exploded_mines: Vec<usize>,
+    next_explosion: Instant,
 }
 
 impl MinesweeperUI {
@@ -19,7 +23,16 @@ impl MinesweeperUI {
             ui,
             game: Minesweeper::new(difficulty),
             selected_cell: None,
+            erasing_flags: false,
+
+            exploded_mines: vec![],
+            next_explosion: Instant::now(),
         }
+    }
+
+    pub fn new_game(&mut self, difficulty: Difficulty) {
+        self.game = Minesweeper::new(difficulty);
+        self.selected_cell = None;
     }
 
     // Renders the bomb counter, timer, and button. Returns whether the button was released
@@ -53,18 +66,11 @@ impl MinesweeperUI {
         state == ButtonState::Released
     }
     
+    // TODO: display dashes if value is less than 0
     fn bomb_counter(&mut self, x: f32, y: f32) {
-        // Calculate how many flags there are left to place
-        let value = self.game.bomb_count()
-            .saturating_sub(
-                self.game.board()
-                .iter()
-                .filter(|&t| *t == TileType::Flag)
-                .count()
-            );
-        // And the minimum number of digits needed to display the bomb count
-        // TODO: Think about making the minumum number of digits 2 or 3, which would negate most of the need for this LOVELY code.. grrr haha
-        let digits = (f32::log10(self.game.bomb_count() as f32) + 1.0).floor() as usize;
+        let value = self.game.flags_left();
+        // Calculate the minimum number of digits needed to display the bomb count (always being 2 or larger for style purposes: 3)
+        let digits = ((f32::log10(self.game.bomb_count() as f32) + 1.0).floor() as usize).max(2);
         
         let size = spritesheet::counter_size(digits);
         let rect = Rect::centered(x, y, size.x, size.y).round();
@@ -105,9 +111,9 @@ impl MinesweeperUI {
                     Some((seconds % 60) / 10),                                     // Tens
                     Some(seconds % 10),                                            // Units 
                 ],
-                // I do duration.as_secs() a second time to make sure that when the timer reaches 99:59, the colon still flashes!
-                // It's the little things...
-                duration.as_secs() % 2 < 1 || matches!(self.game.start_time(), TimeValue::Frozen(..)),
+                // Originally, the colon flashed using this code, but I find it a bit distracting :/
+                // duration.as_millis() % 1000 < 500 || matches!(self.game.start_time(), TimeValue::Frozen(..)),
+                true,
             )
         };
         
@@ -126,9 +132,10 @@ impl MinesweeperUI {
 
     // Renders the minefield ui element
     // TODO: Make this a bit neater...
+    // TODO: Panning with middle mouse maybe?? For when the scale is too large to fit the game
     pub fn minefield(&mut self, middle_x: f32, y: f32, min_y: f32) {
         let size = vec2((self.game.width()*9) as f32, (self.game.height()*9) as f32);
-        let pos = vec2(middle_x - size.x/2.0, min_y.max(y - size.y/2.0)) + 2.0;
+        let pos = vec2(middle_x - size.x/2.0, min_y.max(y - size.y/2.0) + 2.0);
         let mut ui = self.ui.borrow_mut();
 
         let rect = Rect::new(pos.x, pos.y, size.x, size.y);
@@ -144,28 +151,57 @@ impl MinesweeperUI {
                 .min(self.game.board().len().saturating_sub(1));
             self.selected_cell = Some(selected_cell);
 
-            ui.draw_queue().push(DrawShape::image(selected_cell_pos.x * 9.0 + rect.x - 1.0, selected_cell_pos.y * 9.0 + rect.y - 1.0, spritesheet::MINEFIELD_SELECTED));
-            if state == ButtonState::Held {
+            // Draw the selection outline 
+            ui.draw_queue().push(DrawShape::image(
+                selected_cell_pos.x * 9.0 + rect.x - 1.0,
+                selected_cell_pos.y * 9.0 + rect.y - 1.0,
+                spritesheet::MINEFIELD_SELECTED
+            ));
+            
+            // I might as well use the button state to check if you're about to / trying to dig, rather than `ui.mouse_pressed()` :> 
+            if state == ButtonState::Held && self.game.diggable(selected_cell) {
                 ui.draw_queue().push(DrawShape::image(
                     rect.x + (selected_cell%self.game.width()) as f32 * 9.0,
                     rect.y + (selected_cell/self.game.width()) as f32 * 9.0,
                     spritesheet::minefield_tile(1)
                 ));
             }
+            // game.dig() automatically checks if the cell is diggable, so I have no need to do that here!
             if state == ButtonState::Released {
                 self.game.dig(selected_cell);
             }
+
+            // Flagging
+            if ui.mouse_pressed(MouseButton::Right) {
+                self.erasing_flags = self.game.board().get(selected_cell).is_some_and(|t| *t == Tile::Flag);
+            }
+            if ui.mouse_pressed(MouseButton::Right) || (ui.mouse_down(MouseButton::Right) && self.erasing_flags) {
+                self.game.set_flag(self.erasing_flags, selected_cell);
+            }
+
         } else {
             self.selected_cell = None;
         }
-        
+
         // Draw the tiles
         // TODO: Make some kind of DrawShape::Minefield, as this shit is probably inefficient as hell
+
+        // Draw bombs if we've lots
+        if self.game.state() == GameState::Lose {
+            for i in self.game.bombs().iter() {
+                ui.draw_queue().push(DrawShape::image(
+                    rect.x + (i%self.game.width()) as f32 * 9.0,
+                    rect.y + (i/self.game.width()) as f32 * 9.0,
+                    spritesheet::minefield_tile(14)
+                ));
+            }
+        }
+
         for (i, tile) in self.game.board().iter().enumerate() {
             let t = match *tile {
-                TileType::Unopened => 0,
-                TileType::Dug => 2,
-                TileType::Flag => {
+                Tile::Unopened => 0,
+                Tile::Dug => 2,
+                Tile::Flag => {
                     ui.draw_queue().push(DrawShape::image(
                         rect.x + (i%self.game.width()) as f32 * 9.0,
                         rect.y + (i/self.game.width()) as f32 * 9.0,
@@ -173,7 +209,7 @@ impl MinesweeperUI {
                     ));
                     0
                 },
-                TileType::Numbered(n) => {
+                Tile::Numbered(n) => {
                     ui.draw_queue().push(DrawShape::image(
                         rect.x + (i%self.game.width()) as f32 * 9.0,
                         rect.y + (i/self.game.width()) as f32 * 9.0,
