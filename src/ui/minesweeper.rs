@@ -1,8 +1,8 @@
-use std::{cell::RefCell, rc::Rc, time::Instant};
+use std::{cell::RefCell, rc::Rc};
 
 use macroquad::{input::MouseButton, math::{vec2, Rect, Vec2}};
 
-use crate::{minesweeper::{Difficulty, GameState, Minesweeper, Tile, TimeValue}, ui::DrawShape};
+use crate::{minesweeper::{Difficulty, GameState, Minesweeper, Tile}, ui::DrawShape};
 
 use super::{hash_string, spritesheet, ButtonState, RectFeatures, UIState};
 
@@ -13,8 +13,8 @@ pub struct MinesweeperUI {
     selected_cell: Option<usize>,
     erasing_flags: bool,
 
-    exploded_mines: Vec<usize>,
-    next_explosion: Instant,
+    exploded_bombs: Vec<usize>,
+    next_explosion: f64,
 }
 
 impl MinesweeperUI {
@@ -25,8 +25,8 @@ impl MinesweeperUI {
             selected_cell: None,
             erasing_flags: false,
 
-            exploded_mines: vec![],
-            next_explosion: Instant::now(),
+            exploded_bombs: vec![],
+            next_explosion: 0.0,
         }
     }
 
@@ -97,22 +97,21 @@ impl MinesweeperUI {
         let size = spritesheet::TIMER_SIZE;
         let rect = Rect::centered(x, y, size.x, size.y).round();
 
-        let (digits, colon_lit): ([Option<usize>; 4], bool) = if let TimeValue::None = self.game.start_time() {
+        let (digits, colon_lit): ([Option<usize>; 4], bool) = if self.game.start_time().is_none() {
             ([None; 4], false)
         } else {
-            let duration = self.game.start_time().duration();
+            let time_since = self.game.start_time().time_since() as usize;
             // usize should always be at LEAST u16, and the maximum time fits into that
-            let seconds = duration.as_secs().min(60*100-1).try_into().unwrap_or(usize::MAX);
+            let seconds = time_since.min(60*100-1).try_into().unwrap_or(usize::MAX);
             (
                 [
                     // Don't display the last digit as a 0 
-                    if seconds < 60*9 { None } else { Some((seconds / 60) / 10) }, // Tens of minutes
-                    Some((seconds / 60) % 10),                                     // Minutes
-                    Some((seconds % 60) / 10),                                     // Tens
-                    Some(seconds % 10),                                            // Units 
+                    if seconds < 60*10 { None } else { Some((seconds / 60) / 10) }, // Tens of minutes
+                    Some((seconds / 60) % 10),                                      // Minutes
+                    Some((seconds % 60) / 10),                                      // Tens
+                    Some(seconds % 10),                                             // Units 
                 ],
-                // Originally, the colon flashed using this code, but I find it a bit distracting :/
-                // duration.as_millis() % 1000 < 500 || matches!(self.game.start_time(), TimeValue::Frozen(..)),
+                // Originally, the colon flashed, but I found it a bit distracting :/
                 true,
             )
         };
@@ -136,6 +135,15 @@ impl MinesweeperUI {
     pub fn minefield(&mut self, middle_x: f32, y: f32, min_y: f32) {
         let size = vec2((self.game.width()*9) as f32, (self.game.height()*9) as f32);
         let pos = vec2(middle_x - size.x/2.0, min_y.max(y - size.y/2.0) + 2.0);
+        
+        // TODO: Make bombs explode
+        // if self.game.state() == GameState::Lose
+        // && self.exploded_bombs.len() < self.game.bombs().len()
+        // && macroquad::time::get_time() >= self.next_explosion {
+        //     let mut next_bomb = self.game.bombs().iter().filter(|b| !self.exploded_bombs.contains(b));
+        //     self.explode_bomb(*next_bomb.next().unwrap());
+        // }
+
         let mut ui = self.ui.borrow_mut();
 
         let rect = Rect::new(pos.x, pos.y, size.x, size.y);
@@ -167,8 +175,13 @@ impl MinesweeperUI {
                 ));
             }
             // game.dig() automatically checks if the cell is diggable, so I have no need to do that here!
+
             if state == ButtonState::Released {
+                let lost_before = self.game.state() == GameState::Lose;
                 self.game.dig(selected_cell);
+                if self.game.state() == GameState::Lose && !lost_before {
+                    // self.explode_bomb(selected_cell);
+                }
             }
 
             // Flagging
@@ -189,10 +202,11 @@ impl MinesweeperUI {
         // Draw bombs if we've lots
         if self.game.state() == GameState::Lose {
             for i in self.game.bombs().iter() {
+                let sprite = if self.exploded_bombs.contains(i) { 15 } else { 14 };
                 ui.draw_queue().push(DrawShape::image(
                     rect.x + (i%self.game.width()) as f32 * 9.0,
                     rect.y + (i/self.game.width()) as f32 * 9.0,
-                    spritesheet::minefield_tile(14)
+                    spritesheet::minefield_tile(sprite)
                 ));
             }
         }
@@ -227,5 +241,15 @@ impl MinesweeperUI {
 
         // Draw the border
         ui.draw_queue().push(DrawShape::nineslice(Rect::new(pos.x - 2.0, pos.y - 2.0, size.x + 4.0, size.y + 4.0), spritesheet::MINEFIELD_BORDER));
+    }
+
+    fn explode_bomb(&mut self, index: usize) {
+        if self.exploded_bombs.contains(&index)
+        || !self.game.bombs().contains(&index) {
+            return;
+        }
+        self.next_explosion = macroquad::time::get_time() + macroquad::rand::gen_range(0.1, 0.6);
+        // TODO: Play explosion noise
+        self.exploded_bombs.push(index);
     }
 }

@@ -44,7 +44,7 @@ async fn main() {
             if menubar.dropdown_radio("Easy       ¬¬9¬¬*¬¬9¬¬,  ¬¬¬9", matches!(difficulty, Difficulty::Easy))        { difficulty = Difficulty::Easy;   minesweeper_ui.new_game(difficulty) }
             if menubar.dropdown_radio("Normal    16*16, ¬¬40",         matches!(difficulty, Difficulty::Normal))      { difficulty = Difficulty::Normal; minesweeper_ui.new_game(difficulty) }
             if menubar.dropdown_radio("Hard      30*16, 100",          matches!(difficulty, Difficulty::Hard))        { difficulty = Difficulty::Hard;   minesweeper_ui.new_game(difficulty) }
-            if menubar.dropdown_radio("Custom...",                     matches!(difficulty, Difficulty::Custom {..})) { difficulty = Difficulty::Custom { width: 99995, height: 599999, bomb_count: 41353 }; minesweeper_ui.new_game(difficulty) }
+            if menubar.dropdown_radio("Custom...",                     matches!(difficulty, Difficulty::Custom {..})) { difficulty = Difficulty::Custom { width: 200, height: 100, bomb_count: (200.0 * 100.0 * 0.1) as usize }; minesweeper_ui.new_game(difficulty) }
             menubar.dropdown_separator();
 
             menubar.dropdown_checkbox("Use Question Marks", &mut use_q_marks);
@@ -92,6 +92,6 @@ async fn main() {
         next_frame().await;
         // If I don't have this, cpu usage is 100%!
         // TODO: do more research into this
-        std:: thread ::sleep(std::time::Duration::from_millis(10));
+        // std:: thread ::sleep(std::time::Duration::from_millis(10));
     }
 }

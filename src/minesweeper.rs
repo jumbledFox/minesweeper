@@ -1,7 +1,6 @@
 // A nice 'black box' game of minesweeper.
 // Only handles minesweeper logic and is separate to any rendering or inputs and whatnot.
 
-use std::time::{Duration, Instant};
 use macroquad::rand::ChooseRandom;
 
 const NEIGHBOUR_OFFSETS: &[(isize, isize)] = &[
@@ -9,8 +8,8 @@ const NEIGHBOUR_OFFSETS: &[(isize, isize)] = &[
     (-1,  0),          (1,  0),
     (-1, -1), (0, -1), (1, -1),
 ];
-const MAX_WIDTH:  usize = 9999;
-const MAX_HEIGHT: usize = 9999;
+const MAX_WIDTH:  usize = 200;
+const MAX_HEIGHT: usize = 100;
 const MIN_WIDTH:  usize = 4;
 const MIN_HEIGHT: usize = 4;
 
@@ -30,10 +29,10 @@ pub enum Difficulty {
 impl Difficulty {
     pub fn value(&self) -> (usize, usize, usize) {
         match *self {
-            Difficulty::Easy   => (9, 9, 9),
-            Difficulty::Normal => (16, 16, 40),
-            Difficulty::Hard   => (30, 16, 100),
-            Difficulty::Custom {width, height, bomb_count} => {
+            Self::Easy   => (9, 9, 9),
+            Self::Normal => (16, 16, 40),
+            Self::Hard   => (30, 16, 100),
+            Self::Custom {width, height, bomb_count} => {
                 // Ensure the fields match the (somewhat arbitrary) limits.
                 let (w, h) = (
                     width.clamp(MIN_WIDTH, MAX_WIDTH),
@@ -62,23 +61,27 @@ pub enum Tile {
     Numbered(u8),
 }
 
-pub enum TimeValue {
+pub enum Time {
     None,
-    Some(Instant),
-    Frozen(Duration)
+    Some(f64),
+    Frozen(f64)
 }
 
-impl TimeValue {
-    pub fn freeze(&mut self) {
-        if let TimeValue::Some(instant) = self {
-            *self = TimeValue::Frozen(instant.elapsed())
-        }
+impl Time {
+    pub fn start() -> Self {
+        Self::Some(macroquad::time::get_time())
     }
-    pub fn duration(&self) -> Duration {
+    pub fn freeze(&mut self) {
+        *self = Self::Frozen(self.time_since());
+    }
+    pub fn is_none(&self) -> bool {
+        matches!(self, Time::None)
+    }
+    pub fn time_since(&self) -> f64 {
         match self {
-            TimeValue::None => Duration::default(),
-            TimeValue::Some(i) => i.elapsed(),
-            TimeValue::Frozen(d) => *d,
+            Self::None => 0.0,
+            Self::Some(time) => macroquad::time::get_time()-time,
+            Self::Frozen(time) => *time,
         }
     }
 }
@@ -92,7 +95,7 @@ pub struct Minesweeper {
     bombs: Vec<usize>,
 
     state: GameState,
-    start_time: TimeValue,
+    start_time: Time,
     turns: usize,
 }
 
@@ -105,7 +108,7 @@ impl Minesweeper {
             // 'bombs' is only populated after the first move (to make sure the 3*3 area at the first dig is safe). For now it's empty
             bombs: Vec::with_capacity(bomb_count),
             state: GameState::Playing,
-            start_time: TimeValue::None,
+            start_time: Time::None,
             turns: 0,
         }
     }
@@ -119,7 +122,7 @@ impl Minesweeper {
     pub fn bombs(&self) -> &Vec<usize> { &self.bombs }
 
     pub fn state(&self)      -> GameState  { self.state }
-    pub fn start_time(&self) -> &TimeValue { &self.start_time }
+    pub fn start_time(&self) -> &Time      { &self.start_time }
     pub fn turns(&self)      -> usize      { self.turns }
 
     // How many flags the player needs to have flagged all the bombs
@@ -156,7 +159,7 @@ impl Minesweeper {
         }
         if self.turns == 0 {
             self.populate_board(index);
-            self.start_time = TimeValue::Some(Instant::now());
+            self.start_time = Time::start();
         }
         self.turns += 1;
 
