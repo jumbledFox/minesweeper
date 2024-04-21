@@ -58,6 +58,8 @@ async fn main() {
             menubar.finish_item();
         }
         if menubar.item("Scale", 22.0) {
+            // TODO: Make scaling automatically happen, and depend on how much the game ui fits on the screen or not
+            // And then make minefield scaling separate and have panning maybe ?!?!?!
             // TODO: Maybe implement 'fit' button, maybe turn buttons into a slider
             for i in 1..=8 {
                 if menubar.dropdown_radio(format!("{:?}{}*", i, if i == 1 {"¬"} else {""}), scale == i) {

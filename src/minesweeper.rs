@@ -1,7 +1,7 @@
 // A nice 'black box' game of minesweeper.
 // Only handles minesweeper logic and is separate to any rendering or inputs and whatnot.
 
-use macroquad::rand::ChooseRandom;
+use macroquad::{math::bool, rand::ChooseRandom};
 
 const NEIGHBOUR_OFFSETS: &[(isize, isize)] = &[
     (-1,  1), (0,  1), (1,  1),
@@ -26,9 +26,15 @@ pub enum Difficulty {
     },
 }
 
+pub struct DifficultyValues {
+    width: usize,
+    height: usize,
+    bomb_count: usize,
+}
+
 impl Difficulty {
-    pub fn value(&self) -> (usize, usize, usize) {
-        match *self {
+    pub fn values(&self) -> DifficultyValues {
+        let (width, height, bomb_count) = match *self {
             Self::Easy   => (9, 9, 9),
             Self::Normal => (16, 16, 40),
             Self::Hard   => (30, 16, 100),
@@ -41,7 +47,8 @@ impl Difficulty {
                 let b = bomb_count.min((w - 1) * (h - 1));
                 (w, h, b)
             }
-        }
+        };
+        DifficultyValues { width, height, bomb_count }
     }
 }
 
@@ -101,7 +108,8 @@ pub struct Minesweeper {
 
 impl Minesweeper {
     pub fn new(difficulty: Difficulty) -> Minesweeper {
-        let (width, height, bomb_count) = difficulty.value();
+        // Holy shit rust is the best fucking language ever made for allowing this
+        let DifficultyValues { width, height, bomb_count } = difficulty.values();
         Minesweeper {
             width, height, bomb_count,
             board: vec![Tile::Unopened; width * height],
