@@ -27,7 +27,7 @@ async fn main() {
     let mut minesweeper_ui = MinesweeperUI::new(Rc::clone(&ui), difficulty);
 
     let mut use_q_marks = false;
-    // let mut auto_resize = true;
+    let mut auto_resize = cfg!(target_family = "windows");
     let mut scale = 3;
     let mut resize_scale = Some(3);
 
@@ -48,6 +48,7 @@ async fn main() {
             menubar.dropdown_separator();
 
             menubar.dropdown_checkbox("Use Question Marks", &mut use_q_marks);
+            menubar.dropdown_checkbox("Resize Window", &mut auto_resize);
             menubar.dropdown_separator();
 
             if menubar.dropdown("Exit") { order_quit(); }
