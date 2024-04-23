@@ -1,30 +1,34 @@
-use std::{cell::RefCell, rc::Rc};
-
-use macroquad::{input::MouseButton, math::{vec2, Rect, Vec2}};
+use macroquad::{audio::{load_sound_from_bytes, play_sound, PlaySoundParams, Sound}, input::MouseButton, math::{vec2, Rect, Vec2}};
 
 use crate::{minesweeper::{Difficulty, GameState, Minesweeper, Tile}, ui::DrawShape};
 
 use super::{hash_string, spritesheet, ButtonState, RectFeatures, UIState};
 
-pub struct MinesweeperUI {
-    ui: Rc<RefCell<UIState>>,
+const EXPLOSION_SOUND_BYTES: &[u8] = include_bytes!("../../resources/explosion.ogg");
 
+pub struct MinesweeperUI {
     game: Minesweeper,
     selected_cell: Option<usize>,
     erasing_flags: bool,
 
+    explosion_sound: Option<Sound>, 
     exploded_bombs: Vec<usize>,
     next_explosion: f64,
 }
 
 impl MinesweeperUI {
-    pub fn new(ui: Rc<RefCell<UIState>>, difficulty: Difficulty) -> MinesweeperUI {
+    pub async fn new(difficulty: Difficulty) -> MinesweeperUI {
+        let explosion_sound = match load_sound_from_bytes(EXPLOSION_SOUND_BYTES).await {
+            Ok(s) => Some(s),
+            Err(e) => { println!("Error {:?} loading explosion sound!!11!", e); None }
+        };
+
         MinesweeperUI {
-            ui,
             game: Minesweeper::new(difficulty),
             selected_cell: None,
             erasing_flags: false,
 
+            explosion_sound,
             exploded_bombs: vec![],
             next_explosion: 0.0,
         }
@@ -32,26 +36,29 @@ impl MinesweeperUI {
 
     pub fn new_game(&mut self, difficulty: Difficulty) {
         self.game = Minesweeper::new(difficulty);
+        self.exploded_bombs.clear();
         self.selected_cell = None;
     }
 
     // Renders the bomb counter, timer, and button. Returns whether the button was released
-    pub fn game_ui(&mut self, y: f32) -> bool {
-        let screen_size = self.ui.borrow().screen_size();
+    pub fn game_ui(&mut self, ui: &mut UIState, y: f32) -> bool {
+        let screen_size = ui.screen_size();
         let lower_x = screen_size.x / 5.0;
         let y = y + self.game_ui_height() / 2.0;
 
         // Make sure the button is displayed on top of the others, just in case!
-        let button_released = self.button(screen_size.x / 2.0, y);
-        self.bomb_counter(lower_x, y);
-        self.timer(screen_size.x - lower_x, y);
+        let button_released = self.button(ui, screen_size.x / 2.0, y);
+        self.bomb_counter(ui, lower_x, y);
+        self.timer(ui, screen_size.x - lower_x, y);
 
+        if button_released {
+            // TODO: ? self.new_game(self.game.difficulty)
+        }
         button_released
     }
 
     // The button with the little face on it :3
-    fn button(&mut self, x: f32, y: f32) -> bool {
-        let mut ui = self.ui.borrow_mut();
+    fn button(&mut self, ui: &mut UIState, x: f32, y: f32) -> bool {
         let rect = Rect::centered(x, y, 19.0, 19.0).round();
         let hovered = ui.mouse_in_rect(rect);
         
@@ -67,7 +74,7 @@ impl MinesweeperUI {
     }
     
     // TODO: display dashes if value is less than 0
-    fn bomb_counter(&mut self, x: f32, y: f32) {
+    fn bomb_counter(&mut self, ui: &mut UIState, x: f32, y: f32) {
         let value = self.game.flags_left();
         // Calculate the minimum number of digits needed to display the bomb count (always being 2 or larger for style purposes: 3)
         let digits = ((f32::log10(self.game.bomb_count() as f32) + 1.0).floor() as usize).max(2);
@@ -89,18 +96,18 @@ impl MinesweeperUI {
             // Render the digits in reverse order so they appear the right way around
             .map(|(i, digit_rect)| DrawShape::image(rect.x + 3.0 + (digit_rect.w + 2.0) * (digits - i - 1) as f32, rect.y + 2.0, digit_rect));
 
-        self.ui.borrow_mut().draw_queue().extend(draw_shapes);
-        self.ui.borrow_mut().draw_queue().push(DrawShape::nineslice(rect, spritesheet::TIMER_BACKGROUND));
+        ui.draw_queue().extend(draw_shapes);
+        ui.draw_queue().push(DrawShape::nineslice(rect, spritesheet::TIMER_BACKGROUND));
     }
 
-    fn timer(&mut self, x: f32, y: f32) {
+    fn timer(&mut self, ui: &mut UIState, x: f32, y: f32) {
         let size = spritesheet::TIMER_SIZE;
         let rect = Rect::centered(x, y, size.x, size.y).round();
 
-        let (digits, colon_lit): ([Option<usize>; 4], bool) = if self.game.start_time().is_none() {
+        let (digits, colon_lit): ([Option<usize>; 4], bool) = if self.game.timer().is_none() {
             ([None; 4], false)
         } else {
-            let time_since = self.game.start_time().time_since() as usize;
+            let time_since = self.game.timer().time_since() as usize;
             // usize should always be at LEAST u16, and the maximum time fits into that
             let seconds = time_since.min(60*100-1).try_into().unwrap_or(usize::MAX);
             (
@@ -121,8 +128,8 @@ impl MinesweeperUI {
             .map(|(&digit, along)| DrawShape::image(rect.x + along, rect.y + 2.0, spritesheet::timer_digit(digit)))
             .chain(std::iter::once(DrawShape::image(rect.x + 10.0, rect.y + 2.0, spritesheet::timer_colon(colon_lit))));
 
-        self.ui.borrow_mut().draw_queue().extend(draw_shapes);
-        self.ui.borrow_mut().draw_queue().push(DrawShape::nineslice(rect, spritesheet::TIMER_BACKGROUND));
+        ui.draw_queue().extend(draw_shapes);
+        ui.draw_queue().push(DrawShape::nineslice(rect, spritesheet::TIMER_BACKGROUND));
     }
 
     pub fn game_ui_height(&self) -> f32 {
@@ -132,19 +139,18 @@ impl MinesweeperUI {
     // Renders the minefield ui element
     // TODO: Make this a bit neater...
     // TODO: Panning with middle mouse maybe?? For when the scale is too large to fit the game
-    pub fn minefield(&mut self, middle_x: f32, y: f32, min_y: f32) {
+    pub fn minefield(&mut self, ui: &mut UIState, middle_x: f32, y: f32, min_y: f32) {
         let size = vec2((self.game.width()*9) as f32, (self.game.height()*9) as f32);
         let pos = vec2(middle_x - size.x/2.0, min_y.max(y - size.y/2.0) + 2.0);
         
         // TODO: Make bombs explode
-        // if self.game.state() == GameState::Lose
-        // && self.exploded_bombs.len() < self.game.bombs().len()
-        // && macroquad::time::get_time() >= self.next_explosion {
-        //     let mut next_bomb = self.game.bombs().iter().filter(|b| !self.exploded_bombs.contains(b));
-        //     self.explode_bomb(*next_bomb.next().unwrap());
-        // }
-
-        let mut ui = self.ui.borrow_mut();
+        if self.game.state() == GameState::Lose
+        && self.exploded_bombs.len() < self.game.bombs().len()
+        && macroquad::time::get_time() >= self.next_explosion {
+            let mut next_bomb = self.game.bombs().iter().filter(|b| !self.exploded_bombs.contains(b));
+            self.explode_bomb(*next_bomb.next().unwrap());
+        }
+        println!("{:?}", macroquad::time::get_time() - self.next_explosion);
 
         let rect = Rect::new(pos.x, pos.y, size.x, size.y);
         let id = hash_string(&String::from("MINEFIELD!!! jumbledfox is so cool 🦊🦊"));
@@ -174,13 +180,14 @@ impl MinesweeperUI {
                     spritesheet::minefield_tile(1)
                 ));
             }
-            // game.dig() automatically checks if the cell is diggable, so I have no need to do that here!
 
+            // Digging
             if state == ButtonState::Released {
-                let lost_before = self.game.state() == GameState::Lose;
+                let previously_lose = self.game.state() == GameState::Lose;
                 self.game.dig(selected_cell);
-                if self.game.state() == GameState::Lose && !lost_before {
-                    // self.explode_bomb(selected_cell);
+                // If we've JUST lost (we weren't before this dig) then explode the initial bomb and start the chain reaction of explosions!
+                if self.game.state() == GameState::Lose && !previously_lose {
+                    self.explode_bomb(selected_cell);
                 }
             }
 
@@ -243,13 +250,19 @@ impl MinesweeperUI {
         ui.draw_queue().push(DrawShape::nineslice(Rect::new(pos.x - 2.0, pos.y - 2.0, size.x + 4.0, size.y + 4.0), spritesheet::MINEFIELD_BORDER));
     }
 
+    // TODO: Explode bombs in a circular pattern (flood fill?!)
     fn explode_bomb(&mut self, index: usize) {
         if self.exploded_bombs.contains(&index)
         || !self.game.bombs().contains(&index) {
             return;
         }
-        self.next_explosion = macroquad::time::get_time() + macroquad::rand::gen_range(0.1, 0.6);
-        // TODO: Play explosion noise
+        self.next_explosion = macroquad::time::get_time() + (macroquad::rand::gen_range(3.0, 5.0) / self.game.bomb_count() as f64).max(0.15);
+        if let Some(explosion_sound) = &self.explosion_sound {
+            play_sound(explosion_sound, PlaySoundParams {
+                volume: 0.2,
+                looped: false,
+            });
+        }
         self.exploded_bombs.push(index);
     }
 }

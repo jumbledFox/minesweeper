@@ -13,19 +13,12 @@ const MAX_HEIGHT: usize = 100;
 const MIN_WIDTH:  usize = 4;
 const MIN_HEIGHT: usize = 4;
 
-// TODO: MAYBE Make difficulty a struct and make easy, normal, and hard constants maybe ?
-// TODO: Question marks
-
 #[derive(Debug, Clone, Copy)]
 pub enum Difficulty {
     Easy, Normal, Hard,
-    Custom {
-        width: usize,
-        height: usize,
-        bomb_count: usize,
-    },
+    Custom(DifficultyValues),
 }
-
+#[derive(Debug, Clone, Copy)]
 pub struct DifficultyValues {
     width: usize,
     height: usize,
@@ -33,20 +26,20 @@ pub struct DifficultyValues {
 }
 
 impl Difficulty {
+    pub fn custom(width: usize, height: usize, bomb_count: usize) -> Self {
+        // Ensure the fields match the (somewhat arbitrary) limits.
+        let width  = width .clamp(MIN_WIDTH,  MAX_WIDTH);
+        let height = height.clamp(MIN_HEIGHT, MAX_HEIGHT);
+        let bomb_count = bomb_count.min((width - 1) * (height - 1));
+        Self::Custom(DifficultyValues { width, height, bomb_count })
+    }
+
     pub fn values(&self) -> DifficultyValues {
         let (width, height, bomb_count) = match *self {
             Self::Easy   => (9, 9, 9),
             Self::Normal => (16, 16, 40),
             Self::Hard   => (30, 16, 100),
-            Self::Custom {width, height, bomb_count} => {
-                // Ensure the fields match the (somewhat arbitrary) limits.
-                let (w, h) = (
-                    width.clamp(MIN_WIDTH, MAX_WIDTH),
-                    height.clamp(MIN_HEIGHT, MAX_HEIGHT),
-                );
-                let b = bomb_count.min((w - 1) * (h - 1));
-                (w, h, b)
-            }
+            Self::Custom (difficulty_values) => return difficulty_values,
         };
         DifficultyValues { width, height, bomb_count }
     }
@@ -62,32 +55,33 @@ pub enum GameState {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Tile {
     Unopened,
-    // TODO: Question,
     Flag,
     Dug,
     Numbered(u8),
 }
 
-pub enum Time {
+pub enum Timer {
     None,
-    Some(f64),
+    Timing(f64),
     Frozen(f64)
 }
 
-impl Time {
-    pub fn start() -> Self {
-        Self::Some(macroquad::time::get_time())
+impl Timer {
+    pub fn start(&mut self) {
+        *self = Self::Timing(macroquad::time::get_time())
     }
     pub fn freeze(&mut self) {
-        *self = Self::Frozen(self.time_since());
+        if let Self::Timing(_) = self {
+            *self = Self::Frozen(self.time_since());
+        }
     }
     pub fn is_none(&self) -> bool {
-        matches!(self, Time::None)
+        matches!(self, Self::None)
     }
     pub fn time_since(&self) -> f64 {
         match self {
             Self::None => 0.0,
-            Self::Some(time) => macroquad::time::get_time()-time,
+            Self::Timing(time) => macroquad::time::get_time()-time,
             Self::Frozen(time) => *time,
         }
     }
@@ -101,8 +95,11 @@ pub struct Minesweeper {
     board: Vec<Tile>,
     bombs: Vec<usize>,
 
+    floodfill_current: Vec<usize>,
+    floodfill_next:    Vec<usize>,
+
     state: GameState,
-    start_time: Time,
+    timer: Timer,
     turns: usize,
 }
 
@@ -112,11 +109,16 @@ impl Minesweeper {
         let DifficultyValues { width, height, bomb_count } = difficulty.values();
         Minesweeper {
             width, height, bomb_count,
+
             board: vec![Tile::Unopened; width * height],
             // 'bombs' is only populated after the first move (to make sure the 3*3 area at the first dig is safe). For now it's empty
             bombs: Vec::with_capacity(bomb_count),
+
+            floodfill_current: Vec::with_capacity(width * height),
+            floodfill_next:    Vec::with_capacity(width * height),
+
             state: GameState::Playing,
-            start_time: Time::None,
+            timer: Timer::None,
             turns: 0,
         }
     }
@@ -129,9 +131,9 @@ impl Minesweeper {
     pub fn board(&self) -> &Vec<Tile>  { &self.board }
     pub fn bombs(&self) -> &Vec<usize> { &self.bombs }
 
-    pub fn state(&self)      -> GameState  { self.state }
-    pub fn start_time(&self) -> &Time      { &self.start_time }
-    pub fn turns(&self)      -> usize      { self.turns }
+    pub fn state(&self) -> GameState  { self.state }
+    pub fn timer(&self) -> &Timer     { &self.timer }
+    pub fn turns(&self) -> usize      { self.turns }
 
     // How many flags the player needs to have flagged all the bombs
     pub fn flags_left(&self) -> usize {
@@ -161,27 +163,30 @@ impl Minesweeper {
     }
 
     // Digs at a position, returns true if something happened
+    // TODO: Chording !!
     pub fn dig(&mut self, index: usize) -> bool {
         if !self.diggable(index) {
             return false;
         }
         if self.turns == 0 {
             self.populate_board(index);
-            self.start_time = Time::start();
+            self.timer.start();
         }
         self.turns += 1;
 
         // We dug a bomb! lose the game and return :c
         if self.bombs.contains(&index) {
             self.state = GameState::Lose;
-            self.start_time.freeze();
+            self.timer.freeze();
             return true;
         }
         // Floodfill digging algorithm
-        let mut tiles_to_dig = vec![index];
-        let mut neighbours: Vec<usize> = Vec::with_capacity(8);
+        self.floodfill_current.clear();
+        self.floodfill_current.push(index);
+        self.floodfill_next.clear();
+
         for _ in 0..self.board.len() {
-            for &tile_index in &tiles_to_dig {
+            for &tile_index in &self.floodfill_current {
                 let valid_neighbours = NEIGHBOUR_OFFSETS.iter().flat_map(|(x, y)| {
                     get_index_from_offset(tile_index, *x, *y, self.width, self.height)
                 });
@@ -189,36 +194,37 @@ impl Minesweeper {
                     .clone()
                     .filter(|i| self.bombs.contains(&i))
                     .count() as u8;
+
                 if neighbouring_bombs != 0 {
                     self.board[tile_index] = Tile::Numbered(neighbouring_bombs);
                 } else {
                     self.board[tile_index] = Tile::Dug;
-                    neighbours.extend(valid_neighbours);
+                    self.floodfill_next.extend(valid_neighbours);
                 }
             }
-            if neighbours.is_empty() {
+            if self.floodfill_next.is_empty() {
                 break;
             }
             // Remove all duplicates and non-diggable tiles
-            neighbours.sort_unstable();
-            neighbours.dedup();
-            neighbours.retain(|n_i| self.board[*n_i] == Tile::Unopened);
+            self.floodfill_next.sort_unstable();
+            self.floodfill_next.dedup();
+            self.floodfill_next.retain(|n_i| self.board[*n_i] == Tile::Unopened);
             // Make tiles to dig for the next iteration the neighbours we found this time. this also clears neighbours
-            tiles_to_dig = std::mem::take(&mut neighbours);
+            self.floodfill_current = std::mem::take(&mut self.floodfill_next);
         }
-        // For each diggable tile, see if there's a bomb under it. If there are any without bombs under them, the game hasn't been won.
+
+        // For each diggable tile, see if there's a bomb under it. If there aren't any without bombs under them, the game has been won!
         let game_won = !self.board
             .iter().enumerate()
             .filter(|&(_, t)| *t == Tile::Flag || *t == Tile::Unopened)
             .map(|(i, _)| self.bombs().contains(&i))
             .any(|has_bomb| !has_bomb);
-        
+
         if game_won {
             self.state = GameState::Win;
-            self.start_time.freeze();
+            self.timer.freeze();
         }
-
-        return true;
+        true
     }
 
     // Flags / unflags, returns true if something happened
@@ -230,21 +236,12 @@ impl Minesweeper {
             None => return false,
             Some(t) => t,
         };
-        match erasing_flags {
-            true => {
-                if *tile == Tile::Flag {
-                    *tile = Tile::Unopened;
-                    return true;
-                }
-            }
-            false => {
-                if *tile == Tile::Unopened {
-                    *tile = Tile::Flag;
-                    return true;
-                }
-            }
+        match *tile {
+            Tile::Unopened if !erasing_flags => *tile = Tile::Flag,
+            Tile::Flag     if  erasing_flags => *tile = Tile::Unopened,
+            _ => return false,
         }
-        return false;
+        true
     }
 }
 
@@ -258,8 +255,5 @@ fn get_index_from_offset(index: usize, x_offset: isize, y_offset: isize,  width:
         _ => return None,
     };
     // Safe way of doing (y * width + x)
-    match y.checked_mul(width) {
-        Some(i) => i.checked_add(x),
-        None => None,
-    }
+    y.checked_mul(width).and_then(|f| f.checked_add(x))
 }

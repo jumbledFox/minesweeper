@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-macroquad = "0.4.5"
+macroquad = { version = "0.4.5", features = ["audio"]}
 phf = { version = "0.11.2", features = ["macros"] }
 
 # Enable max optimizations for dependencies, but not for our code:

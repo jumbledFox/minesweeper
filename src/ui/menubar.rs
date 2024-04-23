@@ -1,16 +1,15 @@
 // UI functions relating to creating a menubar with dropdowns.
 // Since a menubar is pretty big and has a lot of functions, as well as members that should persist across frames,
-// I've made it it's own struct that stores a reference to the UI.
-
-use std::{cell::RefCell, rc::Rc};
+// I've made it it's own struct that takes ownership of the UI.
 
 use super::*;
 
 // Holds information about the menubar
+#[derive(Default)]
 pub struct Menubar {
-    // A reference to the UI, much nicer than passing ui to the menubar every single time we need it.
+    // Much nicer than passing ui to the menubar every single time we need it.
     // Originally I was gonna use lifetimes but they're a whole can of worms...
-    ui: Rc<RefCell<UIState>>,
+    ui: Option<UIState>,
     // The currently opened menubar
     current: Option<u64>,
     // How tall the menubar is, used for aligining elements bar at the top of the screen is
@@ -36,16 +35,16 @@ let mut ui = match self.ui.try_borrow_mut() {
 */
 
 impl Menubar {
-    pub fn new(ui: Rc<RefCell<UIState>>) -> Menubar {
-        Menubar {
-            ui,
-            current: None, height: 0.0,
-            current_pos: 0.0, next_pos: 0.0,
-            dropdown_item_width: 0.0, dropdown_height: 0.0,
-            dropdown_current: Vec2::ZERO, dropdown_next: Vec2::ZERO,
-            prev_dropdown_rect: Rect::default()
-        }
-    }
+    // pub fn new() -> Menubar {
+    //     Menubar {
+    //         ui,
+    //         current: None, height: 0.0,
+    //         current_pos: 0.0, next_pos: 0.0,
+    //         dropdown_item_width: 0.0, dropdown_height: 0.0,
+    //         dropdown_current: Vec2::ZERO, dropdown_next: Vec2::ZERO,
+    //         prev_dropdown_rect: Rect::default()
+    //     }
+    // }
 
     pub fn height(&self) -> f32 {
         self.height
@@ -61,28 +60,34 @@ impl Menubar {
         self.dropdown_next = Vec2::ZERO;
     }
 
-    pub fn begin(&mut self) {
+    pub fn begin(&mut self, ui: UIState) {
+        self.ui = Some(ui);
+        let ui = self.ui.as_mut().unwrap();
+
         self.next_pos = 0.0;
         // Deselect the menubar if elsewhere is clicked
-        let mouse_pos = self.ui.borrow().mouse_pos;
+        let mouse_pos = ui.mouse_pos;
         if self.current.is_some()
-        && self.ui.borrow().mouse_pressed(MouseButton::Left)
+        && ui.mouse_pressed(MouseButton::Left)
         && !self.prev_dropdown_rect.contains(mouse_pos)
         {
-            self.ui.borrow_mut().active_item = SelectedItem::Unavailable;
+            ui.active_item = SelectedItem::Unavailable;
             self.current = None;
         } 
     }
 
-    pub fn finish(&mut self) {
+    pub fn finish(&mut self) -> UIState {
+        let ui = self.ui.as_mut().unwrap();
+        
         let b = DrawShape::Rect {
             x: 0.0,
             y: 0.0,
-            w: self.ui.borrow().screen_size.x,
+            w: ui.screen_size.x,
             h: self.height,
             color: Color::from_hex(0xC0CBDC)
         };
-        self.ui.borrow_mut().draw_queue().push(b);
+        ui.draw_queue().push(b);
+        self.ui.take().unwrap()
     }
 
 
@@ -90,7 +95,9 @@ impl Menubar {
         self.current_pos = self.next_pos;
         self.dropdown_item_width = dropdown_width;
 
-        let size = self.ui.borrow().text_renderer.text_size(&text, None) + vec2(4.0, 2.0);
+        let ui = self.ui.as_mut().unwrap();
+
+        let size = ui.text_renderer.text_size(&text, None) + vec2(4.0, 2.0);
         self.next_pos += size.x;
         self.height = size.y;
         
@@ -107,7 +114,6 @@ impl Menubar {
         );
         let id = hash_string(&format!("menubar{:?}", text.as_ref()));
 
-        let mut ui = self.ui.borrow_mut();
         let mouse_in_rect = ui.mouse_in_rect(rect);
         let state = ui.button_state(id, mouse_in_rect, false);
         // If a dropdown is open and the mouse has hovered over this menu item, or if this menu items been clicked regardless, set the current one to be this one.
@@ -127,9 +133,9 @@ impl Menubar {
     }
 
     pub fn finish_item(&mut self) {
-        let mut ui = self.ui.borrow_mut();
         // Draw the box and it's shadow
         let dropdown_rect = self.dropdown_rect();
+        let ui = self.ui.as_mut().unwrap();
         ui.draw_queue().push(DrawShape::nineslice(dropdown_rect, spritesheet::DROPDOWN_BACKGROUND));
         ui.draw_queue().push(DrawShape::rect(dropdown_rect.offset(Vec2::splat(3.0)), spritesheet::shadow()));
 
@@ -160,7 +166,8 @@ impl Menubar {
 
         // Button logic
         // I do different button logic for the menubar items and dropdowns as they behave slightly differently
-        let mut ui = self.ui.borrow_mut();
+        let ui = self.ui.as_mut().unwrap();
+        
         let rect = Rect::new(
             self.dropdown_current.x,
             self.dropdown_current.y,
@@ -200,7 +207,6 @@ impl Menubar {
         }
         ui.draw_queue().push(DrawShape::label(rect.x + 7.0, rect.y + 2.0, text.as_ref().to_owned(), colors.1));
         ui.draw_queue().push(DrawShape::rect(rect, colors.0));
-        drop(ui);
 
         self.dropdown_move_down_by(rect.h);
         released
@@ -231,7 +237,7 @@ impl Menubar {
             self.dropdown_item_width - 2.0,
             source.h,
         );
-        self.ui.borrow_mut().draw_queue().push(DrawShape::ImageRect { dest, source });
+        self.ui.as_mut().unwrap().draw_queue().push(DrawShape::ImageRect { dest, source });
         self.dropdown_move_down_by(source.h);
     }
 

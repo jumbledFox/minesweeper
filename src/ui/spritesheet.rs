@@ -15,8 +15,10 @@ const fn rect(x: f32, y: f32, w: f32, h: f32) -> Rect {
     Rect { x, y, w, h }
 }
 
+
 pub const BUTTON_IDLE: Nineslice = Nineslice::new(84.0, 16.0, 3.0, 3.0, 1.0);
 pub const BUTTON_DOWN: Nineslice = Nineslice::new(87.0, 16.0, 3.0, 3.0, 1.0);
+
 
 // Menubar
 pub fn menubar_idle()    -> (Color, Color) { (Color::from_hex(0xC0CBDC), Color::from_hex(0x181425)) }
@@ -24,6 +26,7 @@ pub fn menubar_hovered() -> (Color, Color) { (Color::from_hex(0x262B44), Color::
 pub const DROPDOWN_BACKGROUND: Nineslice = Nineslice::new(84.0, 16.0, 3.0, 3.0, 1.0);
 pub const DROPDOWN_SEPARATOR: Rect = rect(89.0, 11.0, 1.0, 2.0);
 pub fn shadow() -> Color { Color::from_rgba(0, 0, 0, 128) }
+
 
 // Minesweeper stuff
 pub const MINEFIELD_BORDER: Nineslice = Nineslice::new(84.0, 11.0, 5.0, 5.0, 2.0);
