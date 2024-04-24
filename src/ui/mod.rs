@@ -117,11 +117,50 @@ impl UIState {
         }
     }
 
+    // Some getters and helper functions
     pub fn draw_queue(&mut self) -> &mut Vec<DrawShape> {
         &mut self.draw_queue
     }
     pub fn screen_size(&self) -> Vec2 {
         self.screen_size
+    }
+
+    fn mouse_button_values(&self, button: MouseButton) -> (bool, bool) {
+        *self.mouse_buttons.get(&button).unwrap_or(&(false, false))
+    }
+    pub fn mouse_down(&self, button: MouseButton) -> bool {
+        self.mouse_button_values(button).0
+    }
+    pub fn mouse_pressed(&self, button: MouseButton) -> bool {
+        self.mouse_button_values(button).1
+    }
+
+    pub fn mouse_in_rect(&self, rect: Rect) -> bool {
+        self.mouse_pos.x >= rect.x     &&
+        self.mouse_pos.x <  rect.x + rect.w &&
+        self.mouse_pos.y >= rect.y     &&
+        self.mouse_pos.y <  rect.y + rect.h
+    }
+
+    pub fn button_state(&mut self, id: u64, hovered: bool, held_when_not_hovered: bool) -> ButtonState {
+        let mut state = ButtonState::Idle;
+        if self.hot_item.is_none() && hovered {
+            self.hot_item.assign(id);
+            if state == ButtonState::Idle {
+                state = ButtonState::Hovered;
+            }
+            if self.active_item.is_none() && self.mouse_down(MouseButton::Left) {
+                self.active_item.assign(id);
+                state = ButtonState::Clicked;
+            } 
+        }
+        if (self.hot_item == id || held_when_not_hovered) && self.active_item == id && state != ButtonState::Clicked {
+            state = match self.mouse_down(MouseButton::Left) {
+                false if hovered => ButtonState::Released,
+                _     => ButtonState::Held,
+            }
+        }
+        state
     }
 
     pub fn begin(&mut self, scale: f32) {
@@ -211,44 +250,6 @@ impl UIState {
                 }
             }
         }
-    }
-
-    fn mouse_button_values(&self, button: MouseButton) -> (bool, bool) {
-        *self.mouse_buttons.get(&button).unwrap_or(&(false, false))
-    }
-    pub fn mouse_down(&self, button: MouseButton) -> bool {
-        self.mouse_button_values(button).0
-    }
-    pub fn mouse_pressed(&self, button: MouseButton) -> bool {
-        self.mouse_button_values(button).1
-    }
-
-    pub fn mouse_in_rect(&self, rect: Rect) -> bool {
-        self.mouse_pos.x >= rect.x     &&
-        self.mouse_pos.x <  rect.x + rect.w &&
-        self.mouse_pos.y >= rect.y     &&
-        self.mouse_pos.y <  rect.y + rect.h
-    }
-
-    pub fn button_state(&mut self, id: u64, hovered: bool, held_when_not_hovered: bool) -> ButtonState {
-        let mut state = ButtonState::Idle;
-        if self.hot_item.is_none() && hovered {
-            self.hot_item.assign(id);
-            if state == ButtonState::Idle {
-                state = ButtonState::Hovered;
-            }
-            if self.active_item.is_none() && self.mouse_down(MouseButton::Left) {
-                self.active_item.assign(id);
-                state = ButtonState::Clicked;
-            } 
-        }
-        if (self.hot_item == id || held_when_not_hovered) && self.active_item == id && state != ButtonState::Clicked {
-            state = match self.mouse_down(MouseButton::Left) {
-                false if hovered => ButtonState::Released,
-                _     => ButtonState::Held,
-            }
-        }
-        state
     }
 }
 

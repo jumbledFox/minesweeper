@@ -11,6 +11,7 @@ pub struct MinesweeperUI {
     selected_cell: Option<usize>,
     erasing_flags: bool,
 
+    timer: Option<f32>,
     explosion_sound: Option<Sound>, 
     exploded_bombs: Vec<usize>,
     next_explosion: f64,
@@ -28,6 +29,7 @@ impl MinesweeperUI {
             selected_cell: None,
             erasing_flags: false,
 
+            timer: None,
             explosion_sound,
             exploded_bombs: vec![],
             next_explosion: 0.0,
@@ -73,7 +75,6 @@ impl MinesweeperUI {
         state == ButtonState::Released
     }
     
-    // TODO: display dashes if value is less than 0
     fn bomb_counter(&mut self, ui: &mut UIState, x: f32, y: f32) {
         let value = self.game.flags_left();
         // Calculate the minimum number of digits needed to display the bomb count (always being 2 or larger for style purposes: 3)
@@ -82,6 +83,8 @@ impl MinesweeperUI {
         let size = spritesheet::counter_size(digits);
         let rect = Rect::centered(x, y, size.x, size.y).round();
 
+        // TODO: Display dashes if value is None
+        let value = value.unwrap();
         let draw_shapes = (0..digits)
             // Work out the place value of the current digit
             .map(|i| (i, 10usize.saturating_pow(i as u32)))
@@ -104,12 +107,9 @@ impl MinesweeperUI {
         let size = spritesheet::TIMER_SIZE;
         let rect = Rect::centered(x, y, size.x, size.y).round();
 
-        let (digits, colon_lit): ([Option<usize>; 4], bool) = if self.game.timer().is_none() {
-            ([None; 4], false)
-        } else {
-            let time_since = self.game.timer().time_since() as usize;
-            // usize should always be at LEAST u16, and the maximum time fits into that
-            let seconds = time_since.min(60*100-1).try_into().unwrap_or(usize::MAX);
+        let (digits, colon_lit): ([Option<usize>; 4], bool) = if let Some(time) = self.timer {
+            // I could do 'into.unwrap()', but like staying safe :3
+            let seconds = (time as usize).min(60*100-1).try_into().unwrap_or(usize::MAX);
             (
                 [
                     // Don't display the last digit as a 0 
@@ -121,6 +121,8 @@ impl MinesweeperUI {
                 // Originally, the colon flashed, but I found it a bit distracting :/
                 true,
             )
+        } else {
+            ([None; 4], false)
         };
         
         let draw_shapes = digits.iter()
@@ -140,9 +142,17 @@ impl MinesweeperUI {
     // TODO: Make this a bit neater...
     // TODO: Panning with middle mouse maybe?? For when the scale is too large to fit the game
     pub fn minefield(&mut self, ui: &mut UIState, middle_x: f32, y: f32, min_y: f32) {
-        let size = vec2((self.game.width()*9) as f32, (self.game.height()*9) as f32);
-        let pos = vec2(middle_x - size.x/2.0, min_y.max(y - size.y/2.0) + 2.0);
-        
+
+        // Update the timer
+        match (self.game.turns(), self.game.state()) {
+            // If we haven't made a turn yet, the timer should be None
+            (0, _)                  => self.timer = None,
+            // If we have made a turn, and we're playing, increment the timer
+            (_, GameState::Playing) => self.timer = Some(self.timer.unwrap_or(0.0) + macroquad::time::get_frame_time()),
+            // Otherwise do nothing, keeping it frozen
+            _ => (),
+        };
+
         // TODO: Make bombs explode
         if self.game.state() == GameState::Lose
         && self.exploded_bombs.len() < self.game.bombs().len()
@@ -150,7 +160,10 @@ impl MinesweeperUI {
             let mut next_bomb = self.game.bombs().iter().filter(|b| !self.exploded_bombs.contains(b));
             self.explode_bomb(*next_bomb.next().unwrap());
         }
-        println!("{:?}", macroquad::time::get_time() - self.next_explosion);
+
+
+        let size = vec2((self.game.width()*9) as f32, (self.game.height()*9) as f32);
+        let pos = vec2(middle_x - size.x/2.0, min_y.max(y - size.y/2.0) + 2.0);
 
         let rect = Rect::new(pos.x, pos.y, size.x, size.y);
         let id = hash_string(&String::from("MINEFIELD!!! jumbledfox is so cool 🦊🦊"));

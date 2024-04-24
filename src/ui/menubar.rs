@@ -27,25 +27,7 @@ pub struct Menubar {
     prev_dropdown_rect: Rect,
 }
 
-/* TODO: Either use try_borrow_mut rather than having possible panicking, or move away entirely from rc refcells.. they're bad i think!!!
-let mut ui = match self.ui.try_borrow_mut() {
-    Ok(ui) => ui,
-    Err(_) => return,
-};
-*/
-
 impl Menubar {
-    // pub fn new() -> Menubar {
-    //     Menubar {
-    //         ui,
-    //         current: None, height: 0.0,
-    //         current_pos: 0.0, next_pos: 0.0,
-    //         dropdown_item_width: 0.0, dropdown_height: 0.0,
-    //         dropdown_current: Vec2::ZERO, dropdown_next: Vec2::ZERO,
-    //         prev_dropdown_rect: Rect::default()
-    //     }
-    // }
-
     pub fn height(&self) -> f32 {
         self.height
     }

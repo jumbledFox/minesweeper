@@ -1,7 +1,7 @@
 // A nice 'black box' game of minesweeper.
 // Only handles minesweeper logic and is separate to any rendering or inputs and whatnot.
 
-use macroquad::{math::bool, rand::ChooseRandom};
+use macroquad::rand::ChooseRandom;
 
 const NEIGHBOUR_OFFSETS: &[(isize, isize)] = &[
     (-1,  1), (0,  1), (1,  1),
@@ -47,44 +47,14 @@ impl Difficulty {
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum GameState {
-    Playing,
-    Win,
-    Lose,
+    Playing, Win, Lose,
 }
 
 #[derive(Debug, PartialEq, Clone)]
+// TODO: This is size 0x02, but it could be 0x01
+// I think the compiler just optimises it out though.. do some thinking :3
 pub enum Tile {
-    Unopened,
-    Flag,
-    Dug,
-    Numbered(u8),
-}
-
-pub enum Timer {
-    None,
-    Timing(f64),
-    Frozen(f64)
-}
-
-impl Timer {
-    pub fn start(&mut self) {
-        *self = Self::Timing(macroquad::time::get_time())
-    }
-    pub fn freeze(&mut self) {
-        if let Self::Timing(_) = self {
-            *self = Self::Frozen(self.time_since());
-        }
-    }
-    pub fn is_none(&self) -> bool {
-        matches!(self, Self::None)
-    }
-    pub fn time_since(&self) -> f64 {
-        match self {
-            Self::None => 0.0,
-            Self::Timing(time) => macroquad::time::get_time()-time,
-            Self::Frozen(time) => *time,
-        }
-    }
+    Unopened, Flag, Dug, Numbered(u8),
 }
 
 pub struct Minesweeper {
@@ -95,12 +65,12 @@ pub struct Minesweeper {
     board: Vec<Tile>,
     bombs: Vec<usize>,
 
+    state: GameState,
+    turns: usize,
+    // Used in the floodfill algorithm (if you couldn't tell by the name, silly)
+    // It's better to make and allocate these once rather than recreate a whole new two vectors for each flood fill
     floodfill_current: Vec<usize>,
     floodfill_next:    Vec<usize>,
-
-    state: GameState,
-    timer: Timer,
-    turns: usize,
 }
 
 impl Minesweeper {
@@ -113,13 +83,12 @@ impl Minesweeper {
             board: vec![Tile::Unopened; width * height],
             // 'bombs' is only populated after the first move (to make sure the 3*3 area at the first dig is safe). For now it's empty
             bombs: Vec::with_capacity(bomb_count),
+            
+            state: GameState::Playing,
+            turns: 0,
 
             floodfill_current: Vec::with_capacity(width * height),
             floodfill_next:    Vec::with_capacity(width * height),
-
-            state: GameState::Playing,
-            timer: Timer::None,
-            turns: 0,
         }
     }
 
@@ -131,14 +100,13 @@ impl Minesweeper {
     pub fn board(&self) -> &Vec<Tile>  { &self.board }
     pub fn bombs(&self) -> &Vec<usize> { &self.bombs }
 
-    pub fn state(&self) -> GameState  { self.state }
-    pub fn timer(&self) -> &Timer     { &self.timer }
-    pub fn turns(&self) -> usize      { self.turns }
+    pub fn state(&self) -> GameState    { self.state }
+    pub fn turns(&self) -> usize        { self.turns }
 
-    // How many flags the player needs to have flagged all the bombs
-    pub fn flags_left(&self) -> usize {
+    // How many flags the player needs to have flagged all the bombs, if > 0, None
+    pub fn flags_left(&self) -> Option<usize> {
         let flags_count = self.board.iter().filter(|&t| *t == Tile::Flag).count();
-        self.bomb_count.saturating_sub(flags_count)
+        self.bomb_count.checked_sub(flags_count)
     }
 
     // Populates the minefield with bombs, making sure there are no bombs in/neighbouring safe_index
@@ -170,14 +138,12 @@ impl Minesweeper {
         }
         if self.turns == 0 {
             self.populate_board(index);
-            self.timer.start();
         }
         self.turns += 1;
 
         // We dug a bomb! lose the game and return :c
         if self.bombs.contains(&index) {
             self.state = GameState::Lose;
-            self.timer.freeze();
             return true;
         }
         // Floodfill digging algorithm
@@ -222,7 +188,6 @@ impl Minesweeper {
 
         if game_won {
             self.state = GameState::Win;
-            self.timer.freeze();
         }
         true
     }

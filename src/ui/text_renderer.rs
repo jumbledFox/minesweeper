@@ -52,7 +52,7 @@ impl TextRenderer {
             } else {
                 &ERROR_CHAR
             })
-            .expect("ERROR_CHAR not a key in CHAR_MAP!")
+            .expect("ERROR_CHAR not a key in CHAR_MAP! you fool :P")
     }
 
     // TODO: Think about how and when I use AsRef<str> in this and other parts of the code.

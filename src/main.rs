@@ -67,6 +67,7 @@ async fn main() {
             }
             menubar.finish_item();
         }
+        // Get ui back :3
         ui = menubar.finish();
 
         // The game ui, if the button's been pressed reset the game
