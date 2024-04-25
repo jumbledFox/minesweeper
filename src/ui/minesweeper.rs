@@ -1,6 +1,6 @@
 use macroquad::{audio::{load_sound_from_bytes, play_sound, PlaySoundParams, Sound}, input::MouseButton, math::{vec2, Rect, Vec2}};
 
-use crate::{minesweeper::{Difficulty, GameState, Minesweeper, Tile}, ui::DrawShape};
+use crate::{minesweeper::{Difficulty, GameState, Minesweeper, SetFlagMode, Tile}, ui::DrawShape};
 
 use super::{hash_string, spritesheet, ButtonState, RectFeatures, UIState};
 
@@ -64,7 +64,7 @@ impl MinesweeperUI {
         let rect = Rect::centered(x, y, 19.0, 19.0).round();
         let hovered = ui.mouse_in_rect(rect);
         
-        let state = ui.button_state(hash_string(&" - MINESWEEPER BUTTON!! - ".to_owned()), hovered, true);
+        let state = ui.button_state(hash_string(&"my beloved <3".to_owned()), hovered, true);
 
         let (source, offset) = match state {
             ButtonState::Clicked | ButtonState::Held => (spritesheet::BUTTON_DOWN, 1.0),
@@ -83,24 +83,25 @@ impl MinesweeperUI {
         let size = spritesheet::counter_size(digits);
         let rect = Rect::centered(x, y, size.x, size.y).round();
 
-        // TODO: Display dashes if value is None
-        let value = value.unwrap();
         let draw_shapes = (0..digits)
             // Work out the place value of the current digit
             .map(|i| (i, 10usize.saturating_pow(i as u32)))
             .map(|(i, power_of_ten)| (i,
-                // Don't draw leading zeros, however always render the first digit, even if it's a zero!
-                match power_of_ten <= value || i == 0 {
-                    true  => Some((value / power_of_ten) % 10),
-                    false => None,
+                match value {
+                    // If value is none, draw dashes for every character
+                    None => spritesheet::CounterDigit::Dash,
+                    // Otherwise draw a number! This doesn't draw leading zeros, however always renders the first digit, even if it's a zero!
+                    Some(v) if power_of_ten <= v || i == 0 => spritesheet::CounterDigit::Digit((v / power_of_ten) % 10),
+                    _ => spritesheet::CounterDigit::Empty,
                 }
             ))
             .map(|(i, digit)| (i, spritesheet::counter_digit(digit)))
             // Render the digits in reverse order so they appear the right way around
-            .map(|(i, digit_rect)| DrawShape::image(rect.x + 3.0 + (digit_rect.w + 2.0) * (digits - i - 1) as f32, rect.y + 2.0, digit_rect));
+            .map(|(i, digit_rect)| DrawShape::image(rect.x + 3.0 + (digit_rect.w + 2.0) * (digits - i - 1) as f32, rect.y + 2.0, digit_rect))
+            // Last but not least draw the background
+            .chain(std::iter::once(DrawShape::nineslice(rect, spritesheet::TIMER_BACKGROUND)));
 
         ui.draw_queue().extend(draw_shapes);
-        ui.draw_queue().push(DrawShape::nineslice(rect, spritesheet::TIMER_BACKGROUND));
     }
 
     fn timer(&mut self, ui: &mut UIState, x: f32, y: f32) {
@@ -108,19 +109,16 @@ impl MinesweeperUI {
         let rect = Rect::centered(x, y, size.x, size.y).round();
 
         let (digits, colon_lit): ([Option<usize>; 4], bool) = if let Some(time) = self.timer {
-            // I could do 'into.unwrap()', but like staying safe :3
             let seconds = (time as usize).min(60*100-1).try_into().unwrap_or(usize::MAX);
-            (
-                [
-                    // Don't display the last digit as a 0 
-                    if seconds < 60*10 { None } else { Some((seconds / 60) / 10) }, // Tens of minutes
-                    Some((seconds / 60) % 10),                                      // Minutes
-                    Some((seconds % 60) / 10),                                      // Tens
-                    Some(seconds % 10),                                             // Units 
-                ],
-                // Originally, the colon flashed, but I found it a bit distracting :/
-                true,
-            )
+            let digits = [
+                // Don't display the last digit as a 0 
+                if seconds < 60*10 { None } else { Some((seconds / 60) / 10) }, // Tens of minutes
+                Some((seconds / 60) % 10),                                      // Minutes
+                Some((seconds % 60) / 10),                                      // Tens
+                Some(seconds % 10),                                             // Units 
+            ];
+            // Originally, the colon flashed every half-second, but I found it a bit distracting :/
+            (digits, true)
         } else {
             ([None; 4], false)
         };
@@ -128,10 +126,11 @@ impl MinesweeperUI {
         let draw_shapes = digits.iter()
             .zip([2.0, 6.0, 12.0, 16.0])
             .map(|(&digit, along)| DrawShape::image(rect.x + along, rect.y + 2.0, spritesheet::timer_digit(digit)))
-            .chain(std::iter::once(DrawShape::image(rect.x + 10.0, rect.y + 2.0, spritesheet::timer_colon(colon_lit))));
+            // Draw the colon and the background
+            .chain(std::iter::once(DrawShape::image(rect.x + 10.0, rect.y + 2.0, spritesheet::timer_colon(colon_lit))))
+            .chain(std::iter::once(DrawShape::nineslice(rect, spritesheet::TIMER_BACKGROUND)));
 
         ui.draw_queue().extend(draw_shapes);
-        ui.draw_queue().push(DrawShape::nineslice(rect, spritesheet::TIMER_BACKGROUND));
     }
 
     pub fn game_ui_height(&self) -> f32 {
@@ -142,15 +141,22 @@ impl MinesweeperUI {
     // TODO: Make this a bit neater...
     // TODO: Panning with middle mouse maybe?? For when the scale is too large to fit the game
     pub fn minefield(&mut self, ui: &mut UIState, middle_x: f32, y: f32, min_y: f32) {
+        let size = vec2((self.game.width()*9) as f32, (self.game.height()*9) as f32);
+        let pos = vec2(middle_x - size.x/2.0, min_y.max(y - size.y/2.0) + 2.0).floor();
+
+        let rect = Rect::new(pos.x, pos.y, size.x, size.y);
+        let id = hash_string(&String::from("MINEFIELD!!! jumbledfox is so cool 🦊🦊"));
+        let mouse_in_rect = ui.mouse_in_rect(rect);
+        let state = ui.button_state(id, mouse_in_rect, true);
 
         // Update the timer
-        match (self.game.turns(), self.game.state()) {
+        self.timer = match (self.game.turns(), self.game.state()) {
             // If we haven't made a turn yet, the timer should be None
-            (0, _)                  => self.timer = None,
+            (0, _) => None,
             // If we have made a turn, and we're playing, increment the timer
-            (_, GameState::Playing) => self.timer = Some(self.timer.unwrap_or(0.0) + macroquad::time::get_frame_time()),
-            // Otherwise do nothing, keeping it frozen
-            _ => (),
+            (_, GameState::Playing) => Some(self.timer.unwrap_or(0.0) + macroquad::time::get_frame_time()),
+            // Otherwise keep it frozen, and make sure it's a valid value!!
+            _ => Some(self.timer.unwrap_or(0.0)),
         };
 
         // TODO: Make bombs explode
@@ -160,15 +166,6 @@ impl MinesweeperUI {
             let mut next_bomb = self.game.bombs().iter().filter(|b| !self.exploded_bombs.contains(b));
             self.explode_bomb(*next_bomb.next().unwrap());
         }
-
-
-        let size = vec2((self.game.width()*9) as f32, (self.game.height()*9) as f32);
-        let pos = vec2(middle_x - size.x/2.0, min_y.max(y - size.y/2.0) + 2.0);
-
-        let rect = Rect::new(pos.x, pos.y, size.x, size.y);
-        let id = hash_string(&String::from("MINEFIELD!!! jumbledfox is so cool 🦊🦊"));
-        let mouse_in_rect = ui.mouse_in_rect(rect);
-        let state = ui.button_state(id, mouse_in_rect, true);
 
         // TODO: When resizing the window, where the mouse last was means you can select a tile
         if mouse_in_rect && state != ButtonState::Idle {
@@ -209,9 +206,12 @@ impl MinesweeperUI {
                 self.erasing_flags = self.game.board().get(selected_cell).is_some_and(|t| *t == Tile::Flag);
             }
             if ui.mouse_pressed(MouseButton::Right) || (ui.mouse_down(MouseButton::Right) && self.erasing_flags) {
-                self.game.set_flag(self.erasing_flags, selected_cell);
+                let flag_mode = match self.erasing_flags {
+                    false => SetFlagMode::Flag,
+                    true  => SetFlagMode::Remove,
+                };
+                self.game.set_flag(flag_mode, selected_cell);
             }
-
         } else {
             self.selected_cell = None;
         }

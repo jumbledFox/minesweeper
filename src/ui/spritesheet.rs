@@ -40,11 +40,14 @@ pub const COUNTER_BACKGROUND: Nineslice = Nineslice::new(90.0, 16.0, 3.0, 3.0, 1
 pub const fn counter_size(digits: usize) -> Vec2 {
     vec2((digits * 10 + 4) as f32, 18.0)
 }
-pub const fn counter_digit(digit: Option<usize>) -> Rect {
+pub enum CounterDigit {
+    Empty, Dash, Digit(usize)
+}
+pub const fn counter_digit(digit: CounterDigit) -> Rect {
     // If the digit is None, or larger than 9, return the blank digit
     let pos = match digit {
-        // TODO: Dash if digit is 10 maybe,, or make this an enum instead of option
-        Some(d) if d <= 9 => vec2((d % 5 * 8 + 36) as f32, (d / 5 * 14) as f32),
+        CounterDigit::Digit(d) if d <= 9 => vec2((d % 5 * 8 + 36) as f32, (d / 5 * 14) as f32),
+        CounterDigit::Dash => vec2(76.0, 14.0),
         _ => vec2(76.0, 0.0),
     };
     rect(pos.x, pos.y, 8.0, 14.0)

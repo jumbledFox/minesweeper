@@ -146,11 +146,12 @@ impl Minesweeper {
             self.state = GameState::Lose;
             return true;
         }
+
         // Floodfill digging algorithm
         self.floodfill_current.clear();
         self.floodfill_current.push(index);
         self.floodfill_next.clear();
-
+        // This would be an infinite loop, but I don't like the chance of it looping forever and ever due to a silly mistake
         for _ in 0..self.board.len() {
             for &tile_index in &self.floodfill_current {
                 let valid_neighbours = NEIGHBOUR_OFFSETS.iter().flat_map(|(x, y)| {
@@ -193,7 +194,7 @@ impl Minesweeper {
     }
 
     // Flags / unflags, returns true if something happened
-    pub fn set_flag(&mut self, erasing_flags: bool, index: usize) -> bool {
+    pub fn set_flag(&mut self, flag_mode: SetFlagMode, index: usize) -> bool {
         if self.state != GameState::Playing {
             return false;
         }
@@ -201,13 +202,17 @@ impl Minesweeper {
             None => return false,
             Some(t) => t,
         };
-        match *tile {
-            Tile::Unopened if !erasing_flags => *tile = Tile::Flag,
-            Tile::Flag     if  erasing_flags => *tile = Tile::Unopened,
+        match (&tile, flag_mode) {
+            (Tile::Unopened, SetFlagMode::Toggle | SetFlagMode::Flag)   => *tile = Tile::Flag,
+            (Tile::Flag,     SetFlagMode::Toggle | SetFlagMode::Remove) => *tile = Tile::Unopened,
             _ => return false,
         }
         true
     }
+}
+
+pub enum SetFlagMode {
+    Toggle, Flag, Remove
 }
 
 fn get_index_from_offset(index: usize, x_offset: isize, y_offset: isize,  width: usize, height: usize) -> Option<usize> {
@@ -220,5 +225,6 @@ fn get_index_from_offset(index: usize, x_offset: isize, y_offset: isize,  width:
         _ => return None,
     };
     // Safe way of doing (y * width + x)
+    // This function could be one giant .and_then() but i think splitting it up is neater and makes it easier to understand
     y.checked_mul(width).and_then(|f| f.checked_add(x))
 }

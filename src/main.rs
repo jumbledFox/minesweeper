@@ -31,7 +31,7 @@ async fn main() {
 
     loop {
         ui.begin(scale as f32);
-        
+
         // Menubar takes ownership of 'ui'
         menubar.begin(ui);
         if menubar.item("Game", 91.0) {
@@ -70,16 +70,17 @@ async fn main() {
         // Get ui back :3
         ui = menubar.finish();
 
-        // The game ui, if the button's been pressed reset the game
-        if minesweeper_ui.game_ui(&mut ui, menubar.height()) {
-            minesweeper_ui.new_game(difficulty);
-        }
         // The actual minefield
         let screen_size = ui.screen_size();
         
         let minefield_start_height = menubar.height() + minesweeper_ui.game_ui_height() - 6.0;
         minesweeper_ui.minefield(&mut ui, screen_size.x / 2.0, (screen_size.y - minefield_start_height) / 2.0 + minefield_start_height, minefield_start_height + 6.0);
 
+        // The game ui, if the button's been pressed reset the game
+        if minesweeper_ui.game_ui(&mut ui, menubar.height()) {
+            minesweeper_ui.new_game(difficulty);
+        }
+        
         if let Some(new_scale) = resize_scale.take() {
             println!("{:?}", new_scale);
             scale = new_scale;
