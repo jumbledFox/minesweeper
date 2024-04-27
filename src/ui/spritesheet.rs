@@ -1,4 +1,4 @@
-use macroquad::{color::Color, math::{vec2, Rect, Vec2}};
+use macroquad::{color::Color, color_u8, math::{vec2, Rect, Vec2}};
 
 #[derive(Clone, Copy)]
 pub struct Nineslice {
@@ -18,14 +18,35 @@ const fn rect(x: f32, y: f32, w: f32, h: f32) -> Rect {
 
 pub const BUTTON_IDLE: Nineslice = Nineslice::new(84.0, 16.0, 3.0, 3.0, 1.0);
 pub const BUTTON_DOWN: Nineslice = Nineslice::new(87.0, 16.0, 3.0, 3.0, 1.0);
-
+pub const BUTTON_DISABLED: Nineslice = Nineslice::new(93.0, 13.0, 3.0, 3.0, 1.0);
+pub const BUTTON_TEXT: Color = color_u8!( 24,  20,  37, 255);
+pub const BUTTON_TEXT_DISABLED: Color = color_u8!(139, 155, 180, 255);
+pub const SHADOW: Color = color_u8!(0, 0, 0, 128);
+pub const fn input_field(error: bool) -> Nineslice {
+    match error {
+        false => Nineslice::new(84.0, 22.0, 3.0, 3.0, 1.0),
+        true  => Nineslice::new(87.0, 22.0, 3.0, 3.0, 1.0),
+    }
+}
 
 // Menubar
 pub fn menubar_idle()    -> (Color, Color) { (Color::from_hex(0xC0CBDC), Color::from_hex(0x181425)) }
 pub fn menubar_hovered() -> (Color, Color) { (Color::from_hex(0x262B44), Color::from_hex(0xFFFFFF)) }
 pub const DROPDOWN_BACKGROUND: Nineslice = Nineslice::new(84.0, 16.0, 3.0, 3.0, 1.0);
 pub const DROPDOWN_SEPARATOR: Rect = rect(89.0, 11.0, 1.0, 2.0);
-pub fn shadow() -> Color { Color::from_rgba(0, 0, 0, 128) }
+
+// Popups
+pub const POPUP_TITLE: Nineslice = Nineslice::new(84.0, 19.0, 3.0, 3.0, 1.0);
+pub const POPUP_BODY:  Nineslice = Nineslice::new(87.0, 19.0, 3.0, 3.0, 1.0);
+pub const POPUP_CLOSE: Rect = rect(90.0, 19.0, 3.0, 3.0);
+pub fn popup_close_color(hovered: bool) -> Color {
+    match hovered {
+        true  => color_u8!( 58,  68, 102, 255),
+        false => color_u8!(255, 255, 255, 255),
+    }
+}
+pub const POPUP_TITLE_TEXT: Color = color_u8!(255, 255, 255, 255);
+pub const POPUP_BODY_TEXT : Color = color_u8!( 24,  20,  37, 255);
 
 
 // Minesweeper stuff

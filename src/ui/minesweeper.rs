@@ -36,6 +36,10 @@ impl MinesweeperUI {
         }
     }
 
+    pub fn game_in_progress(&self) -> bool {
+        self.game.turns() != 0 && self.game.state() == GameState::Playing
+    }
+
     pub fn new_game(&mut self, difficulty: Difficulty) {
         self.game = Minesweeper::new(difficulty);
         self.exploded_bombs.clear();
@@ -97,7 +101,7 @@ impl MinesweeperUI {
             ))
             .map(|(i, digit)| (i, spritesheet::counter_digit(digit)))
             // Render the digits in reverse order so they appear the right way around
-            .map(|(i, digit_rect)| DrawShape::image(rect.x + 3.0 + (digit_rect.w + 2.0) * (digits - i - 1) as f32, rect.y + 2.0, digit_rect))
+            .map(|(i, digit_rect)| DrawShape::image(rect.x + 3.0 + (digit_rect.w + 2.0) * (digits - i - 1) as f32, rect.y + 2.0, digit_rect, None))
             // Last but not least draw the background
             .chain(std::iter::once(DrawShape::nineslice(rect, spritesheet::TIMER_BACKGROUND)));
 
@@ -125,9 +129,9 @@ impl MinesweeperUI {
         
         let draw_shapes = digits.iter()
             .zip([2.0, 6.0, 12.0, 16.0])
-            .map(|(&digit, along)| DrawShape::image(rect.x + along, rect.y + 2.0, spritesheet::timer_digit(digit)))
+            .map(|(&digit, along)| DrawShape::image(rect.x + along, rect.y + 2.0, spritesheet::timer_digit(digit), None))
             // Draw the colon and the background
-            .chain(std::iter::once(DrawShape::image(rect.x + 10.0, rect.y + 2.0, spritesheet::timer_colon(colon_lit))))
+            .chain(std::iter::once(DrawShape::image(rect.x + 10.0, rect.y + 2.0, spritesheet::timer_colon(colon_lit), None)))
             .chain(std::iter::once(DrawShape::nineslice(rect, spritesheet::TIMER_BACKGROUND)));
 
         ui.draw_queue().extend(draw_shapes);
@@ -179,7 +183,8 @@ impl MinesweeperUI {
             ui.draw_queue().push(DrawShape::image(
                 selected_cell_pos.x * 9.0 + rect.x - 1.0,
                 selected_cell_pos.y * 9.0 + rect.y - 1.0,
-                spritesheet::MINEFIELD_SELECTED
+                spritesheet::MINEFIELD_SELECTED,
+                None,
             ));
             
             // I might as well use the button state to check if you're about to / trying to dig, rather than `ui.mouse_pressed()` :> 
@@ -187,7 +192,8 @@ impl MinesweeperUI {
                 ui.draw_queue().push(DrawShape::image(
                     rect.x + (selected_cell%self.game.width()) as f32 * 9.0,
                     rect.y + (selected_cell/self.game.width()) as f32 * 9.0,
-                    spritesheet::minefield_tile(1)
+                    spritesheet::minefield_tile(1),
+                    None,
                 ));
             }
 
@@ -226,7 +232,8 @@ impl MinesweeperUI {
                 ui.draw_queue().push(DrawShape::image(
                     rect.x + (i%self.game.width()) as f32 * 9.0,
                     rect.y + (i/self.game.width()) as f32 * 9.0,
-                    spritesheet::minefield_tile(sprite)
+                    spritesheet::minefield_tile(sprite),
+                    None,
                 ));
             }
         }
@@ -239,7 +246,8 @@ impl MinesweeperUI {
                     ui.draw_queue().push(DrawShape::image(
                         rect.x + (i%self.game.width()) as f32 * 9.0,
                         rect.y + (i/self.game.width()) as f32 * 9.0,
-                        spritesheet::minefield_tile(12)
+                        spritesheet::minefield_tile(12),
+                        None,
                     ));
                     0
                 },
@@ -247,7 +255,8 @@ impl MinesweeperUI {
                     ui.draw_queue().push(DrawShape::image(
                         rect.x + (i%self.game.width()) as f32 * 9.0,
                         rect.y + (i/self.game.width()) as f32 * 9.0,
-                        spritesheet::minefield_tile((3+n).into())
+                        spritesheet::minefield_tile((3+n).into()),
+                        None,
                     ));
                     2
                 },
@@ -255,7 +264,8 @@ impl MinesweeperUI {
             ui.draw_queue().push(DrawShape::image(
                 rect.x + (i%self.game.width()) as f32 * 9.0,
                 rect.y + (i/self.game.width()) as f32 * 9.0,
-                spritesheet::minefield_tile(t)
+                spritesheet::minefield_tile(t),
+                None,
             ));
         }
 

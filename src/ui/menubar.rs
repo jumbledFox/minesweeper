@@ -1,5 +1,5 @@
 // UI functions relating to creating a menubar with dropdowns.
-// Since a menubar is pretty big and has a lot of functions, as well as members that should persist across frames,
+// Since a menubar is pretty big and has a lot of functions, as well as attributes that should persist across frames,
 // I've made it it's own struct that takes ownership of the UI.
 
 use super::*;
@@ -42,6 +42,10 @@ impl Menubar {
         self.dropdown_next = Vec2::ZERO;
     }
 
+    pub fn ui(&mut self) -> &mut UIState {
+        self.ui.as_mut().unwrap()
+    }
+    
     pub fn begin(&mut self, ui: UIState) {
         self.ui = Some(ui);
         let ui = self.ui.as_mut().unwrap();
@@ -119,7 +123,7 @@ impl Menubar {
         let dropdown_rect = self.dropdown_rect();
         let ui = self.ui.as_mut().unwrap();
         ui.draw_queue().push(DrawShape::nineslice(dropdown_rect, spritesheet::DROPDOWN_BACKGROUND));
-        ui.draw_queue().push(DrawShape::rect(dropdown_rect.offset(Vec2::splat(3.0)), spritesheet::shadow()));
+        ui.draw_queue().push(DrawShape::rect(dropdown_rect.offset(Vec2::splat(3.0)), spritesheet::SHADOW));
 
         // Make it so we can't hover over things through the dropdown
         if dropdown_rect.contains(ui.mouse_pos) && ui.hot_item == SelectedItem::None {
@@ -158,8 +162,7 @@ impl Menubar {
         );
         let id = hash_string(&format!("{:?}{}", self.current.unwrap_or(0), text.as_ref()));
         
-        if ui.hot_item.is_none() && ui.mouse_in_rect(rect) {
-            ui.hot_item.assign(id);
+        if ui.hot_item.assign_if_none_and(id, ui.mouse_in_rect(rect)) {
             if ui.mouse_down(MouseButton::Left) {
                 ui.active_item.assign(id)
             }

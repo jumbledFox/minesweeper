@@ -1,6 +1,6 @@
 use macroquad::{miniquad::window::order_quit, prelude::*};
 use minesweeper::Difficulty;
-use ui::{menubar::Menubar, minesweeper::MinesweeperUI, spritesheet, DrawShape, UIState};
+use ui::{menubar::Menubar, minesweeper::MinesweeperUI, spritesheet, DrawShape, PopupReturn, UIState};
 
 pub mod ui;
 pub mod minesweeper;
@@ -15,11 +15,10 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf())]
 async fn main() {
-    // Create the UI
-    let texture = Texture2D::from_file_with_format(include_bytes!("../resources/spritesheet.png"), None);
-    texture.set_filter(FilterMode::Nearest);
+    // Seed the random generation
+    macroquad::rand::srand(macroquad::miniquad::date::now() as _);
 
-    let mut ui = UIState::new(texture);
+    let mut ui = UIState::new().await;
     let mut menubar = Menubar::default();
     let mut difficulty = minesweeper::Difficulty::Easy;
     let mut minesweeper_ui = MinesweeperUI::new(difficulty).await;
@@ -28,21 +27,31 @@ async fn main() {
     let mut auto_resize = cfg!(target_family = "windows");
     let mut scale = 3;
     let mut resize_scale = Some(3);
-
+    
     loop {
         ui.begin(scale as f32);
-
         // Menubar takes ownership of 'ui'
+
         menubar.begin(ui);
         if menubar.item("Game", 91.0) {
-            if menubar.dropdown("New Game") { }
+            if menubar.dropdown("New Game") {
+                menubar.ui().new_game_popup(difficulty, &mut difficulty, &mut minesweeper_ui);
+            }
             menubar.dropdown_separator();
             // TODO: Secondary colour (maybe with some control character)
             // TODO: Make it so these display a popup
-            if menubar.dropdown_radio("Easy       ¬¬9¬¬*¬¬9¬¬,  ¬¬¬9", matches!(difficulty, Difficulty::Easy))        { difficulty = Difficulty::Easy;   minesweeper_ui.new_game(difficulty) }
-            if menubar.dropdown_radio("Normal    16*16, ¬¬40",         matches!(difficulty, Difficulty::Normal))      { difficulty = Difficulty::Normal; minesweeper_ui.new_game(difficulty) }
-            if menubar.dropdown_radio("Hard      30*16, 100",          matches!(difficulty, Difficulty::Hard))        { difficulty = Difficulty::Hard;   minesweeper_ui.new_game(difficulty) }
-            if menubar.dropdown_radio("Custom...",                     matches!(difficulty, Difficulty::Custom(_))) { difficulty = Difficulty::custom(200, 100, 2000); minesweeper_ui.new_game(difficulty) }
+            for (d, s) in [
+                (Difficulty::Easy,   "Easy       ¬¬9¬¬*¬¬9¬¬,  ¬¬¬9"),
+                (Difficulty::Normal, "Normal    16*16, ¬¬40"),
+                (Difficulty::Hard,   "Hard      30*16, 100")
+            ] {
+                if menubar.dropdown_radio(s, difficulty == d) {
+                    menubar.ui().new_game_popup(d, &mut difficulty, &mut minesweeper_ui);
+                }
+            }
+            if menubar.dropdown_radio("Custom...", matches!(difficulty, Difficulty::Custom(_))) {
+                menubar.ui().add_popup(ui::PopupKind::Custom);
+            }
             menubar.dropdown_separator();
 
             menubar.dropdown_checkbox("Resize Window", &mut auto_resize);
@@ -52,7 +61,9 @@ async fn main() {
             menubar.finish_item();
         }
         if menubar.item("Help", 34.0) {
-            menubar.dropdown("About");
+            if menubar.dropdown("About") { 
+                menubar.ui().add_popup(ui::PopupKind::About);
+            };
             menubar.finish_item();
         }
         if menubar.item("Scale", 22.0) {
@@ -70,6 +81,20 @@ async fn main() {
         // Get ui back :3
         ui = menubar.finish();
 
+        // Update and render the popup
+        for popup_return in ui.popups(menubar.height()) {
+            match popup_return {
+                PopupReturn::Custom { width, height, bomb_count } => {
+                    ui.new_game_popup(Difficulty::custom(width, height, bomb_count), &mut difficulty, &mut minesweeper_ui);
+                }
+                PopupReturn::NewGame { difficulty: d } => {
+                    difficulty = d;
+                    minesweeper_ui.new_game(difficulty);
+                },
+                _ => {}
+            }
+        }
+
         // The actual minefield
         let screen_size = ui.screen_size();
         
@@ -78,7 +103,7 @@ async fn main() {
 
         // The game ui, if the button's been pressed reset the game
         if minesweeper_ui.game_ui(&mut ui, menubar.height()) {
-            minesweeper_ui.new_game(difficulty);
+            ui.new_game_popup(difficulty, &mut difficulty, &mut minesweeper_ui);
         }
         
         if let Some(new_scale) = resize_scale.take() {
@@ -94,6 +119,9 @@ async fn main() {
         next_frame().await;
         // If I don't have this, cpu usage is 100%!
         // TODO: do more research into this
-        // std:: thread ::sleep(std::time::Duration::from_millis(10));
+        if !cfg!(target_family = "wasm") {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
     }
+    let s = 0b1110101001100110011110001101001;
 }

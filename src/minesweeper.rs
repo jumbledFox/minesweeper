@@ -13,12 +13,12 @@ const MAX_HEIGHT: usize = 100;
 const MIN_WIDTH:  usize = 4;
 const MIN_HEIGHT: usize = 4;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Difficulty {
     Easy, Normal, Hard,
     Custom(DifficultyValues),
 }
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct DifficultyValues {
     width: usize,
     height: usize,
@@ -45,14 +45,13 @@ impl Difficulty {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum GameState {
     Playing, Win, Lose,
 }
 
-#[derive(Debug, PartialEq, Clone)]
-// TODO: This is size 0x02, but it could be 0x01
-// I think the compiler just optimises it out though.. do some thinking :3
+#[derive(Debug, PartialEq, Eq, Clone)]
+// TODO: std::mem::size_of::<Tile>() is 2! even though it could be smaller 
 pub enum Tile {
     Unopened, Flag, Dug, Numbered(u8),
 }
@@ -68,7 +67,7 @@ pub struct Minesweeper {
     state: GameState,
     turns: usize,
     // Used in the floodfill algorithm (if you couldn't tell by the name, silly)
-    // It's better to make and allocate these once rather than recreate a whole new two vectors for each flood fill
+    // It's better to make and allocate these once rather than recreate a whole new two vectors for each flood fill operation
     floodfill_current: Vec<usize>,
     floodfill_next:    Vec<usize>,
 }
