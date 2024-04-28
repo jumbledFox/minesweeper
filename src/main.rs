@@ -123,5 +123,4 @@ async fn main() {
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
     }
-    let s = 0b1110101001100110011110001101001;
 }
