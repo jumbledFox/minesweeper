@@ -1,234 +1,172 @@
-// UI functions relating to creating a menubar with dropdowns.
-// Since a menubar is pretty big and has a lot of functions, as well as attributes that should persist across frames,
-// I've made it it's own struct that takes ownership of the UI.
+use macroquad::{color::Color, math::{vec2, Rect, Vec2}};
 
-use super::*;
+use super::{hash_string, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, Id, SelectedItem, State}};
 
-// Holds information about the menubar
 #[derive(Default)]
 pub struct Menubar {
-    // Much nicer than passing ui to the menubar every single time we need it.
-    // Originally I was gonna use lifetimes but they're a whole can of worms...
-    ui: Option<UIState>,
-    // The currently opened menubar
-    current: Option<u64>,
-    // How tall the menubar is, used for aligining elements bar at the top of the screen is
     height: f32,
-    current_pos: f32,
-    next_pos: f32,
-    // How wide the items in the dropdown will be
-    dropdown_item_width: f32,
-    // How tall the dropdown is currently
-    dropdown_height: f32,
-    // Where the current dropdown item is and where the next one should be
-    dropdown_current: Vec2,
-    dropdown_next: Vec2,
-    // The rect of the dropdown on the last frame
-    prev_dropdown_rect: Rect,
+
+    item_current: Option<Id>,
+    item_current_prev: Option<Id>,
+
+    item_current_x: f32,
+    item_next_x: f32,
+
+    dropdown_width: f32,
+    
+    dropdown_start_pos: Vec2,
+    dropdown_current_pos: Vec2,
+    dropdown_next_pos: Vec2,
+    
+    dropdown_max_offset: Vec2,
+    dropdown_rect: Rect,
 }
 
 impl Menubar {
-    pub fn height(&self) -> f32 {
-        self.height
+    pub fn begin(&mut self) {
+        self.item_current_prev = self.item_current;
+        self.item_next_x = 0.0;
     }
 
-    pub fn reset(&mut self) {
-        self.height = 0.0;
-        self.current_pos = 0.0;
-        self.next_pos = 0.0;
-        self.dropdown_item_width = 0.0;
-        self.dropdown_height = 0.0;
-        self.dropdown_current = Vec2::ZERO;
-        self.dropdown_next = Vec2::ZERO;
-    }
-
-    pub fn ui(&mut self) -> &mut UIState {
-        self.ui.as_mut().unwrap()
-    }
-    
-    pub fn begin(&mut self, ui: UIState) {
-        self.ui = Some(ui);
-        let ui = self.ui.as_mut().unwrap();
-
-        self.next_pos = 0.0;
-        // Deselect the menubar if elsewhere is clicked
-        let mouse_pos = ui.mouse_pos;
-        if self.current.is_some()
-        && ui.mouse_pressed(MouseButton::Left)
-        && !self.prev_dropdown_rect.contains(mouse_pos)
-        {
-            ui.active_item = SelectedItem::Unavailable;
-            self.current = None;
-        } 
-    }
-
-    pub fn finish(&mut self) -> UIState {
-        let ui = self.ui.as_mut().unwrap();
-        
-        let b = DrawShape::Rect {
-            x: 0.0,
+    pub fn finish(&mut self, state: &mut State, renderer: &mut Renderer) {
+        renderer.draw(super::renderer::DrawShape::Rect {
+            x: self.item_next_x,
             y: 0.0,
-            w: ui.screen_size.x,
+            w: state.screen_size().x - self.item_next_x,
             h: self.height,
-            color: Color::from_hex(0xC0CBDC)
-        };
-        ui.draw_queue().push(b);
-        self.ui.take().unwrap()
+            color: spritesheet::menubar_colors(false).0,
+        });
+
+        // If anywhere that's not the dropdown has been clicked, deselect the menubar
+        if self.item_current.is_some() && self.item_current_prev.is_some()
+        && state.mouse_pressed(macroquad::input::MouseButton::Left) && !state.mouse_in_rect(self.dropdown_rect) {
+            state.active_item = SelectedItem::Unavailable;
+            self.item_current = None;
+        }
     }
 
-
-    pub fn item(&mut self, text: impl AsRef<str>, dropdown_width: f32) -> bool {
-        self.current_pos = self.next_pos;
-        self.dropdown_item_width = dropdown_width;
-
-        let ui = self.ui.as_mut().unwrap();
-
-        let size = ui.text_renderer.text_size(&text, None) + vec2(4.0, 2.0);
-        self.next_pos += size.x;
-        self.height = size.y;
+    pub fn item(&mut self, text: String, dropdown_width: f32, state: &mut State, renderer: &mut Renderer) -> bool {
+        self.item_current_x = self.item_next_x;
         
-        self.dropdown_height = self.height;
-        self.dropdown_next = vec2(self.current_pos, self.height) + 1.0;
-        self.dropdown_current = self.dropdown_next;
+        let size = renderer.text_renderer.text_size(&text, None) + vec2(4.0, 2.0);
+        self.item_next_x += size.x;
+        self.height = self.height.max(size.y);
+        
+        self.dropdown_start_pos = vec2(self.item_current_x, self.height) + 1.0;
+        self.dropdown_next_pos = self.dropdown_start_pos;
+        self.dropdown_width = dropdown_width;
+        self.dropdown_max_offset = vec2(dropdown_width, 0.0);
+    
+        let id = hash_string(&text);
+        let rect = Rect::new(self.item_current_x, 0.0, size.x, size.y);
+        let hovered = state.mouse_in_rect(rect);
+        let button_state = state.button_state(id, hovered, false);
+        // If a dropdown is open and the mouse has hovered this menu item, or if this menu item's been clicked, set THIS to be the current one.
+        if (button_state == ButtonState::Hovered && self.item_current.is_some()) || button_state == ButtonState::Clicked {
+            self.item_current = Some(id);
+        }
+        
+        let colors = spritesheet::menubar_colors(self.item_current == Some(id) || state.hot_item == id);
 
-        // Button logic
-        let rect = Rect::new(
-            self.current_pos,
-            0.0,
-            size.x,
-            size.y
+        renderer.draw(super::renderer::DrawShape::Text { x: rect.x + 2.0, y: rect.y + 1.0, text, color: colors.1 });
+        renderer.draw(super::renderer::DrawShape::rect(rect, colors.0));
+
+        self.item_current == Some(id)
+    }
+
+    pub fn finish_item(&mut self, state: &mut State, renderer: &mut Renderer) {
+        // If the dropdown doesn't go down at all, it has not dropdown items and therefore doesn't have a rect,
+        // so we don't really care about doing anything
+        if self.dropdown_max_offset.y == 0.0 {
+            self.dropdown_rect = Rect::new(0.0, 0.0, 0.0, 0.0);
+            return;
+        }
+
+        self.dropdown_rect =  Rect::new(
+            self.item_current_x,
+            self.height,
+            self.dropdown_max_offset.x + 2.0,
+            self.dropdown_max_offset.y + 2.0 - self.dropdown_start_pos.y,
         );
-        let id = hash_string(&format!("menubar{:?}", text.as_ref()));
 
-        let mouse_in_rect = ui.mouse_in_rect(rect);
-        let state = ui.button_state(id, mouse_in_rect, false);
-        // If a dropdown is open and the mouse has hovered over this menu item, or if this menu items been clicked regardless, set the current one to be this one.
-        if (state == ButtonState::Hovered && self.current.is_some()) || state == ButtonState::Clicked {
-            self.current = Some(id);
-        }
+        // Draw the dropdown box and it's shadow
+        renderer.draw(DrawShape::rect(self.dropdown_rect, Color::from_rgba(255, 255, 255, 255)));
+        renderer.draw(DrawShape::rect(self.dropdown_rect.offset(Vec2::splat(3.0)), spritesheet::SHADOW));
 
-        let colors = match self.current == Some(id) || state != ButtonState::Idle {
-            true  => spritesheet::menubar_hovered(),
-            false => spritesheet::menubar_idle(),
-        };
-        // Rendering
-        ui.draw_queue().push(DrawShape::label(rect.x + 2.0, rect.y + 1.0, text.as_ref().to_string(), colors.1));
-        ui.draw_queue().push(DrawShape::rect(rect, colors.0));
-
-        self.current == Some(id)
-    }
-
-    pub fn finish_item(&mut self) {
-        // Draw the box and it's shadow
-        let dropdown_rect = self.dropdown_rect();
-        let ui = self.ui.as_mut().unwrap();
-        ui.draw_queue().push(DrawShape::nineslice(dropdown_rect, spritesheet::DROPDOWN_BACKGROUND));
-        ui.draw_queue().push(DrawShape::rect(dropdown_rect.offset(Vec2::splat(3.0)), spritesheet::SHADOW));
-
-        // Make it so we can't hover over things through the dropdown
-        if dropdown_rect.contains(ui.mouse_pos) && ui.hot_item == SelectedItem::None {
-            ui.hot_item = SelectedItem::Unavailable;
-        }
-        self.prev_dropdown_rect = dropdown_rect;
-    }
-
-
-    fn dropdown_move_down_by(&mut self, amount: f32) {
-        self.dropdown_next.y += amount;
-        self.dropdown_height = f32::max(self.dropdown_height, self.dropdown_next.y);
-    }
-
-    pub fn dropdown_rect(&self) -> Rect {
-        Rect {
-            x: self.current_pos,
-            y: self.height,
-            w: 1.0 + self.dropdown_current.x - self.current_pos + self.dropdown_item_width,
-            h: 1.0 + self.dropdown_height - self.height,
+        // Make it so the box captures the hot item
+        if state.hot_item.is_none() && state.mouse_in_rect(self.dropdown_rect) {
+            state.hot_item = SelectedItem::Unavailable;
         }
     }
 
-    fn dropdown_item(&mut self, text: impl AsRef<str>, draw_mark: bool) -> bool {
-        self.dropdown_current = self.dropdown_next;
+    fn dropdown_next_descend(&mut self, amount: f32) {
+        self.dropdown_next_pos.y += amount;
+        self.dropdown_max_offset.y = self.dropdown_max_offset.y.max(self.dropdown_next_pos.y);
+    }
 
-        // Button logic
-        // I do different button logic for the menubar items and dropdowns as they behave slightly differently
-        let ui = self.ui.as_mut().unwrap();
-        
+    fn dropdown_item(&mut self, text: String, icon: bool, state: &mut State, renderer: &mut Renderer) -> bool {
+        self.dropdown_current_pos = self.dropdown_next_pos;
         let rect = Rect::new(
-            self.dropdown_current.x,
-            self.dropdown_current.y,
-            self.dropdown_item_width,
-            ui.text_renderer.text_size(&text, None).y + 3.0
+            self.dropdown_current_pos.x,
+            self.dropdown_current_pos.y,
+            self.dropdown_width,
+            renderer.text_renderer.text_size(&text, None).y + 3.0,
         );
-        let id = hash_string(&format!("{:?}{}", self.current.unwrap_or(0), text.as_ref()));
-        
-        if ui.hot_item.assign_if_none_and(id, ui.mouse_in_rect(rect)) {
-            if ui.mouse_down(MouseButton::Left) {
-                ui.active_item.assign(id)
+        self.dropdown_next_descend(rect.h);
+
+        // I do different button logic here because they behave slightly differently than normal buttons
+        let id = hash_string(&text);
+        let mouse_down = state.mouse_down(macroquad::input::MouseButton::Left);
+
+        if state.hot_item.assign_if_none_and(id, state.mouse_in_rect(rect)) {
+            if mouse_down {
+                state.active_item.assign(id);
             }
         }
-        let released = ui.hot_item == id && ui.active_item == id && !ui.mouse_down(MouseButton::Left);
+
+        let released = state.hot_item == id && state.active_item == id && !mouse_down;
         if released {
-            self.current = None;
+            self.item_current = None;
         }
 
-        // Rendering
-        let colors = match ui.hot_item {
-            SelectedItem::Some(hot_item) if id == hot_item => spritesheet::menubar_hovered(),
-            _ => spritesheet::menubar_idle()
-        };
-
-        if draw_mark {
-            // TODO: The same shape (A square to the left of the text) is used for both radios and checkboxes.
-            // Is this bad? I don't think so, but I might have to think about it more.
-            let mark = DrawShape::Rect {
-                x: self.dropdown_current.x + 2.0, 
-                y: self.dropdown_current.y + 3.0,
-                w: 3.0, 
-                h: 3.0, 
+        let colors = spritesheet::menubar_colors(state.hot_item == id);
+        if icon {
+            renderer.draw(super::renderer::DrawShape::Rect {
+                x: rect.x + 2.0,
+                y: rect.y + 3.0,
+                w: 3.0,
+                h: 3.0,
                 color: colors.1,
-            };
-            ui.draw_queue().push(mark);
+            })
         }
-        ui.draw_queue().push(DrawShape::label(rect.x + 7.0, rect.y + 2.0, text.as_ref().to_owned(), colors.1));
-        ui.draw_queue().push(DrawShape::rect(rect, colors.0));
+        renderer.draw(super::renderer::DrawShape::Text { x: rect.x + 7.0, y: rect.y + 2.0, text, color: colors.1 });
+        renderer.draw(super::renderer::DrawShape::rect(rect, colors.0));
 
-        self.dropdown_move_down_by(rect.h);
         released
     }
 
-    pub fn dropdown(&mut self, text: impl AsRef<str>) -> bool {
-        self.dropdown_item(text, false)
+    pub fn dropdown(&mut self, text: String, state: &mut State, renderer: &mut Renderer) -> bool {
+        self.dropdown_item(text, false, state, renderer)
     }
-
-    // TODO: Not specific to this bit of code
-    // If this is called and the radio variable is changed to something else, and that thing is used as a qualifier AFTER the previous one
-    // You'll see it flash for a split second before the menu closes. Maybe I need some kind of buffer or idk what.
-    pub fn dropdown_radio(&mut self, text: impl AsRef<str>, qualifier: bool) -> bool {
-        self.dropdown_item(text, qualifier)
+    pub fn dropdown_radio(&mut self, text: String, qualifier: bool, state: &mut State, renderer: &mut Renderer) -> bool {
+        self.dropdown_item(text, qualifier, state, renderer)
     }
-
-    pub fn dropdown_checkbox(&mut self, text: impl AsRef<str>, value: &mut bool) -> bool {
-        let pressed = self.dropdown_item(text, *value);
+    pub fn dropdown_toggle(&mut self, text: String, value: &mut bool, state: &mut State, renderer: &mut Renderer) -> bool {
+        let pressed = self.dropdown_item(text, *value, state, renderer);
         if pressed { *value = !*value; }
         pressed
     }
 
-    pub fn dropdown_separator(&mut self) {
+    pub fn dropdown_separator(&mut self, renderer: &mut Renderer) {
+        self.dropdown_current_pos = self.dropdown_next_pos;
         let source = spritesheet::DROPDOWN_SEPARATOR;
         let dest = Rect::new(
-            self.dropdown_next.x + 1.0,
-            self.dropdown_next.y,
-            self.dropdown_item_width - 2.0,
+            self.dropdown_current_pos.x + 1.0,
+            self.dropdown_current_pos.y,
+            self.dropdown_width - 2.0,
             source.h,
         );
-        self.ui.as_mut().unwrap().draw_queue().push(DrawShape::ImageRect { dest, source });
-        self.dropdown_move_down_by(source.h);
-    }
-
-    pub fn dropdown_new_column(&mut self) {
-        self.dropdown_next.x += self.dropdown_item_width;
-        self.dropdown_next.y = self.height + 1.0;
-        self.dropdown_current = self.dropdown_next;
+        self.dropdown_next_descend(dest.h);
+        renderer.draw(super::renderer::DrawShape::image_rect(dest, source, None));
     }
 }

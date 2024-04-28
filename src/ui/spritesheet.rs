@@ -30,8 +30,12 @@ pub const fn input_field(error: bool) -> Nineslice {
 }
 
 // Menubar
-pub fn menubar_idle()    -> (Color, Color) { (Color::from_hex(0xC0CBDC), Color::from_hex(0x181425)) }
-pub fn menubar_hovered() -> (Color, Color) { (Color::from_hex(0x262B44), Color::from_hex(0xFFFFFF)) }
+pub fn menubar_colors(hovered: bool) -> (Color, Color) {
+    match hovered {
+        false => (Color::from_hex(0xC0CBDC), Color::from_hex(0x181425)),
+        true  => (Color::from_hex(0x262B44), Color::from_hex(0xFFFFFF)),
+    }
+}
 pub const DROPDOWN_BACKGROUND: Nineslice = Nineslice::new(84.0, 16.0, 3.0, 3.0, 1.0);
 pub const DROPDOWN_SEPARATOR: Rect = rect(89.0, 11.0, 1.0, 2.0);
 
