@@ -1,4 +1,4 @@
-use macroquad::{color::Color, math::{vec2, Rect, Vec2}};
+use macroquad::math::{vec2, Rect, Vec2};
 
 use super::{hash_string, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, Id, SelectedItem, State}};
 
@@ -23,6 +23,10 @@ pub struct Menubar {
 }
 
 impl Menubar {
+    pub fn height(&self) -> f32 {
+        self.height
+    } 
+
     pub fn begin(&mut self) {
         self.item_current_prev = self.item_current;
         self.item_next_x = 0.0;
@@ -60,7 +64,7 @@ impl Menubar {
         let id = hash_string(&text);
         let rect = Rect::new(self.item_current_x, 0.0, size.x, size.y);
         let hovered = state.mouse_in_rect(rect);
-        let button_state = state.button_state(id, hovered, false);
+        let button_state = state.button_state(id, hovered, false, false);
         // If a dropdown is open and the mouse has hovered this menu item, or if this menu item's been clicked, set THIS to be the current one.
         if (button_state == ButtonState::Hovered && self.item_current.is_some()) || button_state == ButtonState::Clicked {
             self.item_current = Some(id);
@@ -68,7 +72,7 @@ impl Menubar {
         
         let colors = spritesheet::menubar_colors(self.item_current == Some(id) || state.hot_item == id);
 
-        renderer.draw(super::renderer::DrawShape::Text { x: rect.x + 2.0, y: rect.y + 1.0, text, color: colors.1 });
+        renderer.draw(super::renderer::DrawShape::text(rect.x + 2.0, rect.y + 1.0, text, colors.1));
         renderer.draw(super::renderer::DrawShape::rect(rect, colors.0));
 
         self.item_current == Some(id)
@@ -90,7 +94,7 @@ impl Menubar {
         );
 
         // Draw the dropdown box and it's shadow
-        renderer.draw(DrawShape::rect(self.dropdown_rect, Color::from_rgba(255, 255, 255, 255)));
+        renderer.draw(DrawShape::nineslice(self.dropdown_rect, spritesheet::DROPDOWN_BACKGROUND));
         renderer.draw(DrawShape::rect(self.dropdown_rect.offset(Vec2::splat(3.0)), spritesheet::SHADOW));
 
         // Make it so the box captures the hot item
@@ -139,7 +143,7 @@ impl Menubar {
                 color: colors.1,
             })
         }
-        renderer.draw(super::renderer::DrawShape::Text { x: rect.x + 7.0, y: rect.y + 2.0, text, color: colors.1 });
+        renderer.draw(super::renderer::DrawShape::text(rect.x + 7.0, rect.y + 2.0, text, colors.1 ));
         renderer.draw(super::renderer::DrawShape::rect(rect, colors.0));
 
         released

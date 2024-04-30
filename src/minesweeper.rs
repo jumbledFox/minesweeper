@@ -115,7 +115,7 @@ impl Minesweeper {
             .flat_map(|(x, y)| get_index_from_offset(safe_index, *x, *y, self.width, self.height))
             .chain(std::iter::once(safe_index))
             .collect();
-        // TODO: Make sure there are no more than 4 mines in the 5x5 are, to decrease the liklihood of annoying spawns
+        // TODO: Make sure there are no more than 4 mines in the 5x5 are, to decrease the likelihood of annoying spawns
         let mut possible_positions: Vec<usize> = (0..self.board.len())
             .filter(|&i| !safe_positions.contains(&i))
             .collect();

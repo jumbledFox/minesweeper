@@ -1,6 +1,6 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-use self::{menubar::Menubar, renderer::Renderer, state::State};
+use self::{menubar::Menubar, popups::Popups, renderer::Renderer, state::State};
 
 pub fn hash_string(input: &String) -> u64 {
     let mut hasher = DefaultHasher::new();
@@ -10,21 +10,24 @@ pub fn hash_string(input: &String) -> u64 {
 
 pub mod state;
 pub mod menubar;
-pub mod text_renderer;
+pub mod popups;
+pub mod elements;
 pub mod renderer;
 pub mod spritesheet;
 
 pub struct Ui {
     pub state: State,
     pub menubar: Menubar,
+    pub popups: Popups,
     pub renderer: Renderer,
 }
 
 impl Ui {
     pub fn new() -> Ui {
         Ui {
-            state: State::new(),
-            menubar: Menubar::default(),
+            state:    State   ::new(),
+            menubar:  Menubar ::default(),
+            popups:   Popups  ::default(),
             renderer: Renderer::new(),
         }
     }

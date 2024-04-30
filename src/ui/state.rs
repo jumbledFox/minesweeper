@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-use macroquad::{input::{is_mouse_button_down, is_mouse_button_pressed, is_mouse_button_released, mouse_position, MouseButton}, math::{vec2, Rect, Vec2}, window::{screen_height, screen_width}};
+use macroquad::{camera::{set_camera, Camera2D}, input::{is_mouse_button_down, is_mouse_button_pressed, is_mouse_button_released, mouse_position, MouseButton}, math::{vec2, Rect, Vec2}, window::{screen_height, screen_width}};
 
 pub type Id = u64;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SelectedItem {
     None,
     Some(Id),
@@ -42,6 +42,7 @@ pub struct State {
     mouse_pos: Vec2,
     mouse_buttons: HashMap<MouseButton, (bool, bool, bool)>, // (Down, Pressed, Released)
     screen_size: Vec2,
+    scale: f32,
 
     pub hot_item:    SelectedItem,
     pub active_item: SelectedItem,
@@ -57,6 +58,7 @@ impl State {
                 (MouseButton::Middle, (false, false, false)),
             ]),
             screen_size: Vec2::default(),
+            scale: 2.0,
 
             hot_item:    SelectedItem::None,
             active_item: SelectedItem::None,
@@ -93,7 +95,7 @@ impl State {
         self.mouse_pos.y <  rect.y + rect.h
     }
 
-    pub fn button_state(&mut self, id: Id, hovered: bool, held_when_not_hovered: bool) -> ButtonState {
+    pub fn button_state(&mut self, id: Id, hovered: bool, disabled: bool, held_when_not_hovered: bool) -> ButtonState {
         let mut state = ButtonState::Idle;
         let mouse_down = self.mouse_down(MouseButton::Left);
 
@@ -109,11 +111,14 @@ impl State {
                 false => ButtonState::Held,
             }
         }
+        if disabled {
+            state = ButtonState::Disabled;
+        }
         state
     }
 
     pub fn begin(&mut self) {
-        self.mouse_pos = vec2(mouse_position().0, mouse_position().1);
+        self.mouse_pos = vec2(mouse_position().0, mouse_position().1) / self.scale;
 
         for (&button, (down, pressed, released)) in &mut self.mouse_buttons.iter_mut() {
             *down     = is_mouse_button_down(button);
@@ -122,7 +127,13 @@ impl State {
         }
 
         let window_size = vec2(screen_width(), screen_height());
-        self.screen_size = window_size;
+        self.screen_size = window_size / self.scale;
+
+        set_camera(&Camera2D {
+            zoom: (self.scale * 2.0) / window_size,
+            target: self.screen_size / 2.0,
+            ..Default::default()
+        });
 
         self.hot_item = SelectedItem::None;
     }

@@ -16,16 +16,17 @@ const fn rect(x: f32, y: f32, w: f32, h: f32) -> Rect {
 }
 
 
-pub const BUTTON_IDLE: Nineslice = Nineslice::new(84.0, 16.0, 3.0, 3.0, 1.0);
-pub const BUTTON_DOWN: Nineslice = Nineslice::new(87.0, 16.0, 3.0, 3.0, 1.0);
-pub const BUTTON_DISABLED: Nineslice = Nineslice::new(93.0, 13.0, 3.0, 3.0, 1.0);
-pub const BUTTON_TEXT: Color = color_u8!( 24,  20,  37, 255);
+pub const BACKGROUND: Nineslice = Nineslice::new(84.0, 0.0, 3.0, 3.0, 1.0);
+pub const BUTTON_IDLE:     Nineslice = Nineslice::new(84.0, 3.0, 3.0, 3.0, 1.0);
+pub const BUTTON_DOWN:     Nineslice = Nineslice::new(87.0, 3.0, 3.0, 3.0, 1.0);
+pub const BUTTON_DISABLED: Nineslice = Nineslice::new(90.0, 3.0, 3.0, 3.0, 1.0);
+pub const BUTTON_TEXT:          Color = color_u8!( 24,  20,  37, 255);
 pub const BUTTON_TEXT_DISABLED: Color = color_u8!(139, 155, 180, 255);
 pub const SHADOW: Color = color_u8!(0, 0, 0, 128);
 pub const fn input_field(error: bool) -> Nineslice {
     match error {
-        false => Nineslice::new(84.0, 22.0, 3.0, 3.0, 1.0),
-        true  => Nineslice::new(87.0, 22.0, 3.0, 3.0, 1.0),
+        false => Nineslice::new(84.0, 6.0, 3.0, 3.0, 1.0),
+        true  => Nineslice::new(87.0, 6.0, 3.0, 3.0, 1.0),
     }
 }
 
@@ -36,13 +37,13 @@ pub fn menubar_colors(hovered: bool) -> (Color, Color) {
         true  => (Color::from_hex(0x262B44), Color::from_hex(0xFFFFFF)),
     }
 }
-pub const DROPDOWN_BACKGROUND: Nineslice = Nineslice::new(84.0, 16.0, 3.0, 3.0, 1.0);
-pub const DROPDOWN_SEPARATOR: Rect = rect(89.0, 11.0, 1.0, 2.0);
+pub const DROPDOWN_BACKGROUND: Nineslice = Nineslice::new(84.0, 9.0, 3.0, 3.0, 1.0);
+pub const DROPDOWN_SEPARATOR: Rect = rect(87.0, 9.0, 1.0, 2.0);
 
 // Popups
-pub const POPUP_TITLE: Nineslice = Nineslice::new(84.0, 19.0, 3.0, 3.0, 1.0);
-pub const POPUP_BODY:  Nineslice = Nineslice::new(87.0, 19.0, 3.0, 3.0, 1.0);
-pub const POPUP_CLOSE: Rect = rect(90.0, 19.0, 3.0, 3.0);
+pub const POPUP_TITLE: Nineslice = Nineslice::new(84.0, 12.0, 3.0, 3.0, 1.0);
+pub const POPUP_BODY:  Nineslice = Nineslice::new(87.0, 12.0, 3.0, 3.0, 1.0);
+pub const POPUP_CLOSE: Rect = rect(90.0, 12.0, 3.0, 3.0);
 pub fn popup_close_color(hovered: bool) -> Color {
     match hovered {
         true  => color_u8!( 58,  68, 102, 255),
@@ -54,14 +55,15 @@ pub const POPUP_BODY_TEXT : Color = color_u8!( 24,  20,  37, 255);
 
 
 // Minesweeper stuff
-pub const MINEFIELD_BORDER: Nineslice = Nineslice::new(84.0, 11.0, 5.0, 5.0, 2.0);
+pub const MINEFIELD_BORDER: Nineslice = Nineslice::new(84.0, 15.0, 5.0, 5.0, 2.0);
 pub const fn minefield_tile(id: usize) -> Rect {
     let id = if id > 15 { 15 } else { id };
     rect((id % 4 * 9) as f32, (id / 4 * 9) as f32, 9.0, 9.0)
 }
-pub const MINEFIELD_SELECTED: Rect = rect(85.0, 0.0, 11.0, 11.0);
+pub const MINEFIELD_SELECTED: Rect = rect(84.0, 20.0, 11.0, 11.0);
 
-pub const COUNTER_BACKGROUND: Nineslice = Nineslice::new(90.0, 16.0, 3.0, 3.0, 1.0);
+// The bomb counter
+pub const COUNTER_BACKGROUND: Nineslice = Nineslice::new(89.0, 15.0, 3.0, 3.0, 1.0);
 pub const fn counter_size(digits: usize) -> Vec2 {
     vec2((digits * 10 + 4) as f32, 18.0)
 }
@@ -78,7 +80,8 @@ pub const fn counter_digit(digit: CounterDigit) -> Rect {
     rect(pos.x, pos.y, 8.0, 14.0)
 }
 
-pub const TIMER_BACKGROUND: Nineslice = Nineslice::new(93.0, 16.0, 3.0, 3.0, 1.0);
+// The timer
+pub const TIMER_BACKGROUND: Nineslice = Nineslice::new(92.0, 15.0, 3.0, 3.0, 1.0);
 pub const TIMER_SIZE: Vec2 = Vec2 { x: 21.0, y: 9.0 };
 pub const fn timer_digit(digit: Option<usize>) -> Rect {
     // Darn unwrap_or() not being constant!
