@@ -52,6 +52,7 @@ pub enum GameState {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 // TODO: std::mem::size_of::<Tile>() is 2! even though it could be smaller 
+// TODO: Maybe bit patterns?
 pub enum Tile {
     Unopened, Flag, Dug, Numbered(u8),
 }

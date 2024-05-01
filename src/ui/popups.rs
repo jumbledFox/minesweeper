@@ -134,10 +134,10 @@ impl Popup {
             }
             PopupKind::Exit => {
                 renderer.draw(DrawShape::text(body.x + 3.0, body.y + 3.0, "Are you sure you\nwant to exit?".to_owned(), spritesheet::POPUP_BODY_TEXT));
-                if button_text(id.wrapping_add(1), "Exit".to_owned(), align_end(body.right()-3.0), align_end(body.bottom()-3.0), state, renderer) == ButtonState::Released {
+                if button_text(id.wrapping_add(2), "Exit".to_owned(), align_end(body.right()-3.0), align_end(body.bottom()-3.0), state, renderer) == ButtonState::Released {
                     order_quit();
                 }
-                close = close || button_text(id.wrapping_add(2), "Cancel".to_owned(), align_end(body.right()-25.0), align_end(body.bottom()-3.0), state, renderer) == ButtonState::Released;
+                close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body.right()-25.0), align_end(body.bottom()-3.0), state, renderer) == ButtonState::Released;
             }
         }
 

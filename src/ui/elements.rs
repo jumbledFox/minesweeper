@@ -33,14 +33,15 @@ pub fn aligned_rect(x: Align, y: Align, w: f32, h: f32) -> Rect {
     Rect::new(x, y, w, h)
 }
 
+// TODO: These share a lot of code
 pub fn button(id: Id, x: Align, y: Align, w: f32, h: f32, state: &mut State, renderer: &mut Renderer) -> ButtonState {
     let rect = aligned_rect(x, y, w, h);
     let button_state = state.button_state(id, state.mouse_in_rect(rect), false, true);
 
-    let (offset, source, text_col) = match button_state {
-        ButtonState::Disabled                    => (0.0, spritesheet::BUTTON_DISABLED, spritesheet::BUTTON_TEXT_DISABLED),
-        ButtonState::Held | ButtonState::Clicked => (1.0, spritesheet::BUTTON_DOWN,     spritesheet::BUTTON_TEXT),
-        _                                        => (0.0, spritesheet::BUTTON_IDLE,     spritesheet::BUTTON_TEXT),
+    let (offset, source) = match button_state {
+        ButtonState::Disabled                    => (0.0, spritesheet::BUTTON_DISABLED),
+        ButtonState::Held | ButtonState::Clicked => (1.0, spritesheet::BUTTON_DOWN),
+        _                                        => (0.0, spritesheet::BUTTON_IDLE),
     };
 
     let rect = rect.offset(Vec2::splat(offset));
