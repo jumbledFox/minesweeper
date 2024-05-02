@@ -1,16 +1,13 @@
 use macroquad::{input::MouseButton, math::{vec2, Rect, Vec2}, miniquad::window::order_quit};
 
-use crate::minesweeper::Difficulty;
+use crate::minesweeper::{Difficulty, DifficultyValues};
 
-use super::{elements::{align_end, button, button_text}, hash_string, menubar::Menubar, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, Id, State}};
+use super::{elements::{align_end, button, button_text, text_field}, hash_string, menubar::Menubar, minesweeper::MinesweeperElement, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, Id, State}};
 
 #[derive(Default)]
 pub struct Popups {
     popups: Vec<Popup>,
     popup_drag_offset: Vec2,
-    // TODO: 
-    // i COULD make the PopupKind enum store this, although I like the idea of what you wrote being remembered.
-    // custom_fields: (String, String, String),
 }
 
 impl Popups {
@@ -54,10 +51,23 @@ impl Popups {
 
 pub enum PopupKind {
     NewGame { difficulty: Difficulty },
-    Custom,
+    Custom { width: String, height: String, bomb_count: String },
     About,
     Win,
     Exit,
+}
+
+impl PopupKind {
+    pub fn new_game(difficulty: Difficulty) -> Self {
+        Self::NewGame { difficulty }
+    }
+    pub fn custom(difficulty_values: Option<DifficultyValues>) -> Self {
+        let (width, height, bomb_count) = match difficulty_values {
+            Some(d) => (d.width.to_string(), d.height.to_string(), d.bomb_count.to_string()),
+            None => (String::new(), String::new(), String::new()),
+        };
+        Self::Custom { width, height, bomb_count }
+    }
 }
 
 pub enum PopupReturn {
@@ -82,7 +92,7 @@ impl Popup {
     pub fn new(kind: PopupKind, state: &State) -> Popup {
         let (title, size) = match kind {
             PopupKind::NewGame{..} => ("New game", vec2( 90.0, 40.0)),
-            PopupKind::Custom      => ("Custom",   vec2( 78.0, 58.0)),
+            PopupKind::Custom{..}  => ("Custom",   vec2( 78.0, 58.0)),
             PopupKind::About       => ("About",    vec2(100.0, 80.0)),
             PopupKind::Win         => ("You win!", vec2( 70.0, 40.0)),
             PopupKind::Exit        => ("Exit",     vec2( 70.0, 40.0)),
@@ -102,23 +112,37 @@ impl Popup {
         let body     = Rect::new(self.pos.x, self.pos.y + titlebar.h, self.size.x, self.size.y - titlebar.h);
 
         let id = self.id;
-
-        let active_before = state.active_item;
         let mut close = Popup::close_button(id.wrapping_add(1), titlebar, state, renderer);
-
         let mut return_value = None;
 
-        // Elements
-        match self.kind {
+        // This is done AFTER making the close button, so when you make it active it doesn't bring the popup to the top
+        let active_before = state.active_item;
+
+        // Elements inside of the popups
+        match &mut self.kind {
             PopupKind::NewGame { difficulty } => {
                 // button clicked
                 if false {
                     close = true;
-                    return_value = Some(PopupReturn::NewGame { difficulty })
+                    return_value = Some(PopupReturn::NewGame { difficulty: *difficulty })
                 }
             }
-            PopupKind::Custom => {
+            PopupKind::Custom { width, height, bomb_count } => {
+                // TODO: THIS
+                text_field(id.wrapping_add(4), width, &mut 0, String::from("4 - 200"), super::elements::TextFieldState::None, state, renderer);
+                text_field(id.wrapping_add(5), height, &mut 0, String::from("4 - 200"), super::elements::TextFieldState::None, state, renderer);
+                text_field(id.wrapping_add(6), bomb_count, &mut 0, String::from("4 - 200"), super::elements::TextFieldState::None, state, renderer);
 
+                // gah.
+                
+                let submit_valid = false;
+
+                let submit = button_text(id.wrapping_add(2), "Submit".to_owned(), align_end(body.right()-3.0), align_end(body.bottom()-3.0), !submit_valid, state, renderer) == ButtonState::Released;
+                if submit {
+                    return_value = Some(PopupReturn::NewGame { difficulty: Difficulty::custom(200, 100, 2000) });
+                    close = true;
+                }
+                close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body.right()-36.0), align_end(body.bottom()-3.0), false, state, renderer) == ButtonState::Released;
             }
             PopupKind::About => {
                 renderer.draw(DrawShape::text(body.x + 3.0, body.y + 3.0,
@@ -134,10 +158,18 @@ impl Popup {
             }
             PopupKind::Exit => {
                 renderer.draw(DrawShape::text(body.x + 3.0, body.y + 3.0, "Are you sure you\nwant to exit?".to_owned(), spritesheet::POPUP_BODY_TEXT));
-                if button_text(id.wrapping_add(2), "Exit".to_owned(), align_end(body.right()-3.0), align_end(body.bottom()-3.0), state, renderer) == ButtonState::Released {
+                if button_text(
+                    id.wrapping_add(2),
+                    "Exit".to_owned(),
+                    align_end(body.right() -3.0),
+                    align_end(body.bottom()-3.0),
+                    false,
+                    state,
+                    renderer
+                ) == ButtonState::Released {
                     order_quit();
                 }
-                close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body.right()-25.0), align_end(body.bottom()-3.0), state, renderer) == ButtonState::Released;
+                close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body.right()-25.0), align_end(body.bottom()-3.0), false, state, renderer) == ButtonState::Released;
             }
         }
 

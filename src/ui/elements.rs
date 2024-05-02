@@ -33,10 +33,14 @@ pub fn aligned_rect(x: Align, y: Align, w: f32, h: f32) -> Rect {
     Rect::new(x, y, w, h)
 }
 
+pub fn centered_rect(x: f32, y: f32, w: f32, h: f32) -> Rect {
+    aligned_rect(align_mid(x), align_mid(y), w, h)
+}
+
 // TODO: These share a lot of code
-pub fn button(id: Id, x: Align, y: Align, w: f32, h: f32, state: &mut State, renderer: &mut Renderer) -> ButtonState {
+pub fn button(id: Id, x: Align, y: Align, w: f32, h: f32, disabled: bool, state: &mut State, renderer: &mut Renderer) -> ButtonState {
     let rect = aligned_rect(x, y, w, h);
-    let button_state = state.button_state(id, state.mouse_in_rect(rect), false, true);
+    let button_state = state.button_state(id, state.mouse_in_rect(rect), disabled, true);
 
     let (offset, source) = match button_state {
         ButtonState::Disabled                    => (0.0, spritesheet::BUTTON_DISABLED),
@@ -50,10 +54,10 @@ pub fn button(id: Id, x: Align, y: Align, w: f32, h: f32, state: &mut State, ren
     button_state
 }
 
-pub fn button_text(id: Id, text: String, x: Align, y: Align, state: &mut State, renderer: &mut Renderer) -> ButtonState {
+pub fn button_text(id: Id, text: String, x: Align, y: Align, disabled: bool, state: &mut State, renderer: &mut Renderer) -> ButtonState {
     let button_size = renderer.text_renderer.text_size(&text, None) + vec2(6.0, 4.0);
     let rect = aligned_rect(x, y, button_size.x, button_size.y);
-    let button_state = state.button_state(id, state.mouse_in_rect(rect), false, true);
+    let button_state = state.button_state(id, state.mouse_in_rect(rect), disabled, true);
 
     let (offset, source, text_col) = match button_state {
         ButtonState::Disabled                    => (0.0, spritesheet::BUTTON_DISABLED, spritesheet::BUTTON_TEXT_DISABLED),
@@ -66,4 +70,15 @@ pub fn button_text(id: Id, text: String, x: Align, y: Align, state: &mut State, 
     renderer.draw(DrawShape::nineslice(rect, source));
 
     button_state
+}
+
+pub enum TextFieldState {
+    None,
+    Error,
+    // Disabled,
+}
+
+pub fn text_field(id: Id, text: &mut String, cursor_pos: &mut usize, hint: String, field_state: TextFieldState, state: &mut State, renderer: &mut Renderer) {
+    
+
 }

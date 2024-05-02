@@ -21,7 +21,7 @@ pub const BUTTON_IDLE:     Nineslice = Nineslice::new(84.0, 3.0, 3.0, 3.0, 1.0);
 pub const BUTTON_DOWN:     Nineslice = Nineslice::new(87.0, 3.0, 3.0, 3.0, 1.0);
 pub const BUTTON_DISABLED: Nineslice = Nineslice::new(90.0, 3.0, 3.0, 3.0, 1.0);
 pub const BUTTON_TEXT:          Color = color_u8!( 24,  20,  37, 255);
-pub const BUTTON_TEXT_DISABLED: Color = color_u8!(139, 155, 180, 255);
+pub const BUTTON_TEXT_DISABLED: Color = color_u8!(110, 128, 156, 255);
 pub const SHADOW: Color = color_u8!(0, 0, 0, 128);
 pub const fn input_field(error: bool) -> Nineslice {
     match error {

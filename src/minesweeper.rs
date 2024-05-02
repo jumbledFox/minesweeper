@@ -20,9 +20,9 @@ pub enum Difficulty {
 }
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct DifficultyValues {
-    width: usize,
-    height: usize,
-    bomb_count: usize,
+    pub width: usize,
+    pub height: usize,
+    pub bomb_count: usize,
 }
 
 impl Difficulty {

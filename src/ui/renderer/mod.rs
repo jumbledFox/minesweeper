@@ -35,7 +35,7 @@ impl DrawShape {
 pub struct Renderer {
     pub texture: Texture2D,
     pub text_renderer: TextRenderer,
-    pub draw_queue: Vec<DrawShape>
+    pub draw_queue: Vec<DrawShape>,
 }
 
 impl Renderer {
@@ -51,6 +51,10 @@ impl Renderer {
 
     pub fn draw(&mut self, draw_shape: DrawShape) {
         self.draw_queue.push(draw_shape);
+    }
+
+    pub fn draw_iter(&mut self, draw_shapes: impl Iterator<Item = DrawShape>) {
+        self.draw_queue.extend(draw_shapes);
     }
 
     pub fn draw_background(&mut self, state: &State, menubar: &Menubar) {
@@ -70,7 +74,7 @@ impl Renderer {
         // Draw all of the draw shapes in the queue
         for draw_shape in self.draw_queue.iter().rev() {
             match &draw_shape {
-                // TODO: Rounding?
+                // TODO: Rounding? And how to make background NOT rounded...
                 &DrawShape::Text { x, y, text, color } => self.text_renderer.draw_text(text, *x, *y, *color, None),
                 &DrawShape::Rect { x, y, w, h, color } => draw_rectangle(*x, *y, *w, *h, *color),
                 &DrawShape::Image { x, y, source, color } => {
