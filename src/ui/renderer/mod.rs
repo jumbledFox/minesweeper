@@ -74,10 +74,10 @@ impl Renderer {
 
     pub fn begin(&mut self, state: &State) {
         self.draw_queue.clear();
-        // self.caret_timer = match state.text_field {
-        //     // SelectedTextField::None => 0.0,
-        //     _ => f32::rem_euclid(self.caret_timer + macroquad::time::get_frame_time(), 1.0),
-        // };
+        self.caret_timer = match state.text_field {
+            None => 0.0,
+            _ => (self.caret_timer + macroquad::time::get_frame_time()).rem_euclid(1.0),
+        };
     }
     
     pub fn finish(&mut self) {

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use macroquad::{camera::{set_camera, Camera2D}, input::{is_key_down, is_key_pressed, is_key_released, is_mouse_button_down, is_mouse_button_pressed, is_mouse_button_released, mouse_position, KeyCode, MouseButton}, math::{vec2, Rect, Vec2}, window::{screen_height, screen_width}};
+use macroquad::{camera::{set_camera, Camera2D}, input::{is_mouse_button_down, is_mouse_button_pressed, is_mouse_button_released, mouse_position, MouseButton}, math::{vec2, Rect, Vec2}, window::{screen_height, screen_width}};
 
 pub type Id = u64;
 
@@ -46,8 +46,8 @@ pub struct State {
 
     pub hot_item:     SelectedItem,
     pub active_item:  SelectedItem,
-    pub focused_item: SelectedItem,
-    enter_pressed: bool,
+    pub text_field: Option<Id>,
+    pub caret: usize,
 }
 
 impl State {
@@ -64,8 +64,8 @@ impl State {
 
             hot_item:     SelectedItem::None,
             active_item:  SelectedItem::None,
-            focused_item: SelectedItem::None,
-            enter_pressed: false,
+            text_field: None,
+            caret: 0,
         }
     }
 
@@ -99,19 +99,15 @@ impl State {
         self.mouse_pos.y <  rect.y + rect.h
     }
 
-    pub fn button_state(&mut self, id: Id, next: Option<Id>, prev: Option<Id>, hovered: bool, disabled: bool, held_when_not_hovered: bool) -> ButtonState {
+    pub fn button_state(&mut self, id: Id, hovered: bool, disabled: bool, held_when_not_hovered: bool) -> ButtonState {
         let mut state = ButtonState::Idle;
         let mouse_down = self.mouse_down(MouseButton::Left);
 
         if self.hot_item.assign_if_none_and(id, hovered) {
-            let assigned = self.active_item.assign_if_none_and(id, mouse_down);
-            state = match assigned {
+            state = match self.active_item.assign_if_none_and(id, mouse_down) {
                 true  => ButtonState::Clicked,
                 false => ButtonState::Hovered
             };
-            if assigned {
-                self.focused_item.assign(id);
-            }
         }
         if (self.hot_item == id || held_when_not_hovered) && self.active_item == id && state != ButtonState::Clicked {
             state = match !mouse_down && hovered {
@@ -120,19 +116,6 @@ impl State {
             }
         }
 
-        // Keyboard controlling logic
-        if self.focused_item == id && self.enter_pressed && is_key_released(KeyCode::Enter) {
-            state = ButtonState::Released;
-        }
-        if self.focused_item == id && is_key_pressed(KeyCode::Enter) {
-            state = ButtonState::Clicked;
-        }
-        if self.focused_item == id && is_key_pressed(KeyCode::Tab) {
-            if let Some(new_focus) = if is_key_down(KeyCode::LeftShift) {prev} else {next} {
-                self.focused_item.assign(new_focus);
-                self.enter_pressed = false;
-            }
-        }
         if disabled {
             state = ButtonState::Disabled;
         }
@@ -158,10 +141,6 @@ impl State {
         });
 
         self.hot_item = SelectedItem::None;
-
-        if is_key_pressed(KeyCode::Enter) {
-            self.enter_pressed = true;
-        }
     }
 
     pub fn finish(&mut self) {

@@ -2,7 +2,7 @@ use macroquad::{input::MouseButton, math::{vec2, Rect, Vec2}, miniquad::window::
 
 use crate::minesweeper::{Difficulty, DifficultyValues, MAX_HEIGHT, MAX_WIDTH, MIN_HEIGHT, MIN_WIDTH};
 
-use super::{elements::{align_beg, align_end, button_text, text_field, TextFieldKind}, hash_string, menubar::Menubar, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, Id, State}};
+use super::{elements::{align_beg, align_end, align_mid, button_text, text, text_field, TextFieldKind}, hash_string, menubar::Menubar, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, Id, State}};
 
 #[derive(Default)]
 pub struct Popups {
@@ -128,22 +128,40 @@ impl Popup {
                 }
             }
             PopupKind::Custom { width, height, bomb_count } => {
+                text("Width" .to_owned(), None, spritesheet::POPUP_BODY_TEXT, align_mid(body.x + 17.0), align_beg(body.y +  4.0), renderer);
+                text("Height".to_owned(), None, spritesheet::POPUP_BODY_TEXT, align_mid(body.x + 17.0), align_beg(body.y + 14.0), renderer);
+                text("Bombs" .to_owned(), None, spritesheet::POPUP_BODY_TEXT, align_mid(body.x + 17.0), align_beg(body.y + 24.0), renderer);
                 // TODO: THIS
                 let width_hint  = format!("{:?} - {:?}", MIN_WIDTH,  MAX_WIDTH);
                 let height_hint = format!("{:?} - {:?}", MIN_HEIGHT, MAX_HEIGHT);
                 text_field(
                     id.wrapping_add(4), align_end(body.right() - 3.0), align_beg(body.y +  2.0),
-                    35.0, TextFieldKind::Digits { min: MIN_WIDTH,  max: MAX_WIDTH  }, width, width_hint, Some(id.wrapping_add(5)), state, renderer
+                    41.0, TextFieldKind::Digits { min: MIN_WIDTH,  max: MAX_WIDTH  }, width, width_hint, state, renderer
                 );
                 text_field(
                     id.wrapping_add(5), align_end(body.right() - 3.0), align_beg(body.y + 12.0),
-                    35.0, TextFieldKind::Digits { min: MIN_HEIGHT, max: MAX_HEIGHT }, height, height_hint, None, state, renderer
+                    41.0, TextFieldKind::Digits { min: MIN_HEIGHT, max: MAX_HEIGHT }, height, height_hint, state, renderer
                 );
 
-                // text_field(id.wrapping_add(6), bomb_count, format!(""), state, renderer);
+                let w = match width.parse::<usize>() {
+                    Ok(w) if (MIN_WIDTH..=MAX_WIDTH).contains(&w) => Some(w),
+                    _ => None,
+                };
+                let h = match height.parse::<usize>() {
+                    Ok(h) if (MIN_HEIGHT..=MAX_HEIGHT).contains(&h) => Some(h),
+                    _ => None,
+                };
 
-                // gah.
-                
+                let bombs_hint = match (w, h) {
+                    (Some(w), Some(h)) => format!("{:?} - {:?}", 1, (w-1)*(h-1)),
+                    _ => String::new(),
+                };
+
+                text_field(
+                    id.wrapping_add(6), align_end(body.right() - 3.0), align_beg(body.y + 22.0),
+                    41.0, TextFieldKind::Digits { min: MIN_HEIGHT, max: MAX_HEIGHT }, bomb_count, bombs_hint, state, renderer
+                );
+
                 let submit_valid = false;
 
                 let submit = button_text(id.wrapping_add(2), "Submit".to_owned(), align_end(body.right()-3.0), align_end(body.bottom()-3.0), !submit_valid, state, renderer) == ButtonState::Released;
@@ -212,7 +230,7 @@ impl Popup {
     fn close_button(id: Id, titlebar: Rect, state: &mut State, renderer: &mut Renderer) -> bool {
         let pos = titlebar.point() + vec2(titlebar.w - 8.0, 1.0);
         let rect = Rect::new(pos.x, pos.y, 7.0, 7.0);
-        let button_state = state.button_state(id, None, None, state.mouse_in_rect(rect), false, false);
+        let button_state = state.button_state(id, state.mouse_in_rect(rect), false, false);
 
         let colors = (
             spritesheet::popup_close_color(button_state != ButtonState::Idle),

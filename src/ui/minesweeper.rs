@@ -81,8 +81,11 @@ impl MinesweeperElement {
 
         let lower_x = area.x + area.w * (1.0 / 6.0);
         let upper_x = area.x + area.w * (5.0 / 6.0);
-        self.bomb_counter(Align::Mid(lower_x), Align::Beg(area.y + 4.0), renderer);
-        self.timer(       Align::Mid(upper_x), Align::Beg(area.y + 8.0), renderer);
+        let h = (macroquad::time::get_time() * 10.0).sin() as f32 * 10.0;
+        let v = (macroquad::time::get_time() *  5.0).cos() as f32 * 10.0;
+
+        self.bomb_counter(Align::Mid(lower_x + h), Align::Beg(area.y + 4.0 + v), renderer);
+        self.timer(       Align::Mid(upper_x - h), Align::Beg(area.y + 8.0 - v), renderer);
     }
 
     fn bomb_counter(&self, x: Align, y: Align, renderer: &mut Renderer) {
