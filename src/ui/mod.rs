@@ -39,7 +39,7 @@ impl Ui {
 
     pub fn begin(&mut self) {
         self.state.begin();
-        self.renderer.begin();
+        self.renderer.begin(&self.state);
     }
 
     pub fn finish(&mut self) {

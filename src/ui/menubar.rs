@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use macroquad::math::{vec2, Rect, Vec2};
 
 use super::{hash_string, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, Id, SelectedItem, State}};
@@ -6,6 +8,12 @@ use super::{hash_string, renderer::{DrawShape, Renderer}, spritesheet, state::{B
 pub struct Menubar {
     height: f32,
 
+    items: Vec<(Option<String>, Id, f32)>,
+    current_item_index: usize,
+
+    prev_id: Option<Id>,
+    next_id: Option<Id>,
+
     item_current: Option<Id>,
     item_current_prev: Option<Id>,
 
@@ -13,6 +21,7 @@ pub struct Menubar {
     item_next_x: f32,
 
     dropdown_width: f32,
+    dropdown_id: Id,
     
     dropdown_start_pos: Vec2,
     dropdown_current_pos: Vec2,
@@ -27,7 +36,22 @@ impl Menubar {
         self.height
     } 
 
-    pub fn begin(&mut self) {
+    pub fn begin(&mut self, next_id: Option<Id>, prev_id: Option<Id>, items: &mut VecDeque<(String, f32)>) {
+        self.prev_id = prev_id;
+        self.next_id = next_id;
+
+        // generate ids for each item
+        self.items.clear();
+        for _ in 0..items.len() {
+            let (t, w) = match items.pop_front() {
+                Some((t, w)) => (t, w),
+                None => continue,
+            };
+            let id = hash_string(&t);
+            self.items.push((Some(t), id, w));
+        }
+
+        self.current_item_index = 0;
         self.item_current_prev = self.item_current;
         self.item_next_x = 0.0;
     }
@@ -49,7 +73,24 @@ impl Menubar {
         }
     }
 
-    pub fn item(&mut self, text: String, dropdown_width: f32, state: &mut State, renderer: &mut Renderer) -> bool {
+    pub fn item(&mut self, state: &mut State, renderer: &mut Renderer) -> bool {
+        let prev_id = match self.current_item_index.checked_sub(1).and_then(|i| self.items.get(i)) {
+            Some((_, id, _)) => Some(*id),
+            None => self.prev_id,
+        };
+        let next_id = match self.current_item_index.checked_add(1).and_then(|i| self.items.get(i)) {
+            Some((_, id, _)) => Some(*id),
+            None => self.next_id,
+        };
+
+        let (text, id, dropdown_width) = match self.items.get_mut(self.current_item_index) {
+            Some((t, id, d)) => (t.take().unwrap(), *id, *d), // ????
+            None => return false,
+        };
+        // allows for 100 dropdown items... maybe bad??! idgaf
+        self.current_item_index = self.current_item_index.wrapping_add(1);
+        self.dropdown_id = id.wrapping_add(1);
+
         self.item_current_x = self.item_next_x;
         
         let size = renderer.text_renderer.text_size(&text, None) + vec2(4.0, 2.0);
@@ -61,10 +102,9 @@ impl Menubar {
         self.dropdown_width = dropdown_width;
         self.dropdown_max_offset = vec2(dropdown_width, 0.0);
     
-        let id = hash_string(&text);
         let rect = Rect::new(self.item_current_x, 0.0, size.x, size.y);
         let hovered = state.mouse_in_rect(rect);
-        let button_state = state.button_state(id, hovered, false, false);
+        let button_state = state.button_state(id, prev_id, next_id, hovered, false, false);
         // If a dropdown is open and the mouse has hovered this menu item, or if this menu item's been clicked, set THIS to be the current one.
         if (button_state == ButtonState::Hovered && self.item_current.is_some()) || button_state == ButtonState::Clicked {
             self.item_current = Some(id);
@@ -119,7 +159,9 @@ impl Menubar {
         self.dropdown_next_descend(rect.h);
 
         // I do different button logic here because they behave slightly differently than normal buttons
-        let id = hash_string(&text);
+        let id = self.dropdown_id;
+        self.dropdown_id = id.wrapping_add(1);
+
         let mouse_down = state.mouse_down(macroquad::input::MouseButton::Left);
 
         if state.hot_item.assign_if_none_and(id, state.mouse_in_rect(rect)) {

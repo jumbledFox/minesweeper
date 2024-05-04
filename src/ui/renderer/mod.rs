@@ -8,6 +8,7 @@ pub mod text_renderer;
 
 pub enum DrawShape {
     Text { x: f32, y: f32, text: String, color: Color },
+    TextCaret { x: f32, y: f32, color: Color },
     Rect { x: f32, y: f32, w: f32, h: f32, color: Color },
     Image { x: f32, y: f32, source: Rect, color: Color },
     ImageRect { dest: Rect, source: Rect, color: Color },
@@ -17,6 +18,9 @@ pub enum DrawShape {
 impl DrawShape {
     pub fn text(x: f32, y: f32, text: String, color: Color) -> Self {
         Self::Text { x, y, text, color }
+    }
+    pub fn text_caret(x: f32, y: f32, color: Color) -> Self {
+        Self::TextCaret { x, y, color }
     }
     pub fn rect(rect: Rect, color: Color) -> Self {
         Self::Rect { x: rect.x, y: rect.y, w: rect.w, h: rect.h, color }
@@ -36,6 +40,7 @@ pub struct Renderer {
     pub texture: Texture2D,
     pub text_renderer: TextRenderer,
     pub draw_queue: Vec<DrawShape>,
+    pub caret_timer: f32,
 }
 
 impl Renderer {
@@ -46,6 +51,7 @@ impl Renderer {
             texture,
             text_renderer: TextRenderer::new(),
             draw_queue: Vec::new(),
+            caret_timer: 0.0,
         }
     }
 
@@ -66,8 +72,12 @@ impl Renderer {
         ), spritesheet::BACKGROUND));
     }
 
-    pub fn begin(&mut self) {
+    pub fn begin(&mut self, state: &State) {
         self.draw_queue.clear();
+        // self.caret_timer = match state.text_field {
+        //     // SelectedTextField::None => 0.0,
+        //     _ => f32::rem_euclid(self.caret_timer + macroquad::time::get_frame_time(), 1.0),
+        // };
     }
     
     pub fn finish(&mut self) {
@@ -76,6 +86,7 @@ impl Renderer {
             match &draw_shape {
                 // TODO: Rounding? And how to make background NOT rounded...
                 &DrawShape::Text { x, y, text, color } => self.text_renderer.draw_text(text, *x, *y, *color, None),
+                &DrawShape::TextCaret { x, y, color } => if self.caret_timer < 0.5 { self.text_renderer.draw_text(&"|".to_owned(), *x, *y, *color, None) },
                 &DrawShape::Rect { x, y, w, h, color } => draw_rectangle(*x, *y, *w, *h, *color),
                 &DrawShape::Image { x, y, source, color } => {
                     let params = DrawTextureParams {

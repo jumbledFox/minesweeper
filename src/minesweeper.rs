@@ -8,10 +8,10 @@ const NEIGHBOUR_OFFSETS: &[(isize, isize)] = &[
     (-1,  0),          (1,  0),
     (-1, -1), (0, -1), (1, -1),
 ];
-const MAX_WIDTH:  usize = 200;
-const MAX_HEIGHT: usize = 100;
-const MIN_WIDTH:  usize = 4;
-const MIN_HEIGHT: usize = 4;
+pub const MAX_WIDTH:  usize = 200;
+pub const MAX_HEIGHT: usize = 100;
+pub const MIN_WIDTH:  usize = 4;
+pub const MIN_HEIGHT: usize = 4;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Difficulty {

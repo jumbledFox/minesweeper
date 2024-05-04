@@ -1,3 +1,5 @@
+use std::collections::{vec_deque, VecDeque};
+
 use macroquad::{miniquad::window::{cancel_quit, order_quit}, prelude::*};
 use minesweeper::Difficulty;
 use ui::{popups::PopupKind, Ui};
@@ -27,8 +29,16 @@ async fn main() {
 
         ui.begin();
         
-        ui.menubar.begin();
-        if ui.menubar.item("Game".to_owned(), 91.0, &mut ui.state, &mut ui.renderer) {
+        ui.menubar.begin(
+            None, None,
+            &mut VecDeque::from(vec![
+                ("Game".to_owned(),  91.0),
+                ("Help".to_owned(),  34.0),
+                ("Scale".to_owned(), 62.0),
+            ]),
+        );
+        // GAME
+        if ui.menubar.item(&mut ui.state, &mut ui.renderer) {
             if ui.menubar.dropdown("New Game".to_owned(), &mut ui.state, &mut ui.renderer) {
                 new_game = Some(Difficulty::Hard);
             }
@@ -57,13 +67,15 @@ async fn main() {
 
             ui.menubar.finish_item(&mut ui.state, &mut ui.renderer);
         }
-        if ui.menubar.item("Help".to_owned(), 34.0, &mut ui.state, &mut ui.renderer) {
+        // HELP
+        if ui.menubar.item(&mut ui.state, &mut ui.renderer) {
             if ui.menubar.dropdown("About".to_owned(), &mut ui.state, &mut ui.renderer) {
                 ui.popups.add(PopupKind::About, &mut ui.state);
             }
             ui.menubar.finish_item(&mut ui.state, &mut ui.renderer);
         }
-        if ui.menubar.item("Scale".to_owned(), 62.0, &mut ui.state, &mut ui.renderer) {
+        // SCALE
+        if ui.menubar.item(&mut ui.state, &mut ui.renderer) {
             ui.menubar.dropdown_toggle("Auto".to_owned(), &mut true, &mut ui.state, &mut ui.renderer);
             ui.menubar.finish_item(&mut ui.state, &mut ui.renderer);
         }

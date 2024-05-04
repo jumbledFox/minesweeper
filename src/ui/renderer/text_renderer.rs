@@ -6,7 +6,7 @@ use macroquad::prelude::*;
 fn default_char_map() -> HashMap<char, (f32, f32)> {
     HashMap::from([
         ('A', (3.0,   5.0)), ('a', (131.0, 5.0)), ('!', (287.0, 2.0)), ('0', (238.0, 5.0)),
-        ('B', (8.0,   5.0)), ('b', (136.0, 4.0)), ('?', (288.0, 4.0)), ('1', (243.0, 4.0)),
+        ('B', (8.0,   5.0)), ('b', (136.0, 4.0)), ('?', (289.0, 4.0)), ('1', (243.0, 4.0)),
         ('C', (13.0,  5.0)), ('c', (140.0, 4.0)), (':', (293.0, 2.0)), ('2', (247.0, 5.0)),
         ('D', (18.0,  5.0)), ('d', (144.0, 5.0)), (';', (295.0, 3.0)), ('3', (252.0, 5.0)),
         ('E', (23.0,  4.0)), ('e', (149.0, 5.0)), (',', (298.0, 3.0)), ('4', (257.0, 5.0)),
@@ -29,8 +29,8 @@ fn default_char_map() -> HashMap<char, (f32, f32)> {
         ('V', (103.0, 6.0)), ('v', (215.0, 4.0)), ('\\',(357.0, 4.0)),
         ('W', (109.0, 6.0)), ('w', (219.0, 6.0)), ('=', (363.0, 4.0)),
         ('X', (115.0, 6.0)), ('x', (225.0, 4.0)), ('_', (367.0, 5.0)),
-        ('Y', (121.0, 5.0)), ('y', (229.0, 4.0)), (' ', (  0.0, 3.0)),
-        ('Z', (126.0, 5.0)), ('z', (233.0, 5.0)),
+        ('Y', (121.0, 5.0)), ('y', (229.0, 4.0)), ('|', (372.0, 2.0)),
+        ('Z', (126.0, 5.0)), ('z', (233.0, 5.0)), (' ', (  0.0, 3.0)),
     ])
 }
 
@@ -52,6 +52,14 @@ impl TextRenderer {
         }
     }
 
+    pub fn line_gap(&self, line_gap: Option<f32>) -> f32 {
+        self.chars_texture.height() + line_gap.unwrap_or(1.0)
+    }
+
+    pub fn char_exists(&self, c: char) -> bool {
+        self.char_map.contains_key(&c)
+    }
+
     // Gets the start and width of a c (or the error character if 'c' isn't in the CHAR_MAP)
     pub fn character_values(&self, c: char) -> (f32, f32) {
         match self.char_map.get(&c) {
@@ -68,7 +76,7 @@ impl TextRenderer {
         for c in text.as_ref().chars() {
             if c == '\n' {
                 x_pos = 0.0;
-                y_pos += self.chars_texture.height() + line_gap.unwrap_or(1.0);
+                y_pos += self.line_gap(line_gap);
                 continue;
             }
 
@@ -88,9 +96,14 @@ impl TextRenderer {
         }
     }
 
-    pub fn text_size(&self, text: &impl AsRef<str>, line_gap: Option<f32>) -> Vec2 {
+    pub fn caret_pos(&self, text: &String, line_gap: Option<f32>, caret: usize) -> Vec2 {
+        let caret = caret.max(text.len());
+
+        Vec2::new(1.0, 1.0)
+    }
+
+    pub fn text_size(&self, text: &String, line_gap: Option<f32>) -> Vec2 {
         let line_breaks: Vec<usize> = text
-            .as_ref()
             .chars()
             .enumerate()
             .filter_map(|(i, c)| match c {
@@ -99,10 +112,10 @@ impl TextRenderer {
             })
             .collect();
         let largest_line_len: f32 =
-            split_vector_by_indexes(&text.as_ref().chars().collect::<Vec<char>>(), &line_breaks)
+            split_vector_by_indexes(&text.chars().collect::<Vec<char>>(), &line_breaks)
                 .iter()
                 .map(|v| v.iter().map(|c| self.character_values(*c).1).sum())
-                .fold(f32::NEG_INFINITY, f32::max);
+                .fold(0.0, f32::max);
 
         let height = (line_breaks.len() + 1) as f32
             * (self.chars_texture.height() + line_gap.unwrap_or(1.0))

@@ -1,10 +1,10 @@
 // A minesweeper ui element
 
-use macroquad::math::{vec2, Rect, Vec2};
+use macroquad::math::Rect;
 
 use crate::minesweeper::{Difficulty, DifficultyValues, GameState, Minesweeper};
 
-use super::{elements::{aligned_rect, button, centered_rect, Align}, hash_string, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, State}};
+use super::{elements::{aligned_rect, button, Align}, hash_string, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, State}};
 
 pub struct MinesweeperElement {
     game: Minesweeper,
@@ -70,18 +70,19 @@ impl MinesweeperElement {
         };
 
         // Draw the elements along the top
-        self.button(Align::Mid(area.x + area.w / 2.0), Align::Beg(area.y + 3.0), state, renderer);
+        // The button makes a new game :P
+        if button(
+            hash_string(&"hello if ur reading this :3".to_owned()),
+            Align::Mid(area.x + area.w / 2.0), Align::Beg(area.y + 3.0),
+            19.0, 19.0, false, state, renderer
+        ) == ButtonState::Released {
+            self.requesting_new_game = true;
+        }
+
         let lower_x = area.x + area.w * (1.0 / 6.0);
         let upper_x = area.x + area.w * (5.0 / 6.0);
         self.bomb_counter(Align::Mid(lower_x), Align::Beg(area.y + 4.0), renderer);
         self.timer(       Align::Mid(upper_x), Align::Beg(area.y + 8.0), renderer);
-    }
-    
-    fn button(&mut self, x: Align, y: Align, state: &mut State, renderer: &mut Renderer) {
-        // The button makes a new game :P
-        if button(hash_string(&"hello if ur reading this :3".to_owned()), x, y, 19.0, 19.0, true, state, renderer) == ButtonState::Released {
-            self.requesting_new_game = true;
-        }
     }
 
     fn bomb_counter(&self, x: Align, y: Align, renderer: &mut Renderer) {
