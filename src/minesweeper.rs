@@ -1,214 +1,232 @@
 // A nice 'black box' game of minesweeper.
 // Only handles minesweeper logic and is separate to any rendering or inputs and whatnot.
 
-use rand::seq::SliceRandom;
-use std::time::Instant;
+use macroquad::rand::ChooseRandom;
 
-const NEIGHBOUR_OFFSETS: &[(isize, isize)] = &[(-1, 1), (0, 1), (1, 1), (-1, 0), (1, 0), (-1, -1), (0, -1), (1, -1)];
-const MAX_WIDTH : usize = 200;
-const MAX_HEIGHT: usize = 100;
-const MIN_WIDTH : usize = 4;
-const MIN_HEIGHT: usize = 4;
+const NEIGHBOUR_OFFSETS: &[(isize, isize)] = &[
+    (-1,  1), (0,  1), (1,  1),
+    (-1,  0),          (1,  0),
+    (-1, -1), (0, -1), (1, -1),
+];
+pub const MAX_WIDTH:  usize = 200;
+pub const MAX_HEIGHT: usize = 100;
+pub const MIN_WIDTH:  usize = 5;
+pub const MIN_HEIGHT: usize = 5;
 
-#[derive(Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Difficulty {
     Easy, Normal, Hard,
-    Custom {width: usize, height: usize, bomb_count: usize},
+    Custom(DifficultyValues),
+}
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct DifficultyValues {
+    pub width: usize,
+    pub height: usize,
+    pub bomb_count: usize,
 }
 
-#[derive(PartialEq, Debug)]
+impl Difficulty {
+    pub fn custom(width: usize, height: usize, bomb_count: usize) -> Option<Self> {
+        // Ensure the fields match the (somewhat arbitrary) limits.
+        match Self::dimensions_in_range(width, height) {
+            true if Self::max_bombs(width, height).is_some_and(|b| bomb_count <= b) => Some(Self::Custom(DifficultyValues { width, height, bomb_count })),
+            _ => None,
+        }
+    }
+
+    pub fn max_bombs(width: usize, height: usize) -> Option<usize> {
+        match Self::dimensions_in_range(width, height) {
+            true  => Some((width-1)*(height-1)),
+            false => None,
+        }
+    }
+
+    pub fn dimensions_in_range(width: usize, height: usize) -> bool {
+        (MIN_WIDTH..=MAX_WIDTH).contains(&width) && (MIN_HEIGHT..=MAX_HEIGHT).contains(&height)
+    }
+
+    pub fn values(&self) -> DifficultyValues {
+        let (width, height, bomb_count) = match *self {
+            Self::Easy   => (9, 9, 9),
+            Self::Normal => (16, 16, 40),
+            Self::Hard   => (30, 16, 100),
+            Self::Custom (difficulty_values) => return difficulty_values,
+        };
+        DifficultyValues { width, height, bomb_count }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum GameState {
     Playing, Win, Lose,
 }
-#[derive(PartialEq, Clone)]
-pub enum TileType {
-    Unopened,
-    Flag,
-    Dug,
-    Numbered(u8),
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+// TODO: std::mem::size_of::<Tile>() is 2! even though it could be smaller 
+// TODO: Maybe bit patterns?
+pub enum Tile {
+    Unopened, Flag, Dug, Numbered(u8),
 }
 
-// All of these are public as im unsure about 
 pub struct Minesweeper {
-    // Game logic
     width: usize,
     height: usize,
     bomb_count: usize,
 
-    board: Vec<TileType>,
+    board: Vec<Tile>,
     bombs: Vec<usize>,
 
     state: GameState,
-    start_time: Option<Instant>,
     turns: usize,
+    // Used in the floodfill algorithm (if you couldn't tell by the name, silly)
+    // It's better to make and allocate these once rather than recreate a whole new two vectors for each flood fill operation
+    floodfill_current: Vec<usize>,
+    floodfill_next:    Vec<usize>,
 }
 
 impl Minesweeper {
     pub fn new(difficulty: Difficulty) -> Minesweeper {
-        let (width, height, bomb_count) = difficulty_values(difficulty);
-        let size = width * height;
-
-        let board = vec![TileType::Unopened; size];
-
-        // 'bombs' is only populated after the first move (to make sure the 3*3 area at the first dig is safe), so for now it's filled with zero
-        let bombs = vec![0; bomb_count];
-
+        // Holy shit rust is the best fucking language ever made for allowing this
+        let DifficultyValues { width, height, bomb_count } = difficulty.values();
         Minesweeper {
             width, height, bomb_count,
-            board, bombs,
+
+            board: vec![Tile::Unopened; width * height],
+            // 'bombs' is only populated after the first move (to make sure the 3*3 area at the first dig is safe). For now it's empty
+            bombs: Vec::with_capacity(bomb_count),
+            
             state: GameState::Playing,
-            start_time: None,
             turns: 0,
+
+            floodfill_current: Vec::with_capacity(width * height),
+            floodfill_next:    Vec::with_capacity(width * height),
         }
     }
 
     // Getters
-    pub fn width(&self)      -> usize { self.width  }
+    pub fn width(&self)      -> usize { self.width }
     pub fn height(&self)     -> usize { self.height }
     pub fn bomb_count(&self) -> usize { self.bomb_count }
 
-    pub fn board(&self) -> &Vec<TileType> { &self.board }
-    pub fn bombs(&self) -> &Vec<usize>    { &self.bombs }
+    pub fn board(&self) -> &Vec<Tile>  { &self.board }
+    pub fn bombs(&self) -> &Vec<usize> { &self.bombs }
 
-    pub fn state(&self)      -> &GameState      { &self.state }
-    pub fn start_time(&self) -> Option<Instant> { self.start_time }
-    pub fn turns(&self)      -> usize           { self.turns }
+    pub fn state(&self) -> GameState    { self.state }
+    pub fn turns(&self) -> usize        { self.turns }
 
-    pub fn bombs_remaining(&self) -> usize {
-        let flags_count = self.board
-            .iter()
-            .filter(|&t| *t == TileType::Flag)
-            .count();
-        self.bomb_count.saturating_sub(flags_count)
+    // How many flags the player needs to have flagged all the bombs, if > 0, None
+    pub fn flags_left(&self) -> Option<usize> {
+        let flags_count = self.board.iter().filter(|&t| *t == Tile::Flag).count();
+        self.bomb_count.checked_sub(flags_count)
     }
 
-    // Populates the bombs and neighbour_count vecs with valid values, making sure there are no bombs in the 3x3 area centered at safe_index
+    // Populates the minefield with bombs, making sure there are no bombs in/neighbouring safe_index
     fn populate_board(&mut self, safe_index: usize) {
-        // List of positions a bomb can't be (the safe_index and all of it's neighbours)
         let safe_positions: Vec<usize> = NEIGHBOUR_OFFSETS
             .iter()
             .flat_map(|(x, y)| get_index_from_offset(safe_index, *x, *y, self.width, self.height))
             .chain(std::iter::once(safe_index))
             .collect();
-        // Find out all of the possible positions for bombs
+        // TODO: Make sure there are no more than 4 mines in the 5x5 are, to decrease the likelihood of annoying spawns
         let mut possible_positions: Vec<usize> = (0..self.board.len())
             .filter(|&i| !safe_positions.contains(&i))
             .collect();
-        // Shuffle the positions
-        possible_positions.shuffle(&mut rand::thread_rng());
+        possible_positions.shuffle();
 
-        let bomb_count = self.bombs.len();
-        // Logically, bomb_count is ALWAYS less than possible_positions.len(), so we don't have to worry about a possible panic here
-        self.bombs.copy_from_slice(&possible_positions[..bomb_count]);
+        self.bombs = possible_positions[..self.bomb_count()].to_vec();
     }
 
-    // Digs at a checked position, returns true if something changed
+    pub fn diggable(&mut self, index: usize) -> bool {
+        self.state == GameState::Playing
+        && self.board.get(index).is_some_and(|t| *t == Tile::Unopened)
+    }
+
+    // Digs at a position, returns true if something happened
+    // TODO: Chording !!
     pub fn dig(&mut self, index: usize) -> bool {
-        // Get the tile from the board, making sure it's valid
-        let tile = match self.board.get_mut(index) {
-            None => {
-                println!("index invalid!! tried to dig at {index}!! wtf?!?!?!?!");
-                return false;
-            }
-            Some(t) => t,
-        };
-        // You can only dig unopened cells
-        if *tile != TileType::Unopened { return false; }
-        // If this is the first tile being opened, start the game and generate bombs
+        if !self.diggable(index) {
+            return false;
+        }
         if self.turns == 0 {
             self.populate_board(index);
-            self.start_time = Some(Instant::now());
-            self.state = GameState::Playing;
         }
-        // If we're not playing, don't dig!
-        if self.state != GameState::Playing { return false; }
-        // Increase the turns
         self.turns += 1;
 
         // We dug a bomb! lose the game and return :c
         if self.bombs.contains(&index) {
-            self.board[index] = TileType::Dug;
             self.state = GameState::Lose;
             return true;
         }
-        
+
         // Floodfill digging algorithm
-        let mut tiles_to_dig = vec![index];
-        let mut neighbours: Vec<usize> = Vec::with_capacity(8);
+        self.floodfill_current.clear();
+        self.floodfill_current.push(index);
+        self.floodfill_next.clear();
+        // This would be an infinite loop, but I don't like the chance of it looping forever and ever due to a silly mistake
         for _ in 0..self.board.len() {
-            // Loop through each of the tiles we're gonna dig up
-            for &tile_index in &tiles_to_dig {
-                // Find out all of the valid neighbours of this tile
+            for &tile_index in &self.floodfill_current {
                 let valid_neighbours = NEIGHBOUR_OFFSETS.iter().flat_map(|(x, y)| {
                     get_index_from_offset(tile_index, *x, *y, self.width, self.height)
                 });
-                // Work out how many neighbours of this tile are bombs
                 let neighbouring_bombs: u8 = valid_neighbours
                     .clone()
                     .filter(|i| self.bombs.contains(&i))
                     .count() as u8;
-                // If this tile has any bombs adjacent to it, make it numbered and don't flood any further from it.
+
                 if neighbouring_bombs != 0 {
-                    self.board[tile_index] = TileType::Numbered(neighbouring_bombs);
-                    continue;
+                    self.board[tile_index] = Tile::Numbered(neighbouring_bombs);
+                } else {
+                    self.board[tile_index] = Tile::Dug;
+                    self.floodfill_next.extend(valid_neighbours);
                 }
-                // Otherwise, dig it up normally
-                self.board[tile_index] = TileType::Dug;
-                // and add each valid neighbour of this tile to the neighbours vec!
-                neighbours.extend(valid_neighbours);
             }
-            // If there aren't any neighbours, we've finished the flood fill!
-            if neighbours.is_empty() { break; }
-            // Otherwise, Remove any duplicate neighbours, as well as any ones that aren't diggable
-            neighbours.sort_unstable();
-            neighbours.dedup();
-            // I THINK doing this here is faster than filtering when defining valid_neighbours... (key word, think)
-            neighbours.retain(|n_i| self.board[*n_i] == TileType::Unopened);
-            // Make it so the new tiles we've got to dig are the neighbours, and clear the neighbours
-            tiles_to_dig = std::mem::take(&mut neighbours);
+            if self.floodfill_next.is_empty() {
+                break;
+            }
+            // Remove all duplicates and non-diggable tiles
+            self.floodfill_next.sort_unstable();
+            self.floodfill_next.dedup();
+            self.floodfill_next.retain(|n_i| self.board[*n_i] == Tile::Unopened);
+            // Make tiles to dig for the next iteration the neighbours we found this time. this also clears neighbours
+            self.floodfill_current = std::mem::take(&mut self.floodfill_next);
+        }
+
+        // For each diggable tile, see if there's a bomb under it. If there aren't any without bombs under them, the game has been won!
+        let game_won = !self.board
+            .iter().enumerate()
+            .filter(|&(_, t)| *t == Tile::Flag || *t == Tile::Unopened)
+            .map(|(i, _)| self.bombs().contains(&i))
+            .any(|has_bomb| !has_bomb);
+
+        if game_won {
+            self.state = GameState::Win;
         }
         true
     }
 
-    // Toggles a flag at a checked position, returns true if something changed
-    pub fn set_flag(&mut self, erasing_flags: bool, index: usize) -> bool {
-        // If we're not playing, don't flag!
-        if self.state != GameState::Playing { return false; }
-        // Get the tile from the board, making sure it's valid
+    // Flags / unflags, returns true if something happened
+    pub fn set_flag(&mut self, flag_mode: SetFlagMode, index: usize) -> bool {
+        if self.state != GameState::Playing {
+            return false;
+        }
         let tile = match self.board.get_mut(index) {
-            None => {
-                println!("index invalid!! tried to set flag at {index}!! you dope!!");
-                return false;
-            }
+            None => return false,
             Some(t) => t,
         };
-        // Add or remove a flag, depending on 'erasing_flags'
-        match erasing_flags {
-            true  => if *tile == TileType::Flag { *tile = TileType::Unopened; return true; }
-            false => if *tile == TileType::Unopened { *tile = TileType::Flag; return true; }
+        match (&tile, flag_mode) {
+            (Tile::Unopened, SetFlagMode::Toggle | SetFlagMode::Flag)   => *tile = Tile::Flag,
+            (Tile::Flag,     SetFlagMode::Toggle | SetFlagMode::Remove) => *tile = Tile::Unopened,
+            _ => return false,
         }
-        return false;
+        true
     }
 }
 
-// Returns the width, heigth, and bomb_count given a difficulty. If the difficulty is custom, it's made to match the limits.
-fn difficulty_values(difficulty: Difficulty) -> (usize, usize, usize) {
-    match difficulty {
-        Difficulty::Easy => (10, 10, 9),
-        Difficulty::Normal => (15, 13, 40),
-        Difficulty::Hard => (30, 16, 99),
-        Difficulty::Custom {width, height, bomb_count} => {
-            // Ensure the fields match the (somewhat arbitrary) limits.
-            let (w, h) = (width.clamp(MIN_WIDTH, MAX_WIDTH), height.clamp(MIN_HEIGHT, MAX_HEIGHT));
-            let b = bomb_count.min((w - 1) * (h - 1));
-            (w, h, b)
-        }
-    }
+pub enum SetFlagMode {
+    Toggle, Flag, Remove
 }
 
-// Used for indexing the board, takes in an index and x and y offsets and calculates the new index, or None if it was invalid
-fn get_index_from_offset(index: usize, x_offset: isize, y_offset: isize, width: usize, height: usize) -> Option<usize> {
-    // Get the coordinates of the new position, making sure it's valid
+fn get_index_from_offset(index: usize, x_offset: isize, y_offset: isize,  width: usize, height: usize) -> Option<usize> {
     let x = match (index % width).checked_add_signed(x_offset) {
         Some(x) if x < width => x,
         _ => return None,
@@ -217,5 +235,7 @@ fn get_index_from_offset(index: usize, x_offset: isize, y_offset: isize, width: 
         Some(y) if y < height => y,
         _ => return None,
     };
-    Some(y * width + x)
+    // Safe way of doing (y * width + x)
+    // This function could be one giant .and_then() but i think splitting it up is neater and makes it easier to understand
+    y.checked_mul(width).and_then(|f| f.checked_add(x))
 }
