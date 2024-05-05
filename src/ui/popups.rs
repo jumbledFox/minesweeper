@@ -119,13 +119,15 @@ impl Popup {
         let active_before = state.active_item;
 
         // Elements inside of the popups
+        // TODO: This bit is a bit messy
         match &mut self.kind {
             PopupKind::NewGame { difficulty } => {
-                // button clicked
-                if false {
+                renderer.draw(DrawShape::text(body.x + 3.0, body.y + 3.0, "Are you sure you\nwant to exit?".to_owned(), spritesheet::POPUP_BODY_TEXT));
+                if button_text(id.wrapping_add(2), "Exit".to_owned(), align_end(body.right() -3.0), align_end(body.bottom()-3.0), false, state, renderer).released() {
                     close = true;
                     return_value = Some(PopupReturn::NewGame { difficulty: *difficulty })
                 }
+                close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body.right()-25.0), align_end(body.bottom()-3.0), false, state, renderer).released();
             }
             PopupKind::Custom { width, height, bomb_count } => {
                 text("Width" .to_owned(), None, spritesheet::POPUP_BODY_TEXT, align_mid(body.x + 17.0), align_beg(body.y +  4.0), renderer);
@@ -136,40 +138,45 @@ impl Popup {
                 let height_hint = format!("{:?} - {:?}", MIN_HEIGHT, MAX_HEIGHT);
                 text_field(
                     id.wrapping_add(4), align_end(body.right() - 3.0), align_beg(body.y +  2.0),
-                    41.0, TextFieldKind::Digits { min: MIN_WIDTH,  max: MAX_WIDTH  }, width, width_hint, state, renderer
+                    41.0, width,  width_hint,  TextFieldKind::Digits { min: MIN_WIDTH,  max: MAX_WIDTH  }, 7, state, renderer
                 );
                 text_field(
                     id.wrapping_add(5), align_end(body.right() - 3.0), align_beg(body.y + 12.0),
-                    41.0, TextFieldKind::Digits { min: MIN_HEIGHT, max: MAX_HEIGHT }, height, height_hint, state, renderer
+                    41.0, height, height_hint, TextFieldKind::Digits { min: MIN_HEIGHT, max: MAX_HEIGHT }, 7, state, renderer
                 );
 
-                let w = match width.parse::<usize>() {
-                    Ok(w) if (MIN_WIDTH..=MAX_WIDTH).contains(&w) => Some(w),
-                    _ => None,
-                };
-                let h = match height.parse::<usize>() {
-                    Ok(h) if (MIN_HEIGHT..=MAX_HEIGHT).contains(&h) => Some(h),
-                    _ => None,
+                let (w, h) = match (width.parse::<usize>(), height.parse::<usize>()) {
+                    (Ok(w), Ok(h)) if Difficulty::dimensions_in_range(w, h) => (Some(w), Some(h)),
+                    _ => (None, None),
                 };
 
                 let bombs_hint = match (w, h) {
-                    (Some(w), Some(h)) => format!("{:?} - {:?}", 1, (w-1)*(h-1)),
+                    (Some(w), Some(h)) => match Difficulty::max_bombs(w, h) {
+                        Some(b) => format!("{} - {}", 0, b),
+                        None => String::new()
+                    }
                     _ => String::new(),
                 };
 
                 text_field(
                     id.wrapping_add(6), align_end(body.right() - 3.0), align_beg(body.y + 22.0),
-                    41.0, TextFieldKind::Digits { min: MIN_HEIGHT, max: MAX_HEIGHT }, bomb_count, bombs_hint, state, renderer
+                    41.0, bomb_count, bombs_hint, TextFieldKind::Digits { min: MIN_HEIGHT, max: MAX_HEIGHT }, 7, state, renderer
                 );
+                // TODO: Maybe add nice sliders to all of these??
 
-                let submit_valid = false;
+                let difficulty = match (w, h, bomb_count.parse::<usize>()) {
+                    (Some(w), Some(h), Ok(b)) => Difficulty::custom(w, h, b),
+                    _ => None,
+                };
 
-                let submit = button_text(id.wrapping_add(2), "Submit".to_owned(), align_end(body.right()-3.0), align_end(body.bottom()-3.0), !submit_valid, state, renderer) == ButtonState::Released;
-                if submit {
-                    return_value = Some(PopupReturn::NewGame { difficulty: Difficulty::custom(200, 100, 2000) });
-                    close = true;
+                // Buttons
+                if button_text(id.wrapping_add(2), "Submit".to_owned(), align_end(body.right()-3.0), align_end(body.bottom()-3.0), difficulty.is_none(), state, renderer).released() {
+                    if let Some(difficulty) = difficulty {
+                        return_value = Some(PopupReturn::NewGame { difficulty });
+                        close = true;
+                    }
                 }
-                close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body.right()-36.0), align_end(body.bottom()-3.0), false, state, renderer) == ButtonState::Released;
+                close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body.right()-36.0), align_end(body.bottom()-3.0), false, state, renderer).released();
             }
             PopupKind::About => {
                 renderer.draw(DrawShape::text(body.x + 3.0, body.y + 3.0,
@@ -185,18 +192,10 @@ impl Popup {
             }
             PopupKind::Exit => {
                 renderer.draw(DrawShape::text(body.x + 3.0, body.y + 3.0, "Are you sure you\nwant to exit?".to_owned(), spritesheet::POPUP_BODY_TEXT));
-                if button_text(
-                    id.wrapping_add(2),
-                    "Exit".to_owned(),
-                    align_end(body.right() -3.0),
-                    align_end(body.bottom()-3.0),
-                    false,
-                    state,
-                    renderer
-                ) == ButtonState::Released {
+                if button_text(id.wrapping_add(2), "Exit".to_owned(), align_end(body.right() -3.0), align_end(body.bottom()-3.0), false, state, renderer).released() {
                     order_quit();
                 }
-                close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body.right()-25.0), align_end(body.bottom()-3.0), false, state, renderer) == ButtonState::Released;
+                close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body.right()-25.0), align_end(body.bottom()-3.0), false, state, renderer).released()
             }
         }
 

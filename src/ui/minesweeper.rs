@@ -1,6 +1,6 @@
 // A minesweeper ui element
 
-use macroquad::math::Rect;
+use macroquad::{color::Color, math::{vec2, Rect}};
 
 use crate::minesweeper::{Difficulty, DifficultyValues, GameState, Minesweeper};
 
@@ -69,7 +69,8 @@ impl MinesweeperElement {
             _ => Some(self.timer.unwrap_or(0.0)),
         };
 
-        // Draw the elements along the top
+        // The elements along the top
+        let top_height = 26.0;
         // The button makes a new game :P
         if button(
             hash_string(&"hello if ur reading this :3".to_owned()),
@@ -81,11 +82,22 @@ impl MinesweeperElement {
 
         let lower_x = area.x + area.w * (1.0 / 6.0);
         let upper_x = area.x + area.w * (5.0 / 6.0);
-        let h = (macroquad::time::get_time() * 10.0).sin() as f32 * 10.0;
-        let v = (macroquad::time::get_time() *  5.0).cos() as f32 * 10.0;
+        self.bomb_counter(Align::Mid(lower_x), Align::Beg(area.y + 4.0), renderer);
+        self.timer(       Align::Mid(upper_x), Align::Beg(area.y + 8.0), renderer);
 
-        self.bomb_counter(Align::Mid(lower_x + h), Align::Beg(area.y + 4.0 + v), renderer);
-        self.timer(       Align::Mid(upper_x - h), Align::Beg(area.y + 8.0 - v), renderer);
+        // Now do the actual minefield
+        // Put it in the middle of the area, plus some vertical leeway for the stuff at the top, making sure it's at least at top_height
+        self.minefield(Align::Mid(area.x + area.w / 2.0), Align::Mid(area.y + (area.h + top_height-6.0)/2.0), area.y + top_height, state, renderer)
+    }
+
+    fn minefield(&self, x: Align, y: Align, min_y: f32, state: &mut State, renderer: &mut Renderer) {
+        let size = vec2(self.game.width() as f32 * 9.0, self.game.height() as f32 * 9.0);
+        let rect = aligned_rect(x, y, size.x, size.y);
+        let rect = Rect::new(rect.x, rect.y.max(min_y), rect.w, rect.h);
+        let border_rect = Rect::new(rect.x - 2.0, rect.y - 2.0, rect.w + 4.0, rect.h + 4.0);
+
+        renderer.draw(DrawShape::rect(rect, Color::from_hex((((macroquad::time::get_time() / 100.0).sin() / 2.0 + 0.5) * 16777215.0) as u32)));
+        renderer.draw(DrawShape::nineslice(border_rect, spritesheet::MINEFIELD_BORDER));
     }
 
     fn bomb_counter(&self, x: Align, y: Align, renderer: &mut Renderer) {

@@ -10,8 +10,8 @@ const NEIGHBOUR_OFFSETS: &[(isize, isize)] = &[
 ];
 pub const MAX_WIDTH:  usize = 200;
 pub const MAX_HEIGHT: usize = 100;
-pub const MIN_WIDTH:  usize = 4;
-pub const MIN_HEIGHT: usize = 4;
+pub const MIN_WIDTH:  usize = 5;
+pub const MIN_HEIGHT: usize = 5;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Difficulty {
@@ -26,12 +26,23 @@ pub struct DifficultyValues {
 }
 
 impl Difficulty {
-    pub fn custom(width: usize, height: usize, bomb_count: usize) -> Self {
+    pub fn custom(width: usize, height: usize, bomb_count: usize) -> Option<Self> {
         // Ensure the fields match the (somewhat arbitrary) limits.
-        let width  = width .clamp(MIN_WIDTH,  MAX_WIDTH);
-        let height = height.clamp(MIN_HEIGHT, MAX_HEIGHT);
-        let bomb_count = bomb_count.min((width - 1) * (height - 1));
-        Self::Custom(DifficultyValues { width, height, bomb_count })
+        match Self::dimensions_in_range(width, height) {
+            true if Self::max_bombs(width, height).is_some_and(|b| bomb_count <= b) => Some(Self::Custom(DifficultyValues { width, height, bomb_count })),
+            _ => None,
+        }
+    }
+
+    pub fn max_bombs(width: usize, height: usize) -> Option<usize> {
+        match Self::dimensions_in_range(width, height) {
+            true  => Some((width-1)*(height-1)),
+            false => None,
+        }
+    }
+
+    pub fn dimensions_in_range(width: usize, height: usize) -> bool {
+        (MIN_WIDTH..=MAX_WIDTH).contains(&width) && (MIN_HEIGHT..=MAX_HEIGHT).contains(&height)
     }
 
     pub fn values(&self) -> DifficultyValues {

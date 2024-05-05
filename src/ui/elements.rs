@@ -78,11 +78,12 @@ pub fn button_text(id: Id, text: String, x: Align, y: Align, disabled: bool, sta
     button_state
 }
 
+// TODO: Rethink textfieldkind
 pub enum TextFieldKind {
     Digits{min: usize, max: usize},
 }
 
-pub fn text_field(id: Id, x: Align, y: Align, w: f32, kind: TextFieldKind, text: &mut String, hint: String, state: &mut State, renderer: &mut Renderer) {
+pub fn text_field(id: Id, x: Align, y: Align, w: f32, text: &mut String, hint: String, kind: TextFieldKind, max_chars: usize, state: &mut State, renderer: &mut Renderer) {
     let lines = match kind {
         TextFieldKind::Digits {..} => 1,
     };
@@ -96,27 +97,24 @@ pub fn text_field(id: Id, x: Align, y: Align, w: f32, kind: TextFieldKind, text:
         clear_input_queue();
     }
 
-    match state.text_field {
-        Some(i) if i == id => {
-            state.caret = text.len().min(state.caret);
-            match get_char_pressed() {
-                // Left
-                Some('\u{f050}') => state.caret = state.caret.saturating_sub(1).min(text.len()),
-                // Right
-                Some('\u{f04f}') => state.caret = state.caret.saturating_add(1).min(text.len()),
-                // Backspace
-                Some('\u{f02a}') if state.caret > 0 => {state.caret -= 1; text.remove(state.caret);}
-                // Delete
-                Some('\u{f04c}') if state.caret < text.len() => {text.remove(state.caret);}
-                Some(c) if matches!(kind, TextFieldKind::Digits{..}) => {
-                    if c.is_digit(10) { text.insert(state.caret, c); state.caret += 1; }
-                }
-                _ => {}
+    if state.text_field.is_some_and(|i| i == id) {
+        state.caret = text.len().min(state.caret);
+        match get_char_pressed() {
+            // Left
+            Some('\u{f050}') => state.caret = state.caret.saturating_sub(1).min(text.len()),
+            // Right
+            Some('\u{f04f}') => state.caret = state.caret.saturating_add(1).min(text.len()),
+            // Backspace
+            Some('\u{f02a}') if state.caret > 0 => {state.caret -= 1; text.remove(state.caret);}
+            // Delete
+            Some('\u{f04c}') if state.caret < text.len() => {text.remove(state.caret);}
+            Some(c) if matches!(kind, TextFieldKind::Digits{..}) && text.len() < max_chars => {
+                if c.is_digit(10) { text.insert(state.caret, c); state.caret += 1; }
             }
-            renderer.draw(DrawShape::text_caret(rect.x + 2.0 + renderer.text_renderer.caret_pos(&text, None, state.caret).x, rect.y + 2.0, spritesheet::BUTTON_TEXT));
+            _ => {}
         }
-        _ => {
-        }
+        // TODO: Draw caret at correct position
+        renderer.draw(DrawShape::text_caret(rect.x + 2.0 + renderer.text_renderer.caret_pos(&text, None, state.caret).x, rect.y + 2.0, spritesheet::BUTTON_TEXT));
     }
 
     if text.is_empty() {

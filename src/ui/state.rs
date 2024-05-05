@@ -37,6 +37,14 @@ impl PartialEq<Id> for SelectedItem {
 pub enum ButtonState {
     Disabled, Idle, Hovered, Clicked, Held, Released,
 }
+impl ButtonState {
+    pub fn clicked(&self) -> bool {
+        matches!(self, ButtonState::Clicked)
+    }
+    pub fn released(&self) -> bool {
+        matches!(self, ButtonState::Released)
+    }
+}
 
 pub struct State {
     mouse_pos: Vec2,
