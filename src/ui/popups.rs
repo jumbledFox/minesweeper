@@ -2,7 +2,7 @@ use macroquad::{input::MouseButton, math::{vec2, Rect, Vec2}, miniquad::window::
 
 use crate::minesweeper::{Difficulty, DifficultyValues, MAX_HEIGHT, MAX_WIDTH, MIN_HEIGHT, MIN_WIDTH};
 
-use super::{elements::{align_beg, align_end, align_mid, button_text, text, text_field, TextFieldKind}, hash_string, menubar::Menubar, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, Id, State}};
+use super::{elements::{align_beg, align_end, align_mid, button_text, text, text_field, url, Align, TextFieldKind}, hash_string, menubar::Menubar, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, Id, State}};
 
 #[derive(Default)]
 pub struct Popups {
@@ -52,6 +52,7 @@ pub enum PopupKind {
     NewGame { difficulty: Difficulty },
     Custom { width: String, height: String, bomb_count: String },
     About,
+    Hint,
     Win,
     Exit,
 }
@@ -92,7 +93,8 @@ impl Popup {
         let (title, size) = match kind {
             PopupKind::NewGame{..} => ("New game", vec2( 90.0, 46.0)),
             PopupKind::Custom{..}  => ("Custom",   vec2( 78.0, 58.0)),
-            PopupKind::About       => ("About",    vec2(100.0, 80.0)),
+            PopupKind::About       => ("About",    vec2(100.0, 70.0)),
+            PopupKind::Hint        => ("Hint",     vec2( 60.0, 40.0)),
             PopupKind::Win         => ("You win!", vec2( 70.0, 40.0)),
             PopupKind::Exit        => ("Exit",     vec2( 70.0, 40.0)),
         };
@@ -104,7 +106,8 @@ impl Popup {
     pub fn update(&mut self, drag_offset: &mut Vec2, state: &mut State, menubar: &Menubar, renderer: &mut Renderer) -> (PopupAction, Option<PopupReturn>) {
         let titlebar_height = renderer.text_renderer.text_size(&self.title, None).y + 3.0;
         self.pos = self.pos
-            .min(state.screen_size() - self.size)
+            // .min(state.screen_size() - self.size)
+            .min(state.screen_size() - vec2(self.size.x, titlebar_height))
             .max(vec2(0.0, menubar.height()));
 
         let titlebar = Rect::new(self.pos.x, self.pos.y,              self.size.x, titlebar_height);
@@ -114,14 +117,15 @@ impl Popup {
         let mut close = Popup::close_button(id.wrapping_add(1), titlebar, state, renderer);
         let mut return_value = None;
 
-        // This is done AFTER making the close button, so when you make it active it doesn't bring the popup to the top
+        // This is done AFTER doing the close button, so that when you click X it doesn't bring the popup to the top
         let active_before = state.active_item;
 
         // Elements inside of the popups
         // TODO: This bit is a bit messy
         match &mut self.kind {
             PopupKind::NewGame { difficulty } => {
-                renderer.draw(DrawShape::text(body.x + 3.0, body.y + 3.0, "Are you sure you want\nto start a new game?".to_owned(), spritesheet::POPUP_BODY_TEXT));
+                text("Are you sure you want\nto start a new game?".to_owned(), None, spritesheet::POPUP_BODY_TEXT, Align::Beg(body.x+3.0), Align::Beg(body.y+3.0), renderer);
+
                 if button_text(id.wrapping_add(2), "Yes".to_owned(), align_end(body.right() -3.0), align_end(body.bottom()-3.0), false, state, renderer).released() {
                     close = true;
                     return_value = Some(PopupReturn::NewGame { difficulty: *difficulty })
@@ -132,7 +136,7 @@ impl Popup {
                 text("Width" .to_owned(), None, spritesheet::POPUP_BODY_TEXT, align_mid(body.x + 17.0), align_beg(body.y +  4.0), renderer);
                 text("Height".to_owned(), None, spritesheet::POPUP_BODY_TEXT, align_mid(body.x + 17.0), align_beg(body.y + 14.0), renderer);
                 text("Bombs" .to_owned(), None, spritesheet::POPUP_BODY_TEXT, align_mid(body.x + 17.0), align_beg(body.y + 24.0), renderer);
-                // TODO: THIS
+                // TODO: This is also a bit messy
                 let width_hint  = format!("{:?} - {:?}", MIN_WIDTH,  MAX_WIDTH);
                 let height_hint = format!("{:?} - {:?}", MIN_HEIGHT, MAX_HEIGHT);
                 text_field(
@@ -178,19 +182,36 @@ impl Popup {
                 close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body.right()-36.0), align_end(body.bottom()-3.0), false, state, renderer).released();
             }
             PopupKind::About => {
-                renderer.draw(DrawShape::text(body.x + 3.0, body.y + 3.0,
-                    // TODO: Add text styling?
-                    "Minesweeper\n\njumbledFox - 2024\n\nMade in Rust and the\nMacroquad framework.\n\nOpen source on Github!\njumbledFox.github.io".to_owned(),
-                spritesheet::POPUP_BODY_TEXT));
+                // TODO: Add text styling?
+                url(
+                    id.wrapping_add(2), "jumbledFox".to_owned(), "https://jumbledFox.github.io".to_owned(), None,
+                    Align::Beg(body.x+3.0), Align::Beg(body.y+10.0), state, renderer
+                );
+                url(
+                    id.wrapping_add(2), "Macroquad".to_owned(), "https://github.com/not-fl3/macroquad".to_owned(), None,
+                    Align::Beg(body.x+24.0), Align::Beg(body.y+31.0), state, renderer
+                );
+                url(
+                    id.wrapping_add(2), "Github".to_owned(), "https://github.com/jumbledfox/minesweeper".to_owned(), None,
+                    Align::Beg(body.x+63.0), Align::Beg(body.y+45.0), state, renderer
+                );
+                text(
+                    "Minesweeper\njumbledFox - 2024\n\nMade with love in Rust, \nusing Macroquad.\n\nOpen source on Github!\nThanks for playing <3".to_owned(),
+                    None, spritesheet::POPUP_BODY_TEXT, Align::Beg(body.x+3.0), Align::Beg(body.y+3.0), renderer
+                );
+            }
+            PopupKind::Hint => {
+                text("You're on your\nown.".to_owned(), None, spritesheet::POPUP_BODY_TEXT, Align::Beg(body.x+3.0), Align::Beg(body.y+3.0), renderer);
+                close = close || button_text(id.wrapping_add(3), "Ah.".to_owned(), align_end(body.right()-3.0), align_end(body.bottom()-3.0), false, state, renderer).released()
             }
             PopupKind::Win => {
-                renderer.draw(DrawShape::text(body.x + 3.0, body.y + 3.0, "You win,\ncongratulations!".to_owned(), spritesheet::POPUP_BODY_TEXT));
+                text("You win,\ncongratulations!".to_owned(), None, spritesheet::POPUP_BODY_TEXT, Align::Beg(body.x+3.0), Align::Beg(body.y+3.0), renderer);
                 if false {
                     close = true;
                 }
             }
             PopupKind::Exit => {
-                renderer.draw(DrawShape::text(body.x + 3.0, body.y + 3.0, "Are you sure you\nwant to exit?".to_owned(), spritesheet::POPUP_BODY_TEXT));
+                text("Are you sure you\nwant to exit?".to_owned(), None, spritesheet::POPUP_BODY_TEXT, Align::Beg(body.x+3.0), Align::Beg(body.y+3.0), renderer);
                 if button_text(id.wrapping_add(2), "Exit".to_owned(), align_end(body.right() -3.0), align_end(body.bottom()-3.0), false, state, renderer).released() {
                     order_quit();
                 }
@@ -212,7 +233,7 @@ impl Popup {
             self.pos = (state.mouse_pos() - *drag_offset).round();
         }
         
-        renderer.draw(DrawShape::text(titlebar.x + 2.0, titlebar.y + 2.0, self.title.clone(), spritesheet::POPUP_TITLE_TEXT));
+        renderer.draw(DrawShape::text(titlebar.x + 2.0, titlebar.y + 2.0, self.title.clone(), None, spritesheet::POPUP_TITLE_TEXT));
         renderer.draw(DrawShape::nineslice(titlebar, spritesheet::POPUP_TITLE));
         renderer.draw(DrawShape::nineslice(body,     spritesheet::POPUP_BODY));
         renderer.draw(DrawShape::rect(body.combine_with(titlebar).offset(vec2(3.0, 3.0)), spritesheet::SHADOW));

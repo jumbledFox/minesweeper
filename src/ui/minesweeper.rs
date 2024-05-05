@@ -1,8 +1,8 @@
 // A minesweeper ui element
 
-use macroquad::math::{vec2, Rect};
+use macroquad::{input::MouseButton, math::{vec2, Rect, Vec2}};
 
-use crate::minesweeper::{Difficulty, DifficultyValues, GameState, Minesweeper, Tile};
+use crate::minesweeper::{Difficulty, DifficultyValues, GameState, Minesweeper, SetFlagMode, Tile};
 
 use super::{elements::{aligned_rect, button, Align}, hash_string, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, State}};
 
@@ -10,6 +10,7 @@ pub struct MinesweeperElement {
     game: Minesweeper,
     difficulty: Difficulty,
     timer: Option<f32>,
+    flag_mode: Option<SetFlagMode>,
     // Stores what the last custom input was for the popup
     custom_values: Option<DifficultyValues>,
     requesting_new_game: bool,
@@ -23,6 +24,7 @@ impl MinesweeperElement {
             game: Minesweeper::new(difficulty),
             difficulty,
             timer: None,
+            flag_mode: None,
 
             custom_values: None,
             requesting_new_game: false,
@@ -88,8 +90,12 @@ impl MinesweeperElement {
         self.minefield(Align::Mid(area.x + area.w / 2.0), Align::Mid(area.y + (area.h + top_height-6.0)/2.0), area.y + top_height, state, renderer)
     }
 
+    pub fn minefield_size(&self) -> Vec2 {
+        vec2(self.game.width() as f32 * 9.0, self.game.height() as f32 * 9.0)
+    }
+
     fn minefield(&mut self, x: Align, y: Align, min_y: f32, state: &mut State, renderer: &mut Renderer) {
-        let size = vec2(self.game.width() as f32 * 9.0, self.game.height() as f32 * 9.0);
+        let size = self.minefield_size();
         let rect = aligned_rect(x, y, size.x, size.y);
         let rect = Rect::new(rect.x, rect.y.max(min_y), rect.w, rect.h);
 
@@ -97,36 +103,42 @@ impl MinesweeperElement {
             let hovered_tile_coord = ((state.mouse_pos() - rect.point()) / 9.0).floor();
             let selected_tile = (hovered_tile_coord.y as usize * self.game.width() + hovered_tile_coord.x as usize).min(self.game.board().len()-1);
             
-            renderer.draw(DrawShape::image(rect.x + hovered_tile_coord.x * 9.0, rect.y + hovered_tile_coord.y * 9.0, spritesheet::MINEFIELD_SELECTED, None));
+            let selector_pos = rect.point() + tile_pos(selected_tile, self.game.width()) - 1.0;
+            renderer.draw(DrawShape::image(selector_pos.x, selector_pos.y, spritesheet::MINEFIELD_SELECTED, None));
 
-            if state.mouse_released(macroquad::input::MouseButton::Left) {
+            if state.mouse_down(MouseButton::Left) && self.game.diggable(selected_tile) {
+                renderer.draw(DrawShape::image(selector_pos.x + 1.0, selector_pos.y + 1.0, spritesheet::minefield_tile(1), None));
+            }
+
+            if state.mouse_released(MouseButton::Left) {
                 self.game.dig(selected_tile);
+            }
+            
+            // If we've clicked right click, flag / unflag
+            if state.mouse_pressed(MouseButton::Right) {
+                self.flag_mode = match self.game.board().get(selected_tile) {
+                    Some(t) if *t == Tile::Flag => Some(SetFlagMode::Remove),
+                    _ => Some(SetFlagMode::Flag),
+                }
+            }
+            if let Some(flag_mode) = self.flag_mode {
+                self.game.set_flag(flag_mode, selected_tile);
+            }
+            // We only want to set flags once, and remove flags when holding the mouse down.
+            if state.mouse_released(MouseButton::Right) || matches!(self.flag_mode, Some(SetFlagMode::Flag)) {
+                self.flag_mode = None;
             }
         }
 
         for (i, t) in self.game.board().iter().enumerate() {
-            let (x, y) = (
-                (rect.x + ((i%self.game.width())*9) as f32).floor(),
-                (rect.y + ((i/self.game.width())*9) as f32).floor(),
-            );
-            let (x, y) = (
-                rect.x + (i%self.game.width()) as f32 * 9.0,
-                rect.y + (i/self.game.width()) as f32 * 9.0,
-            );
-            let (x, y) = match macroquad::rand::gen_range(0, 2) == 1 {
-                false => (
-                    (rect.x + ((i%self.game.width())*9) as f32).floor(),
-                    (rect.y + ((i/self.game.width())*9) as f32).floor(),
-                ),
-                true => (
-                    rect.x + (i%self.game.width()) as f32 * 9.0,
-                    rect.y + (i/self.game.width()) as f32 * 9.0,
-                )
-            };
-            
+            let pos = rect.point() + tile_pos(i, self.game.width());
+            match *t {
+                Tile::Flag        => renderer.draw(DrawShape::image(pos.x, pos.y, spritesheet::minefield_tile(12), None)),
+                Tile::Numbered(n) => renderer.draw(DrawShape::image(pos.x, pos.y, spritesheet::minefield_tile(n as usize+3), None)),
+                _ => (),
+            }
             let tile_base = spritesheet::minefield_tile(if matches!(t, Tile::Dug | Tile::Numbered(_)) { 2 } else { 0 });
-
-            renderer.draw(DrawShape::image(x, y, tile_base, None));
+            renderer.draw(DrawShape::image(pos.x, pos.y, tile_base, None));
         }
 
         let border_rect = Rect::new(rect.x - 2.0, rect.y - 2.0, rect.w + 4.0, rect.h + 4.0);
@@ -188,4 +200,11 @@ impl MinesweeperElement {
             .chain(std::iter::once(DrawShape::nineslice(rect, spritesheet::TIMER_BACKGROUND)));
         renderer.draw_iter(draw_shapes);
     }
+}
+
+fn tile_pos(index: usize, width: usize) -> Vec2 {
+    vec2(
+        (index%width) as f32 * spritesheet::minefield_tile(0).w,
+        (index/width) as f32 * spritesheet::minefield_tile(0).h,
+    ).round()
 }

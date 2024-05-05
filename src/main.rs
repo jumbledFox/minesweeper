@@ -58,6 +58,9 @@ async fn main() {
             ui.menubar.finish_item(&mut ui.state, &mut ui.renderer);
         }
         if ui.menubar.item("Help".to_owned(), 34.0, &mut ui.state, &mut ui.renderer) {
+            if ui.menubar.dropdown("Hint".to_owned(), &mut ui.state, &mut ui.renderer) {
+                ui.popups.add(PopupKind::Hint, &mut ui.state);
+            }
             if ui.menubar.dropdown("About".to_owned(), &mut ui.state, &mut ui.renderer) {
                 ui.popups.add(PopupKind::About, &mut ui.state);
             }

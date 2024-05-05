@@ -7,7 +7,7 @@ use super::{menubar::Menubar, spritesheet::{self, Nineslice}, state::State, Roun
 pub mod text_renderer;
 
 pub enum DrawShape {
-    Text { x: f32, y: f32, text: String, color: Color },
+    Text { x: f32, y: f32, text: String, line_gap: Option<f32>, color: Color },
     TextCaret { x: f32, y: f32, color: Color },
     Rect { x: f32, y: f32, w: f32, h: f32, color: Color },
     Image { x: f32, y: f32, source: Rect, color: Color },
@@ -17,8 +17,8 @@ pub enum DrawShape {
 }
 
 impl DrawShape {
-    pub fn text(x: f32, y: f32, text: String, color: Color) -> Self {
-        Self::Text { x, y, text, color }
+    pub fn text(x: f32, y: f32, text: String, line_gap: Option<f32>, color: Color) -> Self {
+        Self::Text { x, y, text, line_gap, color }
     }
     pub fn text_caret(x: f32, y: f32, color: Color) -> Self {
         Self::TextCaret { x, y, color }
@@ -37,13 +37,13 @@ impl DrawShape {
     }
     pub fn round(&mut self) {
         match self {
-            Self::Text      { x, y, .. }              => { *x = x.round(); *y = y.round(); }
-            Self::TextCaret { x, y, .. }              => { *x = x.round(); *y = y.round(); }
-            Self::Rect      { x, y, w, h, ..  }       => { *x = x.round(); *y = y.round(); *w = w.round(); *h = h.round(); }
-            Self::Image     { x, y, source, .. }      => { *x = x.round(); *y = y.round(); *source = source.round(); }
-            Self::ImageRect { dest, source, .. }      => { *dest = dest.round(); *source = source.round(); }
-            Self::Nineslice { dest, source, padding } => { *dest = dest.round(); *source = source.round(); *padding = padding.round(); }
-            // Self::Minefield { x, y }                  => { *x = x.round(); *y = y.round(); }
+            Self::Text      { x, y, text: _, line_gap, ..} => { *x = x.round(); *y = y.round(); *line_gap = match line_gap { Some(l) => Some(l.round()), _ => None }; }
+            Self::TextCaret { x, y, .. }                   => { *x = x.round(); *y = y.round(); }
+            Self::Rect      { x, y, w, h, ..  }            => { *x = x.round(); *y = y.round(); *w = w.round(); *h = h.round(); }
+            Self::Image     { x, y, source, .. }           => { *x = x.round(); *y = y.round(); *source = source.round(); }
+            Self::ImageRect { dest, source, .. }           => { *dest = dest.round(); *source = source.round(); }
+            Self::Nineslice { dest, source, padding }      => { *dest = dest.round(); *source = source.round(); *padding = padding.round(); }
+            // Self::Minefield { x, y }                    => { *x = x.round(); *y = y.round(); }
         }
     }
 }
@@ -102,7 +102,7 @@ impl Renderer {
 
     fn draw_shape(&self, draw_shape: &DrawShape) {
         match &draw_shape {
-            &DrawShape::Text { x, y, text, color } => self.text_renderer.draw_text(text, *x, *y, *color, None),
+            &DrawShape::Text { x, y, text, line_gap, color } => self.text_renderer.draw_text(text, *x, *y, *color, *line_gap),
             &DrawShape::TextCaret { x, y, color }  => if self.caret_timer < 0.5 { self.text_renderer.draw_text(&"|".to_owned(), *x, *y, *color, None) },
             &DrawShape::Rect { x, y, w, h, color } => draw_rectangle(*x, *y, *w, *h, *color),
             &DrawShape::Image { x, y, source, color } => {

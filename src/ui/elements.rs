@@ -37,13 +37,25 @@ pub fn centered_rect(x: f32, y: f32, w: f32, h: f32) -> Rect {
     aligned_rect(align_mid(x), align_mid(y), w, h)
 }
 
+// TODO: ALL of these share a lot of code
 pub fn text(text: String, line_gap: Option<f32>, color: Color, x: Align, y: Align, renderer: &mut Renderer) {
     let size = renderer.text_renderer.text_size(&text, line_gap);
     let rect = aligned_rect(x, y, size.x, size.y);
-    renderer.draw(DrawShape::text(rect.x, rect.y, text, color));
+    renderer.draw(DrawShape::text(rect.x, rect.y, text, line_gap, color));
 }
 
-// TODO: These share a lot of code
+pub fn url(id: Id, text: String, url: String, line_gap: Option<f32>, x: Align, y: Align, state: &mut State, renderer: &mut Renderer) {
+    let size = renderer.text_renderer.text_size(&text, line_gap);
+    let rect = aligned_rect(x, y, size.x, size.y);
+    let underline = Rect::new(rect.x, rect.y + rect.h - 1.0, rect.w, 1.0);
+    renderer.draw(DrawShape::text(rect.x, rect.y, text, line_gap, spritesheet::URL_TEXT));
+    renderer.draw(DrawShape::rect(underline, spritesheet::URL_TEXT));
+
+    if state.button_state(id, state.mouse_in_rect(rect), false, false).released() {
+        let _ = webbrowser::open(&url);
+    }
+}
+
 pub fn button(id: Id, x: Align, y: Align, w: f32, h: f32, disabled: bool, state: &mut State, renderer: &mut Renderer) -> ButtonState {
     let rect = aligned_rect(x, y, w, h);
     let button_state = state.button_state(id, state.mouse_in_rect(rect), disabled, true);
@@ -72,7 +84,7 @@ pub fn button_text(id: Id, text: String, x: Align, y: Align, disabled: bool, sta
     };
 
     let rect = rect.offset(Vec2::splat(offset));
-    renderer.draw(DrawShape::text(rect.x + 3.0, rect.y + 2.0, text, text_col));
+    renderer.draw(DrawShape::text(rect.x + 3.0, rect.y + 2.0, text, None, text_col));
     renderer.draw(DrawShape::nineslice(rect, source));
 
     button_state
@@ -118,9 +130,9 @@ pub fn text_field(id: Id, x: Align, y: Align, w: f32, text: &mut String, hint: S
     }
 
     if text.is_empty() {
-        renderer.draw(DrawShape::text(rect.x + 2.0, rect.y + 2.0, hint, spritesheet::BUTTON_TEXT_DISABLED));
+        renderer.draw(DrawShape::text(rect.x + 2.0, rect.y + 2.0, hint, None, spritesheet::BUTTON_TEXT_DISABLED));
     } else {
-        renderer.draw(DrawShape::text(rect.x + 2.0, rect.y + 2.0, text.clone(), spritesheet::BUTTON_TEXT));
+        renderer.draw(DrawShape::text(rect.x + 2.0, rect.y + 2.0, text.clone(), None, spritesheet::BUTTON_TEXT));
     }
     renderer.draw(DrawShape::nineslice(rect, spritesheet::input_field(false)));
 }

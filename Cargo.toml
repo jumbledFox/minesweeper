@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 macroquad = { version = "0.4.5", features = ["audio"]}
+webbrowser = "1.0.0"
 
 # Enable max optimizations for dependencies, but not for our code:
 [profile.dev.package."*"]

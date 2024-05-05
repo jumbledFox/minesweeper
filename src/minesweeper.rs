@@ -222,6 +222,7 @@ impl Minesweeper {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum SetFlagMode {
     Toggle, Flag, Remove
 }
