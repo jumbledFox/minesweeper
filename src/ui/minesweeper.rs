@@ -1,8 +1,8 @@
 // A minesweeper ui element
 
-use macroquad::{color::Color, math::{vec2, Rect}};
+use macroquad::math::{vec2, Rect};
 
-use crate::minesweeper::{Difficulty, DifficultyValues, GameState, Minesweeper};
+use crate::minesweeper::{Difficulty, DifficultyValues, GameState, Minesweeper, Tile};
 
 use super::{elements::{aligned_rect, button, Align}, hash_string, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, State}};
 
@@ -10,7 +10,6 @@ pub struct MinesweeperElement {
     game: Minesweeper,
     difficulty: Difficulty,
     timer: Option<f32>,
-    
     // Stores what the last custom input was for the popup
     custom_values: Option<DifficultyValues>,
     requesting_new_game: bool,
@@ -71,7 +70,6 @@ impl MinesweeperElement {
 
         // The elements along the top
         let top_height = 26.0;
-        // The button makes a new game :P
         if button(
             hash_string(&"hello if ur reading this :3".to_owned()),
             Align::Mid(area.x + area.w / 2.0), Align::Beg(area.y + 3.0),
@@ -90,13 +88,48 @@ impl MinesweeperElement {
         self.minefield(Align::Mid(area.x + area.w / 2.0), Align::Mid(area.y + (area.h + top_height-6.0)/2.0), area.y + top_height, state, renderer)
     }
 
-    fn minefield(&self, x: Align, y: Align, min_y: f32, state: &mut State, renderer: &mut Renderer) {
+    fn minefield(&mut self, x: Align, y: Align, min_y: f32, state: &mut State, renderer: &mut Renderer) {
         let size = vec2(self.game.width() as f32 * 9.0, self.game.height() as f32 * 9.0);
         let rect = aligned_rect(x, y, size.x, size.y);
         let rect = Rect::new(rect.x, rect.y.max(min_y), rect.w, rect.h);
-        let border_rect = Rect::new(rect.x - 2.0, rect.y - 2.0, rect.w + 4.0, rect.h + 4.0);
 
-        renderer.draw(DrawShape::rect(rect, Color::from_hex((((macroquad::time::get_time() / 100.0).sin() / 2.0 + 0.5) * 16777215.0) as u32)));
+        if state.hot_item.assign_if_none_and(8008135, rect.contains(state.mouse_pos())) {
+            let hovered_tile_coord = ((state.mouse_pos() - rect.point()) / 9.0).floor();
+            let selected_tile = (hovered_tile_coord.y as usize * self.game.width() + hovered_tile_coord.x as usize).min(self.game.board().len()-1);
+            
+            renderer.draw(DrawShape::image(rect.x + hovered_tile_coord.x * 9.0, rect.y + hovered_tile_coord.y * 9.0, spritesheet::MINEFIELD_SELECTED, None));
+
+            if state.mouse_released(macroquad::input::MouseButton::Left) {
+                self.game.dig(selected_tile);
+            }
+        }
+
+        for (i, t) in self.game.board().iter().enumerate() {
+            let (x, y) = (
+                (rect.x + ((i%self.game.width())*9) as f32).floor(),
+                (rect.y + ((i/self.game.width())*9) as f32).floor(),
+            );
+            let (x, y) = (
+                rect.x + (i%self.game.width()) as f32 * 9.0,
+                rect.y + (i/self.game.width()) as f32 * 9.0,
+            );
+            let (x, y) = match macroquad::rand::gen_range(0, 2) == 1 {
+                false => (
+                    (rect.x + ((i%self.game.width())*9) as f32).floor(),
+                    (rect.y + ((i/self.game.width())*9) as f32).floor(),
+                ),
+                true => (
+                    rect.x + (i%self.game.width()) as f32 * 9.0,
+                    rect.y + (i/self.game.width()) as f32 * 9.0,
+                )
+            };
+            
+            let tile_base = spritesheet::minefield_tile(if matches!(t, Tile::Dug | Tile::Numbered(_)) { 2 } else { 0 });
+
+            renderer.draw(DrawShape::image(x, y, tile_base, None));
+        }
+
+        let border_rect = Rect::new(rect.x - 2.0, rect.y - 2.0, rect.w + 4.0, rect.h + 4.0);
         renderer.draw(DrawShape::nineslice(border_rect, spritesheet::MINEFIELD_BORDER));
     }
 

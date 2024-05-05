@@ -1,6 +1,6 @@
 use macroquad::{miniquad::window::{cancel_quit, order_quit}, prelude::*};
 use minesweeper::Difficulty;
-use ui::{popups::PopupKind, Ui};
+use ui::{popups::{PopupKind, PopupReturn}, Ui};
 
 pub mod ui;
 pub mod minesweeper;
@@ -70,27 +70,25 @@ async fn main() {
         ui.menubar.finish(&mut ui.state, &mut ui.renderer);
 
         ui.popups.update(&mut ui.state, &ui.menubar, &mut ui.renderer);
-        
-        // Draw the minesweeper to a specific area
-        let minesweeper_area = Rect::new(
-            0.0,
-            ui.menubar.height(),
-            ui.state.screen_size().x,
-            ui.state.screen_size().y - ui.menubar.height(),
-        );
-        ui.minesweeper_element.update(minesweeper_area, &mut ui.state, &mut ui.renderer);
+        for p in ui.popups.returns() {
+            match p {
+                &PopupReturn::NewGame { difficulty } => ui.minesweeper_element.new_game(difficulty)
+            }
+        }
 
+        // Draw the minesweeper below the menubar
+        let minesweeper_area = Rect::new(0.0, ui.menubar.height(), ui.state.screen_size().x, ui.state.screen_size().y - ui.menubar.height());
+        ui.minesweeper_element.update(minesweeper_area, &mut ui.state, &mut ui.renderer);
+        // Quiting
         if quit {
             if ui.minesweeper_element.game_in_progress() {
                 cancel_quit();
-                quit = false;
                 ui.popups.add(PopupKind::Exit, &mut ui.state);
+            } else {
+                order_quit();
             }
         }
-        if quit {
-            order_quit();
-        }
-
+        // Making a new game
         if new_game.is_some() || ui.minesweeper_element.requesting_new_game() {
             let difficulty = match new_game {
                 Some(d) => d,
@@ -102,8 +100,6 @@ async fn main() {
                 ui.minesweeper_element.new_game(difficulty);
             }
         }
-
-        ui.renderer.draw_background(&mut ui.state, &mut ui.menubar);
 
         ui.finish();
 

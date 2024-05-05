@@ -7,7 +7,8 @@ use super::{elements::{align_beg, align_end, align_mid, button_text, text, text_
 #[derive(Default)]
 pub struct Popups {
     popups: Vec<Popup>,
-    popup_drag_offset: Vec2,
+    returns: Vec<PopupReturn>,
+    drag_offset: Vec2,
 }
 
 impl Popups {
@@ -17,19 +18,19 @@ impl Popups {
     }
 
     pub fn update(&mut self, state: &mut State, menubar: &Menubar, renderer: &mut Renderer) {
-        let mut popup_returns: Vec<PopupReturn> = Vec::new();
+        self.returns.clear();
         let mut close = None; 
         let mut front = None; 
 
         for (i, popup) in self.popups.iter_mut().enumerate().rev() {
-            let (action, return_value) = popup.update(&mut self.popup_drag_offset, state, menubar, renderer);
+            let (action, return_value) = popup.update(&mut self.drag_offset, state, menubar, renderer);
             match action {
                 PopupAction::Close => close = Some(i),
                 PopupAction::Front => front = Some(i),
                 _ => ()
             }
             if let Some(r) = return_value {
-                popup_returns.push(r);
+                self.returns.push(r);
             }
         }
 
@@ -40,12 +41,10 @@ impl Popups {
             let popup = self.popups.remove(front);
             self.popups.push(popup);
         }
+    }
 
-        // for p in popup_returns {
-        //     match p {
-        //         PopupReturn::NewGame { difficulty } => ()
-        //     }
-        // }
+    pub fn returns(&self) -> &Vec<PopupReturn> {
+        &self.returns
     }
 }
 
@@ -91,7 +90,7 @@ pub struct Popup {
 impl Popup {
     pub fn new(kind: PopupKind, state: &State) -> Popup {
         let (title, size) = match kind {
-            PopupKind::NewGame{..} => ("New game", vec2( 90.0, 40.0)),
+            PopupKind::NewGame{..} => ("New game", vec2( 90.0, 46.0)),
             PopupKind::Custom{..}  => ("Custom",   vec2( 78.0, 58.0)),
             PopupKind::About       => ("About",    vec2(100.0, 80.0)),
             PopupKind::Win         => ("You win!", vec2( 70.0, 40.0)),
@@ -102,7 +101,7 @@ impl Popup {
         Popup { pos, size, title: title.to_owned(), kind, id: hash_string(&format!("popup!!{}", macroquad::miniquad::date::now())) }
     }
 
-    pub fn update(&mut self, popup_drag_offset: &mut Vec2, state: &mut State, menubar: &Menubar, renderer: &mut Renderer) -> (PopupAction, Option<PopupReturn>) {
+    pub fn update(&mut self, drag_offset: &mut Vec2, state: &mut State, menubar: &Menubar, renderer: &mut Renderer) -> (PopupAction, Option<PopupReturn>) {
         let titlebar_height = renderer.text_renderer.text_size(&self.title, None).y + 3.0;
         self.pos = self.pos
             .min(state.screen_size() - self.size)
@@ -122,8 +121,8 @@ impl Popup {
         // TODO: This bit is a bit messy
         match &mut self.kind {
             PopupKind::NewGame { difficulty } => {
-                renderer.draw(DrawShape::text(body.x + 3.0, body.y + 3.0, "Are you sure you\nwant to exit?".to_owned(), spritesheet::POPUP_BODY_TEXT));
-                if button_text(id.wrapping_add(2), "Exit".to_owned(), align_end(body.right() -3.0), align_end(body.bottom()-3.0), false, state, renderer).released() {
+                renderer.draw(DrawShape::text(body.x + 3.0, body.y + 3.0, "Are you sure you want\nto start a new game?".to_owned(), spritesheet::POPUP_BODY_TEXT));
+                if button_text(id.wrapping_add(2), "Yes".to_owned(), align_end(body.right() -3.0), align_end(body.bottom()-3.0), false, state, renderer).released() {
                     close = true;
                     return_value = Some(PopupReturn::NewGame { difficulty: *difficulty })
                 }
@@ -204,13 +203,13 @@ impl Popup {
 
         if state.hot_item.assign_if_none_and(id, hovered) {
             if state.active_item.assign_if_none_and(id, state.mouse_down(MouseButton::Left)) {
-                *popup_drag_offset = state.mouse_pos() - self.pos;
+                *drag_offset = state.mouse_pos() - self.pos;
             }
         }
 
         if state.active_item == id {
             state.hot_item = super::state::SelectedItem::Unavailable;
-            self.pos = state.mouse_pos() - *popup_drag_offset;
+            self.pos = (state.mouse_pos() - *drag_offset).round();
         }
         
         renderer.draw(DrawShape::text(titlebar.x + 2.0, titlebar.y + 2.0, self.title.clone(), spritesheet::POPUP_TITLE_TEXT));

@@ -2,7 +2,7 @@ use macroquad::{color::{Color, WHITE}, math::{vec2, Rect}, shapes::draw_rectangl
 
 use self::text_renderer::TextRenderer;
 
-use super::{menubar::Menubar, spritesheet::{self, Nineslice}, state::State};
+use super::{menubar::Menubar, spritesheet::{self, Nineslice}, state::State, Round};
 
 pub mod text_renderer;
 
@@ -13,6 +13,7 @@ pub enum DrawShape {
     Image { x: f32, y: f32, source: Rect, color: Color },
     ImageRect { dest: Rect, source: Rect, color: Color },
     Nineslice { dest: Rect, source: Rect, padding: f32 },
+    // Minefield { x: f32, y: f32, },
 }
 
 impl DrawShape {
@@ -33,6 +34,17 @@ impl DrawShape {
     }
     pub fn nineslice(dest: Rect, source: Nineslice) -> Self {
         Self::Nineslice { dest, source: source.rect, padding: source.padding }
+    }
+    pub fn round(&mut self) {
+        match self {
+            Self::Text      { x, y, .. }              => { *x = x.round(); *y = y.round(); }
+            Self::TextCaret { x, y, .. }              => { *x = x.round(); *y = y.round(); }
+            Self::Rect      { x, y, w, h, ..  }       => { *x = x.round(); *y = y.round(); *w = w.round(); *h = h.round(); }
+            Self::Image     { x, y, source, .. }      => { *x = x.round(); *y = y.round(); *source = source.round(); }
+            Self::ImageRect { dest, source, .. }      => { *dest = dest.round(); *source = source.round(); }
+            Self::Nineslice { dest, source, padding } => { *dest = dest.round(); *source = source.round(); *padding = padding.round(); }
+            // Self::Minefield { x, y }                  => { *x = x.round(); *y = y.round(); }
+        }
     }
 }
 
@@ -63,15 +75,6 @@ impl Renderer {
         self.draw_queue.extend(draw_shapes);
     }
 
-    pub fn draw_background(&mut self, state: &State, menubar: &Menubar) {
-        self.draw(DrawShape::nineslice(Rect::new(
-            0.0,
-            menubar.height(),
-            state.screen_size().x,
-            state.screen_size().y - menubar.height(),
-        ), spritesheet::BACKGROUND));
-    }
-
     pub fn begin(&mut self, state: &State) {
         self.draw_queue.clear();
         self.caret_timer = match state.text_field {
@@ -80,49 +83,61 @@ impl Renderer {
         };
     }
     
-    pub fn finish(&mut self) {
-        // Draw all of the draw shapes in the queue
+    pub fn finish(&mut self, state: &State, menubar: &Menubar) {
+        // Draw the unrounded background
+        let background_rect = Rect::new(
+            0.0,
+            menubar.height(),
+            state.screen_size().x,
+            state.screen_size().y - menubar.height(),
+        );
+        self.draw_shape(&DrawShape::nineslice(background_rect, spritesheet::BACKGROUND));
+        
+        // Draw all of the rounded draw shapes in the queue
+        self.draw_queue.iter_mut().for_each(|d| d.round());
         for draw_shape in self.draw_queue.iter().rev() {
-            match &draw_shape {
-                // TODO: Rounding? And how to make background NOT rounded...
-                &DrawShape::Text { x, y, text, color } => self.text_renderer.draw_text(text, *x, *y, *color, None),
-                &DrawShape::TextCaret { x, y, color } => if self.caret_timer < 0.5 { self.text_renderer.draw_text(&"|".to_owned(), *x, *y, *color, None) },
-                &DrawShape::Rect { x, y, w, h, color } => draw_rectangle(*x, *y, *w, *h, *color),
-                &DrawShape::Image { x, y, source, color } => {
-                    let params = DrawTextureParams {
-                        source: Some(*source),
-                        ..Default::default()
-                    };
-                    draw_texture_ex(&self.texture, *x, *y, *color, params)
-                },
-                &DrawShape::ImageRect { dest, source, color } => {
-                    let params = DrawTextureParams {
-                        dest_size: Some(dest.size()),
-                        source: Some(*source),
-                        ..Default::default()
-                    };
-                    draw_texture_ex(&self.texture, dest.x, dest.y, *color, params)
-                },
-                &DrawShape::Nineslice { dest, source, padding } => {
-                    let dest_parts   = calculate_nineslice_parts(*dest,   *padding);
-                    let source_parts = calculate_nineslice_parts(*source, *padding);
+            self.draw_shape(&draw_shape);
+        }
+    }
 
-                    for (d, s) in dest_parts.iter().zip(source_parts) {
-                        let params = DrawTextureParams {
-                            dest_size: Some(d.size()),
-                            source: Some(s),
-                            ..Default::default()
-                        };
-                        draw_texture_ex(&self.texture, d.x, d.y, WHITE, params);
-                    }
-                },
-            }
+    fn draw_shape(&self, draw_shape: &DrawShape) {
+        match &draw_shape {
+            &DrawShape::Text { x, y, text, color } => self.text_renderer.draw_text(text, *x, *y, *color, None),
+            &DrawShape::TextCaret { x, y, color }  => if self.caret_timer < 0.5 { self.text_renderer.draw_text(&"|".to_owned(), *x, *y, *color, None) },
+            &DrawShape::Rect { x, y, w, h, color } => draw_rectangle(*x, *y, *w, *h, *color),
+            &DrawShape::Image { x, y, source, color } => {
+                let params = DrawTextureParams {
+                    source: Some(*source),
+                    ..Default::default()
+                };
+                draw_texture_ex(&self.texture, *x, *y, *color, params)
+            },
+            &DrawShape::ImageRect { dest, source, color } => {
+                let params = DrawTextureParams {
+                    dest_size: Some(dest.size()),
+                    source: Some(*source),
+                    ..Default::default()
+                };
+                draw_texture_ex(&self.texture, dest.x, dest.y, *color, params)
+            },
+            &DrawShape::Nineslice { dest, source, padding } => {
+                let dest_parts   = calculate_nineslice_parts(*dest,   *padding);
+                let source_parts = calculate_nineslice_parts(*source, *padding);
+
+                for (d, s) in dest_parts.iter().zip(source_parts) {
+                    let params = DrawTextureParams {
+                        dest_size: Some(d.size()),
+                        source: Some(s),
+                        ..Default::default()
+                    };
+                    draw_texture_ex(&self.texture, d.x, d.y, WHITE, params);
+                }
+            },
         }
     }
 }
 
 fn calculate_nineslice_parts(rect: Rect, pad: f32) -> [Rect; 9] {
-    // let rect = rect.round();
     let pad = pad.round();
     let middle_size = vec2(rect.w, rect.h) - pad*2.0;
     [
