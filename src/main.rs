@@ -8,6 +8,7 @@ pub mod minesweeper;
 fn window_conf() -> Conf {
     Conf {
         window_title: String::from("Minesweeper"),
+        // TODO: Default window size
         high_dpi: true,
         ..Default::default()
     }
@@ -66,8 +67,17 @@ async fn main() {
             }
             ui.menubar.finish_item(&mut ui.state, &mut ui.renderer);
         }
-        if ui.menubar.item("Scale".to_owned(), 62.0, &mut ui.state, &mut ui.renderer) {
-            ui.menubar.dropdown_toggle("Auto".to_owned(), &mut true, &mut ui.state, &mut ui.renderer);
+        if ui.menubar.item("Scale".to_owned(), 28.0, &mut ui.state, &mut ui.renderer) {
+            if ui.menubar.dropdown_radio("Auto".to_owned(), ui.state.auto_scale(), &mut ui.state, &mut ui.renderer) {
+                ui.state.set_auto_scale(!ui.state.auto_scale());
+            }
+            ui.menubar.dropdown_separator(&mut ui.renderer);
+            for i in 1..=8 {
+                if ui.menubar.dropdown_radio(format!(" {}{}* ", if i == 1 {"¬"} else {""}, i), ui.state.scale() == i as f32, &mut ui.state, &mut ui.renderer) {
+                    ui.state.set_auto_scale(false);
+                    ui.state.set_scale(i as f32);
+                }
+            }
             ui.menubar.finish_item(&mut ui.state, &mut ui.renderer);
         }
         ui.menubar.finish(&mut ui.state, &mut ui.renderer);

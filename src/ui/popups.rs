@@ -107,8 +107,11 @@ impl Popup {
         let titlebar_height = renderer.text_renderer.text_size(&self.title, None).y + 3.0;
         self.pos = self.pos
             // .min(state.screen_size() - self.size)
-            .min(state.screen_size() - vec2(self.size.x, titlebar_height))
-            .max(vec2(0.0, menubar.height()));
+            .min(state.screen_size() - titlebar_height)
+            .max(vec2(-self.size.x + titlebar_height, menubar.height()));
+        if state.pixel_perfect() {
+            self.pos = self.pos.round();
+        }
 
         let titlebar = Rect::new(self.pos.x, self.pos.y,              self.size.x, titlebar_height);
         let body     = Rect::new(self.pos.x, self.pos.y + titlebar.h, self.size.x, self.size.y - titlebar.h);
@@ -230,7 +233,7 @@ impl Popup {
 
         if state.active_item == id {
             state.hot_item = super::state::SelectedItem::Unavailable;
-            self.pos = (state.mouse_pos() - *drag_offset).round();
+            self.pos = state.mouse_pos() - *drag_offset;
         }
         
         renderer.draw(DrawShape::text(titlebar.x + 2.0, titlebar.y + 2.0, self.title.clone(), None, spritesheet::POPUP_TITLE_TEXT));

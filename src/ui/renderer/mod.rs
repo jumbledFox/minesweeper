@@ -93,8 +93,10 @@ impl Renderer {
         );
         self.draw_shape(&DrawShape::nineslice(background_rect, spritesheet::BACKGROUND));
         
-        // Draw all of the rounded draw shapes in the queue
-        self.draw_queue.iter_mut().for_each(|d| d.round());
+        // TODO: Make NOT having pixel_perfect not have weird texture artifacts.. :(
+        if state.pixel_perfect() {
+            self.draw_queue.iter_mut().for_each(|d| d.round());
+        }
         for draw_shape in self.draw_queue.iter().rev() {
             self.draw_shape(&draw_shape);
         }
@@ -138,7 +140,6 @@ impl Renderer {
 }
 
 fn calculate_nineslice_parts(rect: Rect, pad: f32) -> [Rect; 9] {
-    let pad = pad.round();
     let middle_size = vec2(rect.w, rect.h) - pad*2.0;
     [
         // Middle

@@ -71,7 +71,6 @@ impl MinesweeperElement {
         };
 
         // The elements along the top
-        let top_height = 26.0;
         if button(
             hash_string(&"hello if ur reading this :3".to_owned()),
             Align::Mid(area.x + area.w / 2.0), Align::Beg(area.y + 3.0),
@@ -87,9 +86,16 @@ impl MinesweeperElement {
 
         // Now do the actual minefield
         // Put it in the middle of the area, plus some vertical leeway for the stuff at the top, making sure it's at least at top_height
-        self.minefield(Align::Mid(area.x + area.w / 2.0), Align::Mid(area.y + (area.h + top_height-6.0)/2.0), area.y + top_height, state, renderer)
+        self.minefield(Align::Mid(area.x + area.w / 2.0), Align::Mid(area.y + (area.h + self.top_height()-6.0)/2.0), area.y + self.top_height(), state, renderer)
     }
 
+    pub fn minimum_area_size(&self) -> Vec2 {
+        // TODO: Maybe add some leway to buttons?
+        self.minefield_size() + vec2(4.0 + 8.0, 4.0 + 2.0 + self.top_height())
+    }
+    pub fn top_height(&self) -> f32 {
+        26.0
+    }
     pub fn minefield_size(&self) -> Vec2 {
         vec2(self.game.width() as f32 * 9.0, self.game.height() as f32 * 9.0)
     }
@@ -206,5 +212,5 @@ fn tile_pos(index: usize, width: usize) -> Vec2 {
     vec2(
         (index%width) as f32 * spritesheet::minefield_tile(0).w,
         (index/width) as f32 * spritesheet::minefield_tile(0).h,
-    ).round()
+    )
 }

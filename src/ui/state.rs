@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use macroquad::{camera::{set_camera, Camera2D}, input::{is_mouse_button_down, is_mouse_button_pressed, is_mouse_button_released, mouse_position, MouseButton}, math::{vec2, Rect, Vec2}, window::{screen_height, screen_width}};
 
+use super::{menubar::Menubar, minesweeper::MinesweeperElement};
+
 pub type Id = u64;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -19,11 +21,16 @@ impl SelectedItem {
         matches!(*self, Self::None)
     }
     pub fn assign_if_none_and(&mut self, id: Id, condition: bool) -> bool {
-        if self.is_none() && condition {
-            self.assign(id);
-            return true;
+        match (self.is_none(), condition) {
+            (true, true) => { self.assign(id); true }
+            _ => false,
         }
-        false
+    }
+    pub fn make_unavailable_if_none_and(&mut self, condition: bool) -> bool {
+        match (self.is_none(), condition) {
+            (true, true) => { *self = Self::Unavailable; true }
+            _ => false,
+        }
     }
 }
 
@@ -50,6 +57,8 @@ pub struct State {
     mouse_pos: Vec2,
     mouse_buttons: HashMap<MouseButton, (bool, bool, bool)>, // (Down, Pressed, Released)
     screen_size: Vec2,
+    auto_scale: bool,
+    pixel_perfect: bool,
     scale: f32,
 
     pub hot_item:     SelectedItem,
@@ -68,6 +77,8 @@ impl State {
                 (MouseButton::Middle, (false, false, false)),
             ]),
             screen_size: Vec2::default(),
+            auto_scale: true,
+            pixel_perfect: true,
             scale: 2.0,
 
             hot_item:     SelectedItem::None,
@@ -82,6 +93,24 @@ impl State {
     }
     pub fn screen_size(&self) -> Vec2 {
         self.screen_size
+    }
+    pub fn scale(&self) -> f32 {
+        self.scale
+    }
+    pub fn set_scale(&mut self, scale: f32) {
+        self.scale = scale;
+    } 
+    pub fn auto_scale(&self) -> bool {
+        self.auto_scale
+    }
+    pub fn set_auto_scale(&mut self, auto_scale: bool) {
+        self.auto_scale = auto_scale;
+    }
+    pub fn pixel_perfect(&self) -> bool {
+        self.pixel_perfect
+    }
+    pub fn set_pixel_perfect(&mut self, pixel_perfect: bool) {
+        self.pixel_perfect = pixel_perfect;
     }
 
     fn mouse_button_values(&self, button: MouseButton) -> (bool, bool, bool) {
@@ -130,7 +159,7 @@ impl State {
         state
     }
 
-    pub fn begin(&mut self) {
+    pub fn begin(&mut self, menubar: &Menubar, minesweeper_element: &MinesweeperElement) {
         self.mouse_pos = vec2(mouse_position().0, mouse_position().1) / self.scale;
 
         for (&button, (down, pressed, released)) in &mut self.mouse_buttons.iter_mut() {
@@ -140,14 +169,18 @@ impl State {
         }
 
         let window_size = vec2(screen_width(), screen_height());
+        if self.auto_scale {
+            let min_fit = minesweeper_element.minimum_area_size() + vec2(0.0, menubar.height());
+            self.scale = (window_size / min_fit).floor().min_element().max(1.0);
+        }
+
         self.screen_size = window_size / self.scale;
 
         set_camera(&Camera2D {
             zoom: (self.scale * 2.0) / window_size,
-            target: self.screen_size / 2.0,
+            target: (self.screen_size / 2.0),
             ..Default::default()
         });
-
         self.hot_item = SelectedItem::None;
     }
 

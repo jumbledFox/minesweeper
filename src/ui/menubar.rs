@@ -36,7 +36,7 @@ impl Menubar {
         renderer.draw(super::renderer::DrawShape::Rect {
             x: self.item_next_x,
             y: 0.0,
-            w: state.screen_size().x - self.item_next_x,
+            w: state.screen_size().x - self.item_next_x + 1.0, // + 1.0 for rounding..
             h: self.height,
             color: spritesheet::menubar_colors(false).0,
         });
@@ -98,9 +98,7 @@ impl Menubar {
         renderer.draw(DrawShape::rect(self.dropdown_rect.offset(Vec2::splat(3.0)), spritesheet::SHADOW));
 
         // Make it so the box captures the hot item
-        if state.hot_item.is_none() && state.mouse_in_rect(self.dropdown_rect) {
-            state.hot_item = SelectedItem::Unavailable;
-        }
+        state.hot_item.make_unavailable_if_none_and(state.mouse_in_rect(self.dropdown_rect));
     }
 
     fn dropdown_next_descend(&mut self, amount: f32) {
