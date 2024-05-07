@@ -14,11 +14,10 @@ pub struct Menubar {
 
     dropdown_width: f32,
     
-    dropdown_start_pos: Vec2,
-    dropdown_current_pos: Vec2,
-    dropdown_next_pos: Vec2,
+    dropdown_start_y: f32,
+    dropdown_current_y: f32,
+    dropdown_next_y: f32,
     
-    dropdown_max_offset: Vec2,
     dropdown_rect: Rect,
 }
 
@@ -56,10 +55,9 @@ impl Menubar {
         self.item_next_x += size.x;
         self.height = self.height.max(size.y);
         
-        self.dropdown_start_pos = vec2(self.item_current_x, self.height) + 1.0;
-        self.dropdown_next_pos = self.dropdown_start_pos;
+        self.dropdown_start_y = self.height + 1.0;
+        self.dropdown_next_y = self.dropdown_start_y;
         self.dropdown_width = dropdown_width;
-        self.dropdown_max_offset = vec2(dropdown_width, 0.0);
         
         let id = hash_string(&text);
         let rect = Rect::new(self.item_current_x, 0.0, size.x, size.y);
@@ -81,16 +79,16 @@ impl Menubar {
     pub fn finish_item(&mut self, state: &mut State, renderer: &mut Renderer) {
         // If the dropdown doesn't go down at all, it has not dropdown items and therefore doesn't have a rect,
         // so we don't really care about doing anything
-        if self.dropdown_max_offset.y == 0.0 {
+        if self.dropdown_next_y == self.dropdown_start_y {
             self.dropdown_rect = Rect::new(0.0, 0.0, 0.0, 0.0);
             return;
         }
 
         self.dropdown_rect =  Rect::new(
             self.item_current_x,
-            self.height,
-            self.dropdown_max_offset.x + 2.0,
-            self.dropdown_max_offset.y + 2.0 - self.dropdown_start_pos.y,
+            self.dropdown_start_y - 1.0,
+            self.dropdown_width + 2.0,
+            self.dropdown_next_y + 2.0 - self.dropdown_start_y,
         );
 
         // Draw the dropdown box and it's shadow
@@ -101,20 +99,15 @@ impl Menubar {
         state.hot_item.make_unavailable_if_none_and(state.mouse_in_rect(self.dropdown_rect));
     }
 
-    fn dropdown_next_descend(&mut self, amount: f32) {
-        self.dropdown_next_pos.y += amount;
-        self.dropdown_max_offset.y = self.dropdown_max_offset.y.max(self.dropdown_next_pos.y);
-    }
-
     fn dropdown_item(&mut self, text: String, icon: bool, state: &mut State, renderer: &mut Renderer) -> bool {
-        self.dropdown_current_pos = self.dropdown_next_pos;
+        self.dropdown_current_y = self.dropdown_next_y;
         let rect = Rect::new(
-            self.dropdown_current_pos.x,
-            self.dropdown_current_pos.y,
+            self.item_current_x + 1.0,
+            self.dropdown_current_y,
             self.dropdown_width,
             renderer.text_renderer.text_size(&text, None).y + 3.0,
         );
-        self.dropdown_next_descend(rect.h);
+        self.dropdown_next_y += rect.h;
 
         // I do different button logic here because they behave slightly differently than normal buttons
         let id = hash_string(&format!("{:?}{}", self.item_next_x, text));
@@ -159,17 +152,16 @@ impl Menubar {
         if pressed { *value = !*value; }
         pressed
     }
-
     pub fn dropdown_separator(&mut self, renderer: &mut Renderer) {
-        self.dropdown_current_pos = self.dropdown_next_pos;
+        self.dropdown_current_y = self.dropdown_next_y;
         let source = spritesheet::DROPDOWN_SEPARATOR;
         let dest = Rect::new(
-            self.dropdown_current_pos.x + 1.0,
-            self.dropdown_current_pos.y,
+            self.item_current_x + 2.0,
+            self.dropdown_current_y,
             self.dropdown_width - 2.0,
             source.h,
         );
-        self.dropdown_next_descend(dest.h);
+        self.dropdown_next_y += dest.h;
         renderer.draw(super::renderer::DrawShape::image_rect(dest, source, None));
     }
 }
