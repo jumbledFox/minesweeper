@@ -236,7 +236,7 @@ impl Popup {
             self.pos = state.mouse_pos() - *drag_offset;
         }
         
-        renderer.draw(DrawShape::text(titlebar.x + 2.0, titlebar.y + 2.0, self.title.clone(), None, spritesheet::POPUP_TITLE_TEXT));
+        renderer.draw(DrawShape::text(titlebar.x + 2.0, titlebar.y + 2.0, self.title.clone(), None, None, spritesheet::POPUP_TITLE_TEXT));
         renderer.draw(DrawShape::nineslice(titlebar, spritesheet::POPUP_TITLE));
         renderer.draw(DrawShape::nineslice(body,     spritesheet::POPUP_BODY));
         renderer.draw(DrawShape::rect(body.combine_with(titlebar).offset(vec2(3.0, 3.0)), spritesheet::SHADOW));

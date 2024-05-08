@@ -28,6 +28,8 @@ async fn main() {
 
         ui.begin();
         
+        // ui.renderer.draw(ui::renderer::DrawShape::text(50.0, 50.0, "HELLO\nWORLD\nFOX:3".to_owned(), None, macroquad::color::RED));
+
         ui.menubar.begin();
         if ui.menubar.item("Game".to_owned(), 91.0, &mut ui.state, &mut ui.renderer) {
             if ui.menubar.dropdown("New Game".to_owned(), &mut ui.state, &mut ui.renderer) {

@@ -38,6 +38,7 @@ pub struct TextRenderer {
     chars_texture: Texture2D,
     // For each character, where it starts and how wide it is
     char_map: HashMap<char, (f32, f32)>,
+    
     error_char: char,
 }
 
@@ -70,30 +71,89 @@ impl TextRenderer {
 
     // TODO: Think about how and when I use AsRef<str> in this and other parts of the code.
     // https://www.reddit.com/r/learnrust/comments/14s0k5x/using_asrefstr_as_ref_and_to_owned/
-    pub fn draw_text(&self, text: &impl AsRef<str>, x: f32, y: f32, color: Color, line_gap: Option<f32>) {
-        let mut x_pos = 0.0;
-        let mut y_pos = 0.0;
-        for c in text.as_ref().chars() {
-            if c == '\n' {
-                x_pos = 0.0;
-                y_pos += self.line_gap(line_gap);
-                continue;
-            }
+    pub fn draw_text(&self, text: &String, caret_pos: Option<usize>, x: f32, y: f32, color: Color, line_gap: Option<f32>) {
+        let characters: Vec<(Vec2, Rect)> = text
+            .chars()
+            .map(|c| (c, self.character_values(c)))
+            .map(|(c, (start, width))| (c, Rect::new(start, 0.0, width, self.chars_texture.height())))
+            .scan((Vec2::default(), Rect::default()), |(pos, _), (c, source)| {
+                if c == '\n' {
+                    *pos = Vec2::new(0.0, pos.y + self.line_gap(line_gap));
+                }
+                let s = Some((*pos, source));
+                pos.x += source.w;
+                s
+            })
+            .collect();
 
-            let (start, width) = self.character_values(c);
-
+        for (pos, source) in &characters {
             draw_texture_ex(
                 &self.chars_texture,
-                x + x_pos,
-                y + y_pos,
+                x + pos.x,
+                y + pos.y,
                 color,
                 DrawTextureParams {
-                    source: Some(Rect::new(start, 0.0, width, 6.0)),
+                    source: Some(*source),
                     ..Default::default()
                 },
             );
-            x_pos += width;
         }
+
+        if let Some(caret_pos) = caret_pos {
+            // TODO: make this cleaner
+            let (s, w) = self.character_values('|');
+            let caret_source = Rect::new(s, 0.0, w, self.chars_texture.height());
+            let p = match characters.get(caret_pos) {
+                Some((p, _)) => Some(p),
+                // TODO: Get last one and then add the width or something
+                // None if caret_pos == characters.len() => {
+                //     match text.chars().last() {
+                //         Some(c) => {
+                //             let (s, w) = self.character_values(c);
+
+                //             None
+                //         },
+                //         None => None,
+                //     } 
+                // }
+                None => None,
+            };
+            if let Some(p) = p {
+                draw_texture_ex(
+                    &self.chars_texture,
+                    x + (p.x - 1.0).max(0.0),
+                    y + p.y,
+                    color,
+                    DrawTextureParams {
+                        source: Some(caret_source),
+                        ..Default::default()
+                    },
+                );
+            }
+        }
+
+
+        // for c in text.chars() {
+        //     if c == '\n' {
+        //         x_pos = 0.0;
+        //         y_pos += self.line_gap(line_gap);
+        //         continue;
+        //     }
+
+        //     let (start, width) = self.character_values(c);
+
+        //     draw_texture_ex(
+        //         &self.chars_texture,
+        //         x + x_pos,
+        //         y + y_pos,
+        //         color,
+        //         DrawTextureParams {
+        //             source: Some(Rect::new(start, 0.0, width, 6.0)),
+        //             ..Default::default()
+        //         },
+        //     );
+        //     x_pos += width;
+        // }
     }
 
     pub fn caret_pos(&self, text: &String, line_gap: Option<f32>, caret: usize) -> Vec2 {
