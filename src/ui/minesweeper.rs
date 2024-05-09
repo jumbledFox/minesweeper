@@ -1,6 +1,8 @@
 // A minesweeper ui element
 
-use macroquad::{input::MouseButton, math::{vec2, Rect, Vec2}};
+use std::collections::HashSet;
+
+use macroquad::{input::MouseButton, math::{vec2, Rect, Vec2}, time::get_frame_time};
 
 use crate::minesweeper::{get_index_from_offset, Difficulty, DifficultyValues, GameState, Minesweeper, SetFlagMode, Tile};
 
@@ -12,8 +14,8 @@ pub struct MinesweeperElement {
     timer: Option<f32>,
     flag_mode: Option<SetFlagMode>,
 
-    exploded_bombs: Vec<usize>,
-    explosion_timer: f32,
+    exploded_bombs: HashSet<usize>,
+    explosion_timer: Option<f32>,
 
     explosion_floodfill_frontier: Vec<(u8, usize)>,
     explosion_floodfill_buffer:   Vec<(u8, usize)>,
@@ -32,8 +34,8 @@ impl MinesweeperElement {
             timer: None,
             flag_mode: None,
 
-            exploded_bombs: vec![],
-            explosion_timer: 0.0,
+            exploded_bombs: HashSet::with_capacity(difficulty.values().bomb_count),
+            explosion_timer: None,
             explosion_floodfill_frontier: vec![],
             explosion_floodfill_buffer:   vec![],
             
@@ -67,7 +69,8 @@ impl MinesweeperElement {
             Difficulty::Custom(values) => self.custom_values = Some(values),
             _ => (),
         }
-        self.exploded_bombs = Vec::with_capacity(self.game.bomb_count());
+        self.exploded_bombs = HashSet::with_capacity(self.game.bomb_count());
+        self.explosion_timer = None;
     }
 
     // Area is the area where the minefield and the ui bar at the top will be drawn, it's NOT CLIPPED!
@@ -82,7 +85,7 @@ impl MinesweeperElement {
             _ => Some(self.timer.unwrap_or(0.0)),
         };
         // Explode bombs
-        if self.game.state() == GameState::Lose && self.exploded_bombs.len() < self.game.bombs().len() {
+        if self.game.state() == GameState::Lose {
             self.explode_bombs();
         }
 
@@ -105,50 +108,50 @@ impl MinesweeperElement {
         self.minefield(Align::Mid(area.x + area.w / 2.0), Align::Mid(area.y + (area.h + self.top_height()-6.0)/2.0), area.y + self.top_height(), state, renderer)
     }
 
+    fn explode_bombs_begin(&mut self, start_index: usize) {
+        self.explosion_timer = Some(-0.7);
+        // Add the initial thingies to the frontier with the right directions
+        self.explosion_floodfill_frontier = [(0b100, (0, 1)), (0b101, (1, 0)), (0b110, (0, -1)), (0b111, (-1, 0))]
+            .iter()
+            .flat_map(|(bits, dir)| get_index_from_offset(start_index, dir.0, dir.1, self.game.width(), self.game.height()).map(|i| (*bits, i)))
+            .collect();
+        self.explosion_floodfill_buffer.clear();
+        self.exploded_bombs = HashSet::from([start_index]);
+    }
+    // TODO: Think about making it a circle with maths
     fn explode_bombs(&mut self) {
-        self.explosion_timer += macroquad::time::get_frame_time();
-        if self.explosion_timer < 0.1 {
+        // If we've exploded all of the bombs... ¯\_(ツ)_/¯
+        if self.exploded_bombs.len() >= self.game.bombs().len() {
             return;
-        } 
-        self.explosion_timer = 0.0;
-
+        }
+        match self.explosion_timer.as_mut() {
+            Some(t) if *t > 0.01 => { *t = 0.0 }
+            Some(t) => { *t += get_frame_time(); return; }
+            None => return
+        }
+        // Offsets the index based on a direction and adds it to the explosion buffer
+        // God I FUCKING LOVE RUST.
+        let mut buffer_add = |index: usize, dir: u8| {
+            const NEIGHBOURS: &[(isize, isize)] = &[(0, 1), (1, 0), (0, -1), (-1, 0)];
+            let offset = NEIGHBOURS[dir as usize % 4];
+            let Some(new_index) = get_index_from_offset(index, offset.0, offset.1, self.game.width(), self.game.height()) else { return };
+            self.explosion_floodfill_buffer.push((dir, new_index));
+        };
+        // Do the actual flood fill
         for (d, i) in &self.explosion_floodfill_frontier {
             // If a bomb is here, add it to the exploded bombs
-            if self.game.bombs().contains(&i) && !self.exploded_bombs.contains(&i) {
-                self.exploded_bombs.push(*i);
+            if self.game.bombs().contains(&i) {
+                self.exploded_bombs.insert(*i);
             }
             // The first two bits represent the direction
-            MinesweeperElement::explosion_floodfill_buffer_add(&mut self.explosion_floodfill_buffer, *i, *d, self.game.width(), self.game.height());
-            // If the third bit is set, it's one of the initial guys and should add another one or something idk how to explain it
+            buffer_add(*i, *d);
+            // If the third bit is set, it's one of the initial ones and should add another of the next direction to make the pattern grow out
             if d & 0b100 == 0b100 {
-                MinesweeperElement::explosion_floodfill_buffer_add(&mut self.explosion_floodfill_buffer, *i, (d+1)%4, self.game.width(), self.game.height());
+                // Doing % 4 both wraps it around and makes sure the third bit isn't set, to make these ones not grow out.
+                buffer_add(*i, (d+1)%4);
             }
         }
-        self.explosion_floodfill_buffer.sort_unstable();
-        self.explosion_floodfill_buffer.dedup();
-
         self.explosion_floodfill_frontier = std::mem::take(&mut self.explosion_floodfill_buffer);
-    }
-    fn explosion_floodfill_begin(&mut self, start_index: usize) {
-        self.explosion_floodfill_frontier.clear();
-        self.explosion_floodfill_buffer.clear();
-        self.exploded_bombs = vec![start_index];
-        for (bits, dir) in [(0b100, (0, 1)), (0b101, (1, 0)), (0b110, (0, -1)), (0b111, (-1, 0))] {
-            let index = match get_index_from_offset(start_index, dir.0, dir.1, self.game.width(), self.game.height()) {
-                Some(i) => i,
-                None => continue,
-            };
-            self.explosion_floodfill_frontier.push((bits, index));
-        }
-    }
-    fn explosion_floodfill_buffer_add(buffer: &mut Vec<(u8, usize)>, index: usize, dir: u8, width: usize, height: usize) {
-        const NEIGHBOURS: &[(isize, isize)] = &[(0, 1), (1, 0), (0, -1), (-1, 0)];
-        let offset = NEIGHBOURS[dir as usize % 4];
-        let new_index = match get_index_from_offset(index, offset.0, offset.1, width, height) {
-            Some(i) => i,
-            None => return,
-        };
-        buffer.push((dir, new_index));
     }
 
     pub fn minimum_area_size(&self) -> Vec2 {
@@ -179,10 +182,9 @@ impl MinesweeperElement {
 
             if self.game.diggable(selected_tile) && state.mouse_released(MouseButton::Left) {
                 self.game.dig(selected_tile);
-                // If we dug a mine, start the explosion flood fill here
-                // TODO: think about this 
-                if self.game.state() == GameState::Lose && self.game.bombs().contains(&selected_tile) {
-                    self.explosion_floodfill_begin(selected_tile);
+                // If the game's state is now Lose, we dug a mine, so start the explosion flood fill here
+                if self.game.state() == GameState::Lose {
+                    self.explode_bombs_begin(selected_tile);
                 }
             }
             
@@ -209,11 +211,13 @@ impl MinesweeperElement {
                 Tile::Numbered(n) => renderer.draw(DrawShape::image(pos.x, pos.y, spritesheet::minefield_tile(n as usize+3), None)),
                 _ => (),
             }
-            let tile_base = spritesheet::minefield_tile(if self.exploded_bombs.contains(&i) {15} else {if matches!(t, Tile::Dug | Tile::Numbered(_)) { 2 } else { 0 }});
             let tile_base = spritesheet::minefield_tile(
-                if self.explosion_floodfill_frontier.iter().filter(|s| s.1 == i).count() != 0 { 12 }
-                else { 0 }
-            );
+                if self.exploded_bombs.contains(&i) {15}
+                else if self.game.bombs().contains(&i) && self.game.state() == GameState::Lose {14}
+                else {if matches!(t, Tile::Dug | Tile::Numbered(_)) { 2 } else { 0 }});
+            // let tile_base = spritesheet::minefield_tile(
+            //     if self.explosion_floodfill_frontier.iter().filter(|s| s.1 == i).count() != 0 { 12 }
+            //     else { 0 });
             renderer.draw(DrawShape::image(pos.x, pos.y, tile_base, None));
         }
 

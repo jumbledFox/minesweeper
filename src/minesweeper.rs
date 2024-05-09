@@ -1,6 +1,8 @@
 // A nice 'black box' game of minesweeper.
 // Only handles minesweeper logic and is separate to any rendering or inputs and whatnot.
 
+use std::collections::HashSet;
+
 use macroquad::rand::ChooseRandom;
 
 const NEIGHBOUR_OFFSETS: &[(isize, isize)] = &[
@@ -74,7 +76,7 @@ pub struct Minesweeper {
     bomb_count: usize,
 
     board: Vec<Tile>,
-    bombs: Vec<usize>,
+    bombs: HashSet<usize>,
 
     state: GameState,
     turns: usize,
@@ -93,7 +95,7 @@ impl Minesweeper {
 
             board: vec![Tile::Unopened; width * height],
             // 'bombs' is only populated after the first move (to make sure the 3*3 area at the first dig is safe). For now it's empty
-            bombs: Vec::with_capacity(bomb_count),
+            bombs: HashSet::with_capacity(bomb_count),
             
             state: GameState::Playing,
             turns: 0,
@@ -108,8 +110,8 @@ impl Minesweeper {
     pub fn height(&self)     -> usize { self.height }
     pub fn bomb_count(&self) -> usize { self.bomb_count }
 
-    pub fn board(&self) -> &Vec<Tile>  { &self.board }
-    pub fn bombs(&self) -> &Vec<usize> { &self.bombs }
+    pub fn board(&self) -> &Vec<Tile>      { &self.board }
+    pub fn bombs(&self) -> &HashSet<usize> { &self.bombs }
 
     pub fn state(&self) -> GameState    { self.state }
     pub fn turns(&self) -> usize        { self.turns }
@@ -132,8 +134,9 @@ impl Minesweeper {
             .filter(|&i| !safe_positions.contains(&i))
             .collect();
         possible_positions.shuffle();
+        possible_positions.truncate(self.bomb_count);
 
-        self.bombs = possible_positions[..self.bomb_count()].to_vec();
+        self.bombs = HashSet::from_iter(possible_positions);
     }
 
     pub fn diggable(&mut self, index: usize) -> bool {
