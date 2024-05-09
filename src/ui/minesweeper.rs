@@ -24,7 +24,7 @@ pub struct MinesweeperElement {
 
 impl MinesweeperElement {
     pub fn new() -> MinesweeperElement {
-        let difficulty = Difficulty::Easy;
+        let difficulty = Difficulty::custom(200, 100, 18000).unwrap();
 
         MinesweeperElement {
             game: Minesweeper::new(difficulty),
@@ -107,10 +107,10 @@ impl MinesweeperElement {
 
     fn explode_bombs(&mut self) {
         self.explosion_timer += macroquad::time::get_frame_time();
-        // if self.explosion_timer < 0.5 {
-        //     return;
-        // } 
-        // self.explosion_timer = 0.0;
+        if self.explosion_timer < 0.1 {
+            return;
+        } 
+        self.explosion_timer = 0.0;
 
         for (d, i) in &self.explosion_floodfill_frontier {
             // If a bomb is here, add it to the exploded bombs
@@ -118,39 +118,11 @@ impl MinesweeperElement {
                 self.exploded_bombs.push(*i);
             }
             // The first two bits represent the direction
-            let dir = d & 0b11;
-            MinesweeperElement::explosion_floodfill_buffer_add(&mut self.explosion_floodfill_buffer, *i, dir, self.game.width(), self.game.height());
+            MinesweeperElement::explosion_floodfill_buffer_add(&mut self.explosion_floodfill_buffer, *i, *d, self.game.width(), self.game.height());
             // If the third bit is set, it's one of the initial guys and should add another one or something idk how to explain it
             if d & 0b100 == 0b100 {
-                MinesweeperElement::explosion_floodfill_buffer_add(&mut self.explosion_floodfill_buffer, *i, (dir+1)%4, self.game.width(), self.game.height());
+                MinesweeperElement::explosion_floodfill_buffer_add(&mut self.explosion_floodfill_buffer, *i, (d+1)%4, self.game.width(), self.game.height());
             }
-
-
-            // let offset = NEIGHBOURS[n as usize];
-            // let index = match get_index_from_offset(*i, offset.0, offset.1, self.game.width(), self.game.height()) {
-            //     Some(ind) => ind,
-            //     None => continue,
-            // };
-            // self.explosion_floodfill_buffer.push((0, index));
-            // for n in to_add {
-            //     let offset = NEIGHBOURS[n];
-            //     let index = match get_index_from_offset(*i, offset.0, offset.1, self.game.width(), self.game.height()) {
-            //         Some(n) => n,
-            //         None => continue,
-            //     };
-            //     self.explosion_floodfill_buffer.push((0, index))
-            // }
-
-            // TODO: give a direction and only add that, this sucks
-            // So each direction only adds it plus the next one, e.g. one moving up only adds 
-            // Add all of the neighbours to the buffer
-            // for n in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
-            //     let neighbour_index = match get_index_from_offset(i, n.0, n.1, self.game.width(), self.game.height()) {
-            //         Some(n) => n,
-            //         None => continue,
-            //     };
-            //     self.explosion_floodfill_buffer.push(neighbour_index);
-            // }
         }
         self.explosion_floodfill_buffer.sort_unstable();
         self.explosion_floodfill_buffer.dedup();
@@ -176,7 +148,7 @@ impl MinesweeperElement {
             Some(i) => i,
             None => return,
         };
-        buffer.push((dir%4, new_index));
+        buffer.push((dir, new_index));
     }
 
     pub fn minimum_area_size(&self) -> Vec2 {
@@ -238,6 +210,10 @@ impl MinesweeperElement {
                 _ => (),
             }
             let tile_base = spritesheet::minefield_tile(if self.exploded_bombs.contains(&i) {15} else {if matches!(t, Tile::Dug | Tile::Numbered(_)) { 2 } else { 0 }});
+            let tile_base = spritesheet::minefield_tile(
+                if self.explosion_floodfill_frontier.iter().filter(|s| s.1 == i).count() != 0 { 12 }
+                else { 0 }
+            );
             renderer.draw(DrawShape::image(pos.x, pos.y, tile_base, None));
         }
 
