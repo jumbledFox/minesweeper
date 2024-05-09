@@ -1,13 +1,13 @@
-use macroquad::{color::{Color, WHITE}, math::{vec2, Rect}, shapes::draw_rectangle, texture::{draw_texture_ex, DrawTextureParams, FilterMode, Texture2D}};
+use macroquad::{color::{Color, WHITE}, math::{vec2, Rect, Vec2}, shapes::draw_rectangle, texture::{draw_texture_ex, DrawTextureParams, FilterMode, Texture2D}};
 
-use self::text_renderer::TextRenderer;
+use self::text_renderer::{Caret, TextRenderer};
 
 use super::{menubar::Menubar, spritesheet::{self, Nineslice}, state::State, Round};
 
 pub mod text_renderer;
 
 pub enum DrawShape {
-    Text { x: f32, y: f32, text: String, line_gap: Option<f32>, caret_pos: Option<usize>, color: Color },
+    Text { x: f32, y: f32, text: String, line_gap: Option<f32>, caret: Option<Caret>, click_pos: Option<Vec2>, color: Color },
     Rect { x: f32, y: f32, w: f32, h: f32, color: Color },
     Image { x: f32, y: f32, source: Rect, color: Color },
     ImageRect { dest: Rect, source: Rect, color: Color },
@@ -16,8 +16,8 @@ pub enum DrawShape {
 }
 
 impl DrawShape {
-    pub fn text(x: f32, y: f32, text: String, line_gap: Option<f32>, caret_pos: Option<usize>, color: Color) -> Self {
-        Self::Text { x, y, text, line_gap, caret_pos, color }
+    pub fn text(x: f32, y: f32, text: String, line_gap: Option<f32>, caret: Option<Caret>, click_pos: Option<Vec2>, color: Color) -> Self {
+        Self::Text { x, y, text, line_gap, caret, click_pos, color }
     }
     pub fn rect(rect: Rect, color: Color) -> Self {
         Self::Rect { x: rect.x, y: rect.y, w: rect.w, h: rect.h, color }
@@ -48,6 +48,7 @@ pub struct Renderer {
     pub text_renderer: TextRenderer,
     pub draw_queue: Vec<DrawShape>,
     pub caret_timer: f32,
+    pub text_click_pos: Option<usize>,
 }
 
 impl Renderer {
@@ -59,6 +60,7 @@ impl Renderer {
             text_renderer: TextRenderer::new(),
             draw_queue: Vec::new(),
             caret_timer: 0.0,
+            text_click_pos: None,
         }
     }
 
@@ -92,15 +94,19 @@ impl Renderer {
         if state.pixel_perfect() {
             self.draw_queue.iter_mut().for_each(|d| d.round());
         }
+        self.text_click_pos = None;
         for draw_shape in self.draw_queue.iter().rev() {
-            self.draw_shape(&draw_shape);
+            let t = self.draw_shape(&draw_shape);
+            if self.text_click_pos == None {
+                self.text_click_pos = t;
+            }
         }
     }
 
-    fn draw_shape(&self, draw_shape: &DrawShape) {
+    fn draw_shape(&self, draw_shape: &DrawShape) -> Option<usize> {
         match &draw_shape {
-            &DrawShape::Text { x, y, text, line_gap, caret_pos, color } => 
-                self.text_renderer.draw_text(text, if self.caret_timer < 0.5 {*caret_pos} else {None}, *x, *y, *color, *line_gap),
+            &DrawShape::Text { x, y, text, line_gap, caret, click_pos, color } =>
+                return self.text_renderer.draw_text(text, if self.caret_timer < 0.5 {*caret} else {None}, *click_pos, *x, *y, *color, *line_gap),
             &DrawShape::Rect { x, y, w, h, color } => draw_rectangle(*x, *y, *w, *h, *color),
             &DrawShape::Image { x, y, source, color } => {
                 let params = DrawTextureParams {
@@ -131,6 +137,7 @@ impl Renderer {
                 }
             },
         }
+        None
     }
 }
 

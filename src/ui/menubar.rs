@@ -70,7 +70,7 @@ impl Menubar {
         
         let colors = spritesheet::menubar_colors(self.item_current == Some(id) || state.hot_item == id);
 
-        renderer.draw(super::renderer::DrawShape::text(rect.x + 2.0, rect.y + 1.0, text, None, None, colors.1));
+        renderer.draw(super::renderer::DrawShape::text(rect.x + 2.0, rect.y + 1.0, text, None, None, None, colors.1));
         renderer.draw(super::renderer::DrawShape::rect(rect, colors.0));
 
         self.item_current == Some(id)
@@ -135,7 +135,7 @@ impl Menubar {
                 color: colors.1,
             })
         }
-        renderer.draw(super::renderer::DrawShape::text(rect.x + 7.0, rect.y + 2.0, text, None, None, colors.1 ));
+        renderer.draw(super::renderer::DrawShape::text(rect.x + 7.0, rect.y + 2.0, text, None, None, None, colors.1 ));
         renderer.draw(super::renderer::DrawShape::rect(rect, colors.0));
 
         released

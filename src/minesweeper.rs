@@ -227,7 +227,7 @@ pub enum SetFlagMode {
     Toggle, Flag, Remove
 }
 
-fn get_index_from_offset(index: usize, x_offset: isize, y_offset: isize,  width: usize, height: usize) -> Option<usize> {
+pub fn get_index_from_offset(index: usize, x_offset: isize, y_offset: isize,  width: usize, height: usize) -> Option<usize> {
     let x = match (index % width).checked_add_signed(x_offset) {
         Some(x) if x < width => x,
         _ => return None,

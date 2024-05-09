@@ -85,11 +85,6 @@ async fn main() {
         ui.menubar.finish(&mut ui.state, &mut ui.renderer);
 
         ui.popups.update(&mut ui.state, &ui.menubar, &mut ui.renderer);
-        for p in ui.popups.returns() {
-            match p {
-                &PopupReturn::NewGame { difficulty } => ui.minesweeper_element.new_game(difficulty)
-            }
-        }
 
         // Draw the minesweeper below the menubar
         let minesweeper_area = Rect::new(0.0, ui.menubar.height(), ui.state.screen_size().x, ui.state.screen_size().y - ui.menubar.height());
@@ -101,6 +96,13 @@ async fn main() {
                 ui.popups.add(PopupKind::Exit, &mut ui.state);
             } else {
                 order_quit();
+            }
+        }
+
+        // Updating popups, done at the end to prevent flicker
+        for p in ui.popups.returns() {
+            match p {
+                &PopupReturn::NewGame { difficulty } => ui.minesweeper_element.new_game(difficulty)
             }
         }
         // Making a new game

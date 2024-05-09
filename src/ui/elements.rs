@@ -1,6 +1,6 @@
 use macroquad::{color::Color, input::{clear_input_queue, get_char_pressed}, math::{vec2, Rect, Vec2}};
 
-use super::{renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, Id, State}};
+use super::{renderer::{text_renderer::Caret, DrawShape, Renderer}, spritesheet, state::{ButtonState, Id, State}};
 
 pub enum Align {
     // TODO: Maybe these names aren't that good
@@ -41,14 +41,14 @@ pub fn centered_rect(x: f32, y: f32, w: f32, h: f32) -> Rect {
 pub fn text(text: String, line_gap: Option<f32>, color: Color, x: Align, y: Align, renderer: &mut Renderer) {
     let size = renderer.text_renderer.text_size(&text, line_gap);
     let rect = aligned_rect(x, y, size.x, size.y);
-    renderer.draw(DrawShape::text(rect.x, rect.y, text, line_gap, None, color));
+    renderer.draw(DrawShape::text(rect.x, rect.y, text, line_gap, None, None, color));
 }
 
 pub fn url(id: Id, text: String, url: String, line_gap: Option<f32>, x: Align, y: Align, state: &mut State, renderer: &mut Renderer) {
     let size = renderer.text_renderer.text_size(&text, line_gap);
     let rect = aligned_rect(x, y, size.x, size.y);
     let underline = Rect::new(rect.x, rect.y + rect.h - 1.0, rect.w, 1.0);
-    renderer.draw(DrawShape::text(rect.x, rect.y, text, line_gap, None, spritesheet::URL_TEXT));
+    renderer.draw(DrawShape::text(rect.x, rect.y, text, line_gap, None, None, spritesheet::URL_TEXT));
     renderer.draw(DrawShape::rect(underline, spritesheet::URL_TEXT));
 
     if state.button_state(id, state.mouse_in_rect(rect), false, false).released() {
@@ -84,7 +84,7 @@ pub fn button_text(id: Id, text: String, x: Align, y: Align, disabled: bool, sta
     };
 
     let rect = rect.offset(Vec2::splat(offset));
-    renderer.draw(DrawShape::text(rect.x + 3.0, rect.y + 2.0, text, None, None, text_col));
+    renderer.draw(DrawShape::text(rect.x + 3.0, rect.y + 2.0, text, None, None, None, text_col));
     renderer.draw(DrawShape::nineslice(rect, source));
 
     button_state
@@ -103,13 +103,10 @@ pub fn text_field(id: Id, x: Align, y: Align, w: f32, text: &mut String, hint: S
     let rect = aligned_rect(x, y, w, h);
     let button_state = state.button_state(id, state.mouse_in_rect(rect), false, false);
 
-    if button_state == ButtonState::Clicked {
-        state.text_field = Some(id);
-        // TODO: Set caret to where we clicked
-        clear_input_queue();
-    }
-
     if state.text_field.is_some_and(|i| i == id) {
+        if let Some(click_pos) = renderer.text_click_pos {
+            state.caret = click_pos;
+        }
         state.caret = text.len().min(state.caret);
         let mut reset_flash = true;
         match get_char_pressed() {
@@ -129,18 +126,24 @@ pub fn text_field(id: Id, x: Align, y: Align, w: f32, text: &mut String, hint: S
         if reset_flash {
             renderer.caret_timer = 0.0;
         }
-        // TODO: Draw caret at correct position
-        // renderer.draw(DrawShape::text_caret(rect.x + 2.0 + renderer.text_renderer.caret_pos(&text, None, state.caret).x, rect.y + 2.0, spritesheet::BUTTON_TEXT));
     }
-
     let caret = match state.text_field {
-        Some(i) if i == id => Some(state.caret),
+        Some(i) if i == id => Some(Caret { index: state.caret, color: spritesheet::BUTTON_TEXT }),
+        _ => None,
+    };
+    // Doing this down here gives a frame of delay... but.... it works! Plus it's an immediate mode gui so delays are a given
+    let click_pos = match button_state {
+        ButtonState::Clicked => { 
+            state.text_field = Some(id);
+            clear_input_queue();
+            Some(state.mouse_pos())
+        },
         _ => None,
     };
     if text.is_empty() {
-        renderer.draw(DrawShape::text(rect.x + 2.0, rect.y + 2.0, hint, None, caret, spritesheet::BUTTON_TEXT_DISABLED));
+        renderer.draw(DrawShape::text(rect.x + 2.0, rect.y + 2.0, hint, None, caret, click_pos, spritesheet::BUTTON_TEXT_DISABLED));
     } else {
-        renderer.draw(DrawShape::text(rect.x + 2.0, rect.y + 2.0, text.clone(), None, caret, spritesheet::BUTTON_TEXT));
+        renderer.draw(DrawShape::text(rect.x + 2.0, rect.y + 2.0, text.clone(), None, caret, click_pos, spritesheet::BUTTON_TEXT));
     }
     renderer.draw(DrawShape::nineslice(rect, spritesheet::input_field(false)));
 }

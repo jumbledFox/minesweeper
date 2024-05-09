@@ -38,8 +38,15 @@ pub struct TextRenderer {
     chars_texture: Texture2D,
     // For each character, where it starts and how wide it is
     char_map: HashMap<char, (f32, f32)>,
-    
     error_char: char,
+}
+
+
+// Some of the code for carets and finding out where the user clicked is a bit messy, but it works nicely.
+#[derive(Clone, Copy)]
+pub struct Caret {
+    pub index: usize,
+    pub color: Color,
 }
 
 impl TextRenderer {
@@ -57,109 +64,66 @@ impl TextRenderer {
         self.chars_texture.height() + line_gap.unwrap_or(1.0)
     }
 
-    pub fn char_exists(&self, c: char) -> bool {
-        self.char_map.contains_key(&c)
-    }
-
-    // Gets the start and width of a c (or the error character if 'c' isn't in the CHAR_MAP)
+    // Gets the start and width of a char
     pub fn character_values(&self, c: char) -> (f32, f32) {
         match self.char_map.get(&c) {
             Some(c) => *c,
-            None => *self.char_map.get(&self.error_char).expect("ERROR_CHAR not a key in CHAR_MAP! you fool :P")
+            None => *self.char_map.get(&self.error_char).unwrap_or(&(0.0, 0.0))
         }
     }
 
     // TODO: Think about how and when I use AsRef<str> in this and other parts of the code.
     // https://www.reddit.com/r/learnrust/comments/14s0k5x/using_asrefstr_as_ref_and_to_owned/
-    pub fn draw_text(&self, text: &String, caret_pos: Option<usize>, x: f32, y: f32, color: Color, line_gap: Option<f32>) {
-        let characters: Vec<(Vec2, Rect)> = text
-            .chars()
-            .map(|c| (c, self.character_values(c)))
-            .map(|(c, (start, width))| (c, Rect::new(start, 0.0, width, self.chars_texture.height())))
-            .scan((Vec2::default(), Rect::default()), |(pos, _), (c, source)| {
-                if c == '\n' {
-                    *pos = Vec2::new(0.0, pos.y + self.line_gap(line_gap));
+    pub fn draw_text(&self, text: &String, caret: Option<Caret>, click_pos: Option<Vec2>, x: f32, y: f32, color: Color, line_gap: Option<f32>) -> Option<usize> {
+        let mut caret_pos = None;
+        let mut pos = Vec2::new(x, y);
+        let mut last_pos;
+        let mut clicked = None;
+        for (i, c) in text.chars().enumerate() {
+            last_pos = pos;
+            if c == '\n' {
+                pos = vec2(x, pos.y + self.line_gap(line_gap));
+                // continue;
+            }
+            if caret.is_some_and(|c| c.index == i) {
+                caret_pos = Some(pos);
+            }
+            let (start, width) = self.character_values(c);
+            let params = DrawTextureParams {
+                source: Some(Rect::new(start, 0.0, width, 6.0)),
+                ..Default::default()
+            };
+            draw_texture_ex(&self.chars_texture, pos.x, pos.y, color, params);
+            pos.x += width;
+            match (click_pos, clicked) {
+                (Some(click_pos), None) => {
+                    if click_pos.x < pos.x {
+                        clicked = match pos.x - click_pos.x - 1.5 < click_pos.x - last_pos.x {
+                            true  => Some(i+1),
+                            false => Some(i),
+                        };
+                    }
                 }
-                let s = Some((*pos, source));
-                pos.x += source.w;
-                s
-            })
-            .collect();
-
-        for (pos, source) in &characters {
-            draw_texture_ex(
-                &self.chars_texture,
-                x + pos.x,
-                y + pos.y,
-                color,
-                DrawTextureParams {
-                    source: Some(*source),
-                    ..Default::default()
-                },
-            );
+                _ => ()
+            }
+        }
+        if clicked.is_none() && click_pos.is_some() {
+            clicked = Some(text.len());
+        }
+        if caret.is_some_and(|c| c.index == text.len()) {
+            caret_pos = Some(pos);
         }
 
         if let Some(caret_pos) = caret_pos {
-            // TODO: make this cleaner
-            let (s, w) = self.character_values('|');
-            let caret_source = Rect::new(s, 0.0, w, self.chars_texture.height());
-            let p = match characters.get(caret_pos) {
-                Some((p, _)) => Some(p),
-                // TODO: Get last one and then add the width or something
-                // None if caret_pos == characters.len() => {
-                //     match text.chars().last() {
-                //         Some(c) => {
-                //             let (s, w) = self.character_values(c);
-
-                //             None
-                //         },
-                //         None => None,
-                //     } 
-                // }
-                None => None,
+            let (start, width) = self.character_values('|');
+            let params = DrawTextureParams {
+                source: Some(Rect::new(start, 0.0, width, 6.0)),
+                ..Default::default()
             };
-            if let Some(p) = p {
-                draw_texture_ex(
-                    &self.chars_texture,
-                    x + (p.x - 1.0).max(0.0),
-                    y + p.y,
-                    color,
-                    DrawTextureParams {
-                        source: Some(caret_source),
-                        ..Default::default()
-                    },
-                );
-            }
+            draw_texture_ex(&self.chars_texture, (caret_pos.x-1.0).max(x), caret_pos.y, caret.unwrap().color, params);
         }
 
-
-        // for c in text.chars() {
-        //     if c == '\n' {
-        //         x_pos = 0.0;
-        //         y_pos += self.line_gap(line_gap);
-        //         continue;
-        //     }
-
-        //     let (start, width) = self.character_values(c);
-
-        //     draw_texture_ex(
-        //         &self.chars_texture,
-        //         x + x_pos,
-        //         y + y_pos,
-        //         color,
-        //         DrawTextureParams {
-        //             source: Some(Rect::new(start, 0.0, width, 6.0)),
-        //             ..Default::default()
-        //         },
-        //     );
-        //     x_pos += width;
-        // }
-    }
-
-    pub fn caret_pos(&self, text: &String, line_gap: Option<f32>, caret: usize) -> Vec2 {
-        let caret = caret.max(text.len());
-
-        Vec2::new(1.0, 1.0)
+        clicked
     }
 
     pub fn text_size(&self, text: &String, line_gap: Option<f32>) -> Vec2 {
