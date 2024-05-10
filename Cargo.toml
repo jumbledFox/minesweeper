@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+indexmap = "2.2.6"
 macroquad = { version = "0.4.5", features = ["audio"]}
 webbrowser = "1.0.0"
 

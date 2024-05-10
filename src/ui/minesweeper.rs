@@ -2,6 +2,7 @@
 
 use std::collections::HashSet;
 
+use indexmap::IndexMap;
 use macroquad::{input::MouseButton, math::{vec2, Rect, Vec2}, time::get_frame_time};
 
 use crate::minesweeper::{get_index_from_offset, Difficulty, DifficultyValues, GameState, Minesweeper, SetFlagMode, Tile};
@@ -14,11 +15,9 @@ pub struct MinesweeperElement {
     timer: Option<f32>,
     flag_mode: Option<SetFlagMode>,
 
-    exploded_bombs: HashSet<usize>,
+    explosion_radius: f32,
+    explosion_bombs: IndexMap<usize, (f32, bool)>,
     explosion_timer: Option<f32>,
-
-    explosion_floodfill_frontier: Vec<(u8, usize)>,
-    explosion_floodfill_buffer:   Vec<(u8, usize)>,
     // Stores what the last custom input was for the popup
     custom_values: Option<DifficultyValues>,
     requesting_new_game: bool,
@@ -34,10 +33,9 @@ impl MinesweeperElement {
             timer: None,
             flag_mode: None,
 
-            exploded_bombs: HashSet::with_capacity(difficulty.values().bomb_count),
-            explosion_timer: None,
-            explosion_floodfill_frontier: vec![],
-            explosion_floodfill_buffer:   vec![],
+            explosion_radius: 0.0,
+            explosion_bombs:  IndexMap::new(),
+            explosion_timer:  None,
             
             custom_values: None,
             requesting_new_game: false,
@@ -69,7 +67,7 @@ impl MinesweeperElement {
             Difficulty::Custom(values) => self.custom_values = Some(values),
             _ => (),
         }
-        self.exploded_bombs = HashSet::with_capacity(self.game.bomb_count());
+        self.explosion_radius = 0.0;
         self.explosion_timer = None;
     }
 
@@ -109,49 +107,45 @@ impl MinesweeperElement {
     }
 
     fn explode_bombs_begin(&mut self, start_index: usize) {
-        self.explosion_timer = Some(-0.7);
-        // Add the initial thingies to the frontier with the right directions
-        self.explosion_floodfill_frontier = [(0b100, (0, 1)), (0b101, (1, 0)), (0b110, (0, -1)), (0b111, (-1, 0))]
-            .iter()
-            .flat_map(|(bits, dir)| get_index_from_offset(start_index, dir.0, dir.1, self.game.width(), self.game.height()).map(|i| (*bits, i)))
-            .collect();
-        self.explosion_floodfill_buffer.clear();
-        self.exploded_bombs = HashSet::from([start_index]);
+        let index_to_coord = |index: usize| {(
+            (index % self.game.width())  as f32,
+            (index / self.game.height()) as f32
+        )};
+        // Calculate all of the bombs distances to the center
+        let (center_x, center_y) = index_to_coord(start_index);
+        let mut bomb_distances: Vec<(usize, f32)> = Vec::with_capacity(self.game.bomb_count());
+        for bomb_index in self.game.bombs() {
+            let (x, y) = index_to_coord(*bomb_index);
+            // a^2 + b^2 = c^2, thanks Pythagoras
+            let squared_distance = (center_x - x).powi(2) + (center_y - y).powi(2);
+            bomb_distances.push((*bomb_index, squared_distance));
+        }
+        // Sort them by distance
+        // bomb_distance_values.sort_by(|(_, a, _), (_, b, _)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Less));
+        bomb_distances.sort_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap());
+
+        // Add all of the sorted values to an ordered hashmap
+        self.explosion_bombs = IndexMap::with_capacity(bomb_distances.len());
+        for (bomb_index, squared_distance) in bomb_distances {
+            self.explosion_bombs.insert(bomb_index, (squared_distance, false));
+        }
     }
-    // TODO: Think about making it a circle with maths
     fn explode_bombs(&mut self) {
-        // If we've exploded all of the bombs... ¯\_(ツ)_/¯
-        if self.exploded_bombs.len() >= self.game.bombs().len() {
-            return;
+        // TODO: Move at a given rate, rather than x spaces a second
+        self.explosion_radius += macroquad::time::get_frame_time() * 5.0;
+        let squared_radius = self.explosion_radius.powi(2);
+
+        // TODO: Maybe iterate over a slice from the first non-exploded bomb?
+        for (_, (squared_distance, exploded)) in &mut self.explosion_bombs {
+            // If we've already exploded this bomb, don't do anything
+            if *exploded { continue; }
+            match squared_radius > *squared_distance {
+                // If this bomb is inside the circle, make it explode 
+                true  => *exploded = true,
+                // Otherwise, it's outside, so all of the next ones are outisde, so stop!!
+                false => break,
+            };
         }
-        match self.explosion_timer.as_mut() {
-            Some(t) if *t > 0.01 => { *t = 0.0 }
-            Some(t) => { *t += get_frame_time(); return; }
-            None => return
-        }
-        // Offsets the index based on a direction and adds it to the explosion buffer
-        // God I FUCKING LOVE RUST.
-        let mut buffer_add = |index: usize, dir: u8| {
-            const NEIGHBOURS: &[(isize, isize)] = &[(0, 1), (1, 0), (0, -1), (-1, 0)];
-            let offset = NEIGHBOURS[dir as usize % 4];
-            let Some(new_index) = get_index_from_offset(index, offset.0, offset.1, self.game.width(), self.game.height()) else { return };
-            self.explosion_floodfill_buffer.push((dir, new_index));
-        };
-        // Do the actual flood fill
-        for (d, i) in &self.explosion_floodfill_frontier {
-            // If a bomb is here, add it to the exploded bombs
-            if self.game.bombs().contains(&i) {
-                self.exploded_bombs.insert(*i);
-            }
-            // The first two bits represent the direction
-            buffer_add(*i, *d);
-            // If the third bit is set, it's one of the initial ones and should add another of the next direction to make the pattern grow out
-            if d & 0b100 == 0b100 {
-                // Doing % 4 both wraps it around and makes sure the third bit isn't set, to make these ones not grow out.
-                buffer_add(*i, (d+1)%4);
-            }
-        }
-        self.explosion_floodfill_frontier = std::mem::take(&mut self.explosion_floodfill_buffer);
     }
 
     pub fn minimum_area_size(&self) -> Vec2 {
@@ -212,8 +206,15 @@ impl MinesweeperElement {
                 _ => (),
             }
             let tile_base = spritesheet::minefield_tile(
-                if self.exploded_bombs.contains(&i) {15}
-                else if self.game.bombs().contains(&i) && self.game.state() == GameState::Lose {14}
+                // if self.exploded_bombs.contains(&i) {15}
+                // if self.game.bombs().contains(&i) && self.game.state() == GameState::Lose {14}
+                if self.game.state() == GameState::Lose {
+                    match self.explosion_bombs.get(&i) {
+                        Some((_, exploded)) => if *exploded { 15 } else { 14 }
+                        None => if matches!(t, Tile::Dug | Tile::Numbered(_)) { 2 } else { 0 }
+                    }
+                }
+
                 else {if matches!(t, Tile::Dug | Tile::Numbered(_)) { 2 } else { 0 }});
             // let tile_base = spritesheet::minefield_tile(
             //     if self.explosion_floodfill_frontier.iter().filter(|s| s.1 == i).count() != 0 { 12 }
