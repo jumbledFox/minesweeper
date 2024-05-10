@@ -1,9 +1,8 @@
-use macroquad::{color::Color, input::{clear_input_queue, get_char_pressed}, math::{vec2, Rect, Vec2}};
+use macroquad::{color::Color, input::{clear_input_queue, get_char_pressed, get_last_key_pressed, is_key_down, KeyCode}, math::{vec2, Rect, Vec2}};
 
 use super::{renderer::{text_renderer::Caret, DrawShape, Renderer}, spritesheet, state::{ButtonState, Id, State}};
 
 pub enum Align {
-    // TODO: Maybe these names aren't that good
     Beg(f32), Mid(f32), End(f32),
 }
 
@@ -90,12 +89,12 @@ pub fn button_text(id: Id, text: String, x: Align, y: Align, disabled: bool, sta
     button_state
 }
 
-// TODO: Rethink textfieldkind
+// TODO: Text fields aren't the best but they work
 pub enum TextFieldKind {
     Digits{min: usize, max: usize},
 }
 
-pub fn text_field(id: Id, x: Align, y: Align, w: f32, text: &mut String, hint: String, kind: TextFieldKind, max_chars: usize, state: &mut State, renderer: &mut Renderer) {
+pub fn text_field(id: Id, x: Align, y: Align, w: f32, text: &mut String, hint: String, kind: TextFieldKind, prev: Option<Id>, next: Option<Id>, max_chars: usize, state: &mut State, renderer: &mut Renderer) {
     let lines = match kind {
         TextFieldKind::Digits {..} => 1,
     };
@@ -103,6 +102,7 @@ pub fn text_field(id: Id, x: Align, y: Align, w: f32, text: &mut String, hint: S
     let rect = aligned_rect(x, y, w, h);
     let button_state = state.button_state(id, state.mouse_in_rect(rect), false, false);
 
+    let mut new_id = None;
     if state.text_field.is_some_and(|i| i == id) {
         if let Some(click_pos) = renderer.text_click_pos {
             state.caret = click_pos;
@@ -110,16 +110,24 @@ pub fn text_field(id: Id, x: Align, y: Align, w: f32, text: &mut String, hint: S
         state.caret = text.len().min(state.caret);
         let mut reset_flash = true;
         match get_char_pressed() {
-            // Left
-            Some('\u{f050}') => state.caret = state.caret.saturating_sub(1).min(text.len()),
-            // Right
-            Some('\u{f04f}') => state.caret = state.caret.saturating_add(1).min(text.len()),
-            // Backspace
-            Some('\u{f02a}') if state.caret > 0 => {state.caret -= 1; text.remove(state.caret);}
-            // Delete
-            Some('\u{f04c}') if state.caret < text.len() => {text.remove(state.caret);}
             Some(c) if matches!(kind, TextFieldKind::Digits{..}) && text.len() < max_chars => {
                 if c.is_digit(10) { text.insert(state.caret, c); state.caret += 1; }
+            }
+            _ => {}
+        }
+        // TODO: These don't repeat when held!!!!
+        match get_last_key_pressed() {
+            // Left
+            Some(KeyCode::Left)  => state.caret = state.caret.saturating_sub(1).min(text.len()),
+            // Right
+            Some(KeyCode::Right) => state.caret = state.caret.saturating_add(1).min(text.len()),
+            // Backspace
+            Some(KeyCode::Backspace) if state.caret > 0 => {state.caret -= 1; text.remove(state.caret);}
+            // Delete
+            Some(KeyCode::Delete) if state.caret < text.len() => {text.remove(state.caret);}
+            Some(KeyCode::Tab) if !state.tabbed => {
+                new_id = if is_key_down(KeyCode::LeftShift) {prev} else {next};
+                state.tabbed = true;
             }
             _ => reset_flash = false,
         }
@@ -146,4 +154,8 @@ pub fn text_field(id: Id, x: Align, y: Align, w: f32, text: &mut String, hint: S
         renderer.draw(DrawShape::text(rect.x + 2.0, rect.y + 2.0, text.clone(), None, caret, click_pos, spritesheet::BUTTON_TEXT));
     }
     renderer.draw(DrawShape::nineslice(rect, spritesheet::input_field(false)));
+
+    if new_id.is_some() {
+        state.text_field = new_id;
+    }
 }

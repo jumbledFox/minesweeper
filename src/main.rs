@@ -8,7 +8,6 @@ pub mod minesweeper;
 fn window_conf() -> Conf {
     Conf {
         window_title: String::from("Minesweeper"),
-        // TODO: Default window size
         high_dpi: true,
         ..Default::default()
     }
@@ -20,7 +19,7 @@ async fn main() {
     // Seed the random generation
     macroquad::rand::srand(macroquad::miniquad::date::now() as _);
 
-    let mut ui = Ui::new();
+    let mut ui = Ui::new().await;
 
     loop {
         let mut quit = is_quit_requested();
@@ -89,6 +88,12 @@ async fn main() {
         // Draw the minesweeper below the menubar
         let minesweeper_area = Rect::new(0.0, ui.menubar.height(), ui.state.screen_size().x, ui.state.screen_size().y - ui.menubar.height());
         ui.minesweeper_element.update(minesweeper_area, &mut ui.state, &mut ui.renderer);
+        // Winning popup
+        if ui.minesweeper_element.won_this_frame() {
+            ui.popups.add(PopupKind::Win, &mut ui.state);
+            ui.minesweeper_element.win_sound();
+        }
+
         // Quiting
         if quit {
             if ui.minesweeper_element.game_in_progress() {

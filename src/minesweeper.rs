@@ -5,7 +5,7 @@ use std::collections::HashSet;
 
 use macroquad::rand::ChooseRandom;
 
-const NEIGHBOUR_OFFSETS: &[(isize, isize)] = &[
+pub const NEIGHBOUR_OFFSETS: &[(isize, isize)] = &[
     (-1,  1), (0,  1), (1,  1),
     (-1,  0),          (1,  0),
     (-1, -1), (0, -1), (1, -1),
@@ -144,11 +144,10 @@ impl Minesweeper {
         && self.board.get(index).is_some_and(|t| *t == Tile::Unopened)
     }
 
-    // Digs at a position, returns the tile iterations
-    // TODO: Chording !!
-    pub fn dig(&mut self, index: usize) -> bool {
+    // Digs at a position
+    pub fn dig(&mut self, index: usize) {
         if !self.diggable(index) {
-            return false;
+            return;
         }
         if self.turns == 0 {
             self.populate_board(index);
@@ -158,7 +157,7 @@ impl Minesweeper {
         // We dug a bomb! lose the game and return :c
         if self.bombs.contains(&index) {
             self.state = GameState::Lose;
-            return true;
+            return;
         }
 
         // Floodfill digging algorithm
@@ -205,24 +204,57 @@ impl Minesweeper {
         if game_won {
             self.state = GameState::Win;
         }
-        true
     }
 
-    // Flags / unflags, returns true if something happened
-    pub fn set_flag(&mut self, flag_mode: SetFlagMode, index: usize) -> bool {
+    // Returns if a bomb was in the chord
+    pub fn chord(&mut self, index: usize) -> Option<usize> {
+        let neighbouring_bombs = match self.board().get(index) {
+            Some(Tile::Numbered(n)) if self.state() == GameState::Playing => *n as usize,
+            _ => return None,
+        };
+        let flagged_neighbour_count = NEIGHBOUR_OFFSETS
+            .iter()
+            .filter_map(|(x, y)| get_index_from_offset(index, *x, *y, self.width, self.height))
+            .filter(|index| matches!(self.board.get(*index), Some(Tile::Flag)))
+            .count();
+        // If the number of bombs is the same as the number flags adjacent to this tile, chord it!
+        if flagged_neighbour_count == neighbouring_bombs {
+            let diggable_neighbours: Vec<usize> = NEIGHBOUR_OFFSETS
+                .iter()
+                .filter_map(|(x, y)| get_index_from_offset(index, *x, *y, self.width, self.height))
+                .filter(|i| self.board.get(*i).is_some_and(|t| *t == Tile::Unopened))
+                .collect();
+            // If we're going to dig a bomb, dig only it and then return.
+            let bomb_index =  diggable_neighbours
+                .iter()
+                .filter(|i| self.bombs().contains(&i))
+                .next()
+                .cloned();
+            if let Some(b) = bomb_index {
+                self.dig(b);
+                return bomb_index;
+            }
+            for dig_index in &diggable_neighbours {
+                self.dig(*dig_index);
+            }
+        }
+        None
+    }
+
+    // Flags / unflags
+    pub fn set_flag(&mut self, flag_mode: SetFlagMode, index: usize) {
         if self.state != GameState::Playing {
-            return false;
+            return;
         }
         let tile = match self.board.get_mut(index) {
-            None => return false,
+            None => return,
             Some(t) => t,
         };
         match (&tile, flag_mode) {
             (Tile::Unopened, SetFlagMode::Toggle | SetFlagMode::Flag)   => *tile = Tile::Flag,
             (Tile::Flag,     SetFlagMode::Toggle | SetFlagMode::Remove) => *tile = Tile::Unopened,
-            _ => return false,
+            _ => (),
         }
-        true
     }
 }
 

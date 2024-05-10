@@ -1,9 +1,9 @@
 // A minesweeper ui element
 
 use indexmap::IndexMap;
-use macroquad::{input::MouseButton, math::{vec2, Rect, Vec2}};
+use macroquad::{audio::{play_sound, PlaySoundParams, Sound}, input::MouseButton, math::{vec2, Rect, Vec2}};
 
-use crate::minesweeper::{Difficulty, DifficultyValues, GameState, Minesweeper, SetFlagMode, Tile};
+use crate::minesweeper::{get_index_from_offset, Difficulty, DifficultyValues, GameState, Minesweeper, SetFlagMode, Tile, NEIGHBOUR_OFFSETS};
 
 use super::{elements::{aligned_rect, button, Align}, hash_string, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, State}};
 
@@ -12,33 +12,49 @@ pub struct MinesweeperElement {
     difficulty: Difficulty,
     timer: Option<f32>,
     flag_mode: Option<SetFlagMode>,
-
+    chording: bool,
+    chorded: bool,
+    prev_state: GameState,
+    
     // Stuff to do with animation
     // TODO: Maybe add tile breaking animation ? :/
     losing_bomb: Option<usize>,
     explosion_radius: f32,
+    explosion_radius_grow_rate: f32,
     explosion_bombs: IndexMap<usize, (f32, bool)>,
     explosion_skip: usize,
+    explosion_sound: Option<Sound>,
+    explosion_sound_last: f32,
+    win_sound: Option<Sound>,
     // Stores what the last custom input was for the popup
     custom_values: Option<DifficultyValues>,
     requesting_new_game: bool,
 }
 
 impl MinesweeperElement {
-    pub fn new() -> MinesweeperElement {
+    pub async fn new() -> MinesweeperElement {
         let difficulty = Difficulty::Easy;
+        let explosion_sound = macroquad::audio::load_sound_from_bytes(include_bytes!("../../resources/explosion.ogg")).await.ok();
+        let win_sound       = macroquad::audio::load_sound_from_bytes(include_bytes!("../../resources/congrats.ogg")) .await.ok();
 
         MinesweeperElement {
             game: Minesweeper::new(difficulty),
             difficulty,
             timer: None,
             flag_mode: None,
-
+            chording: false,
+            chorded: false,
+            prev_state: GameState::Playing,
+            
             losing_bomb: None,
             explosion_radius: 0.0,
+            explosion_radius_grow_rate: 0.0,
             explosion_bombs:  IndexMap::new(),
             explosion_skip: 0,
-
+            explosion_sound,
+            explosion_sound_last: f32::MAX,
+            win_sound,
+            
             custom_values: None,
             requesting_new_game: false,
         }
@@ -73,6 +89,7 @@ impl MinesweeperElement {
         self.explosion_bombs.clear();
         self.explosion_radius = 0.0;
         self.explosion_skip = 0;
+        self.explosion_sound_last = f32::MAX;
     }
 
     // Area is the area where the minefield and the ui bar at the top will be drawn, it's NOT CLIPPED!
@@ -108,7 +125,6 @@ impl MinesweeperElement {
 
     // explode_bombs_begin() and explode_bombs() are my favourite functions in the whole game
     fn explode_bombs_begin(&mut self, start_index: usize) {
-        self.losing_bomb = Some(start_index);
         let index_to_coord = |index: usize| {(
             (index % self.game.width()) as f32,
             (index / self.game.width()) as f32
@@ -116,7 +132,7 @@ impl MinesweeperElement {
         // Calculate all of the bombs distances to the center
         let (center_x, center_y) = index_to_coord(start_index);
         let mut bomb_distances: Vec<(usize, f32)> = Vec::with_capacity(self.game.bomb_count());
-        for bomb_index in self.game.bombs() {
+        for bomb_index in self.game.bombs().iter().filter(|i| self.game.board().get(**i).is_some_and(|t| *t != Tile::Flag)) {
             let (x, y) = index_to_coord(*bomb_index);
             // a^2 + b^2 = c^2, thanks Pythagoras
             let squared_distance = (center_x - x).powi(2) + (center_y - y).powi(2);
@@ -129,21 +145,28 @@ impl MinesweeperElement {
             bomb_distances.iter()
                 .map(|(bomb_index, squared_distance)| (*bomb_index, (*squared_distance, false)))
         );
+        self.losing_bomb = Some(*self.explosion_bombs.keys().next().unwrap_or(&0));
+        // Expand at a rate depending on map size, this isn't the best equation but it works nicely with what I've tested
+        self.explosion_radius_grow_rate = (usize::max(self.game.width(), self.game.height()) as f32).sqrt() * 2.0;
     }
     fn explode_bombs(&mut self) {
+        // Don't do anything if explode_bombs_begin has been called for some reason.
+        if self.losing_bomb.is_none() {
+            return;
+        }
         // If we've exploded all of the bombs, we don't need to do anything more
         if self.explosion_skip == self.explosion_bombs.len() {
             return;
         }
-        // TODO: Maybe move at a rate depending on the map size
         // This makes it so the first bomb explodes, then after 0.7 seconds the rest explode
         let multiplier = match self.explosion_radius < 1.0 {
             true  => 1.0 / 0.7,
-            false => 20.0,
+            false => self.explosion_radius_grow_rate,
         };
         self.explosion_radius += macroquad::time::get_frame_time() * multiplier;
         let squared_radius = self.explosion_radius.powi(2);
 
+        let prev_skip = self.explosion_skip;
         // Iterate from the first non-exploded bomb
         let range = self.explosion_bombs.values_mut().skip(self.explosion_skip);
         for (squared_distance, exploded) in range {
@@ -153,6 +176,18 @@ impl MinesweeperElement {
                 // Otherwise, it's outside, meaning all of the ones after this are outisde, so stop!!
                 false => { break; },
             };
+        }
+
+        // If we've exploded at least one bomb, play the explosion sound!
+        self.explosion_sound_last += macroquad::time::get_frame_time();
+        if prev_skip != self.explosion_skip && self.explosion_sound_last > 0.1 {
+            self.explosion_sound_last = 0.0;
+            if let Some(explosion_sound) = &self.explosion_sound {
+                play_sound(&explosion_sound, PlaySoundParams {
+                    looped: false,
+                    volume: 0.3,
+                })
+            }
         }
     }
 
@@ -166,47 +201,86 @@ impl MinesweeperElement {
         vec2(self.game.width() as f32 * 9.0, self.game.height() as f32 * 9.0)
     }
 
+    pub fn won_this_frame(&self) -> bool {
+        self.prev_state == GameState::Playing && self.game.state() == GameState::Win
+    }
+
+    pub fn win_sound(&self) {
+        if let Some(win_sound) = &self.win_sound {
+            play_sound(&win_sound, PlaySoundParams::default())
+        }
+    }
+
     fn minefield(&mut self, x: Align, y: Align, min_y: f32, state: &mut State, renderer: &mut Renderer) {
         let size = self.minefield_size();
         let rect = aligned_rect(x, y, size.x, size.y);
         let rect = Rect::new(rect.x, rect.y.max(min_y), rect.w, rect.h);
 
+        self.prev_state = self.game.state();
+        
+        let mut chorded_tiles: Vec<usize> = Vec::with_capacity(9);
+
         if state.hot_item.assign_if_none_and(8008135, rect.contains(state.mouse_pos())) {
             let hovered_tile_coord = ((state.mouse_pos() - rect.point()) / 9.0).floor();
             let selected_tile = (hovered_tile_coord.y as usize * self.game.width() + hovered_tile_coord.x as usize).min(self.game.board().len()-1);
-            let selected_diggable = self.game.diggable(selected_tile);
+
+            // Chording
+            // If we were chording and now we've released a mouse button, chord! And also set the 'chorded' flag to true
+            let bomb_index = match self.chording && (state.mouse_released(MouseButton::Middle) || state.mouse_released(MouseButton::Left) || state.mouse_released(MouseButton::Right)) {
+                true  => {self.chorded = true; self.game.chord(selected_tile)},
+                false => None,
+            };
+            // Chording should only be true if right and left are held, or if middle is held
+            self.chording = (state.mouse_down(MouseButton::Left) && state.mouse_down(MouseButton::Right)) || state.mouse_down(MouseButton::Middle);
+            
+            // Draw the chorded tiles
+            if self.chording && self.game.state() == GameState::Playing {
+                chorded_tiles.extend(NEIGHBOUR_OFFSETS
+                    .iter()
+                    .chain(std::iter::once(&(0, 0)))
+                    .flat_map(|(x, y)| get_index_from_offset(selected_tile, *x, *y, self.game.width(), self.game.height()))
+                    .filter(|i| self.game.board().get(*i).is_some_and(|t| *t == Tile::Unopened))
+                );
+            }
 
             // Draw the selector thingy
             let selector_pos = rect.point() + tile_pos(selected_tile, self.game.width()) - 1.0;
             renderer.draw(DrawShape::image(selector_pos.x, selector_pos.y, spritesheet::MINEFIELD_SELECTED, None));
-            // And a depressed tile if the current tile is diggable and the mouse is down
-            if state.mouse_down(MouseButton::Left) && selected_diggable {
-                renderer.draw(DrawShape::image(selector_pos.x + 1.0, selector_pos.y + 1.0, spritesheet::minefield_tile(1), None));
+
+            // Only dig and flag if we're not chording
+            if !self.chording && !self.chorded {
+                // Digging
+                if state.mouse_released(MouseButton::Left) {
+                    self.game.dig(selected_tile);
+                }
+                // Draw a depressed tile if the current tile is diggable and the mouse is held down
+                if state.mouse_down(MouseButton::Left) && self.game.diggable(selected_tile) {
+                    renderer.draw(DrawShape::image(selector_pos.x + 1.0, selector_pos.y + 1.0, spritesheet::minefield_tile(1), None));
+                }
+                
+                // Flagging
+                if state.mouse_pressed(MouseButton::Right) {
+                    self.flag_mode = match self.game.board().get(selected_tile) {
+                        Some(t) if *t == Tile::Flag => Some(SetFlagMode::Remove),
+                        _ => Some(SetFlagMode::Flag),
+                    }
+                }
+                if let Some(flag_mode) = self.flag_mode {
+                    self.game.set_flag(flag_mode, selected_tile);
+                }
+                // We only want to set flags once, and remove flags when holding the mouse down.
+                if matches!(self.flag_mode, Some(SetFlagMode::Flag)) || state.mouse_released(MouseButton::Right) {
+                    self.flag_mode = None;
+                }
             }
 
-            // Digging
-            if selected_diggable && state.mouse_released(MouseButton::Left) {
-                self.game.dig(selected_tile);
-                // If the game's state is now Lose, we dug a mine, so start the explosion flood fill here
-                if self.game.state() == GameState::Lose {
-                    self.explode_bombs_begin(selected_tile);
-                }
+            if self.game.state() == GameState::Lose && self.prev_state == GameState::Playing {
+                self.explode_bombs_begin(bomb_index.unwrap_or(selected_tile))
             }
-            
-            // Flagging
-            if state.mouse_pressed(MouseButton::Right) {
-                self.flag_mode = match self.game.board().get(selected_tile) {
-                    Some(t) if *t == Tile::Flag => Some(SetFlagMode::Remove),
-                    _ => Some(SetFlagMode::Flag),
-                }
-            }
-            if let Some(flag_mode) = self.flag_mode {
-                self.game.set_flag(flag_mode, selected_tile);
-            }
-            // We only want to set flags once, and remove flags when holding the mouse down.
-            if matches!(self.flag_mode, Some(SetFlagMode::Flag)) || state.mouse_released(MouseButton::Right) {
-                self.flag_mode = None;
-            }
+
+            // Chorded should only be set to false when none of the mouse buttons are pressed
+            // This is done at the end of the selected tile part to make sure we don't dig on the same frame we release from chording
+            self.chorded = self.chorded && (state.mouse_down(MouseButton::Left) || state.mouse_down(MouseButton::Right) || state.mouse_down(MouseButton::Middle));
         }
         // Explode bombs
         if self.game.state() == GameState::Lose {
@@ -217,12 +291,11 @@ impl MinesweeperElement {
         for (i, t) in self.game.board().iter().enumerate() {
             let pos = rect.point() + tile_pos(i, self.game.width());
             // The icon on the tile
-            match (t, self.explosion_bombs.get(&i).map(|(_, e)| *e), self.game.state()) {
-                (Tile::Numbered(n), None,        _              ) => Some(*n as usize + 3), // Numbered
-                (Tile::Flag,        None,        GameState::Lose) => Some(13), // Incorrect flag
-                (Tile::Flag,        None,        _              ) => Some(12), // Flag
-                (_,                 Some(false), _              ) => Some(14), // Unexploded
-                (_,                 Some(true),  _              ) => Some(15), // Exploded
+            match (t, self.explosion_bombs.get(&i).map(|(_, e)| *e)) {
+                (Tile::Numbered(n), None,      ) => Some(*n as usize + 3), // Numbered
+                (Tile::Flag,        None,      ) => Some(if self.game.state() == GameState::Lose && !self.game.bombs().contains(&i) {13} else {12}), // Flag
+                (_,                 Some(false)) => Some(14), // Unexploded
+                (_,                 Some(true) ) => Some(15), // Exploded
                 _ => None,
             }.map(|id| renderer.draw(DrawShape::image(pos.x, pos.y, spritesheet::minefield_tile(id), None)));
             // The tile
@@ -230,6 +303,7 @@ impl MinesweeperElement {
                 _ if self.losing_bomb == Some(i)           => 3, // The losing dig
                 Tile::Dug | Tile::Numbered(_)              => 2, // Dug
                 _ if self.explosion_bombs.contains_key(&i) => 2, // An exploding bomb
+                _ if chorded_tiles.contains(&i)            => 2, // Being chorded
                 _                                          => 0, // Undug tile
             };
             renderer.draw(DrawShape::image(pos.x, pos.y, spritesheet::minefield_tile(tile), None));

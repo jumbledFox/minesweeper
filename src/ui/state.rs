@@ -61,9 +61,10 @@ pub struct State {
     pixel_perfect: bool,
     scale: f32,
 
-    pub hot_item:     SelectedItem,
-    pub active_item:  SelectedItem,
+    pub hot_item:    SelectedItem,
+    pub active_item: SelectedItem,
     pub text_field: Option<Id>,
+    pub tabbed: bool,
     pub caret: usize,
 }
 
@@ -84,6 +85,7 @@ impl State {
             hot_item:     SelectedItem::None,
             active_item:  SelectedItem::None,
             text_field: None,
+            tabbed: false,
             caret: 0,
         }
     }
@@ -182,6 +184,7 @@ impl State {
             ..Default::default()
         });
         self.hot_item = SelectedItem::None;
+        self.tabbed = false;
     }
 
     pub fn finish(&mut self) {

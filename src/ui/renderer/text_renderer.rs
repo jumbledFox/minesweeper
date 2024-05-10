@@ -72,8 +72,6 @@ impl TextRenderer {
         }
     }
 
-    // TODO: Think about how and when I use AsRef<str> in this and other parts of the code.
-    // https://www.reddit.com/r/learnrust/comments/14s0k5x/using_asrefstr_as_ref_and_to_owned/
     pub fn draw_text(&self, text: &String, caret: Option<Caret>, click_pos: Option<Vec2>, x: f32, y: f32, color: Color, line_gap: Option<f32>) -> Option<usize> {
         let mut caret_pos = None;
         let mut pos = Vec2::new(x, y);

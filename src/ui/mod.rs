@@ -38,12 +38,12 @@ pub struct Ui {
 }
 
 impl Ui {
-    pub fn new() -> Ui {
+    pub async fn new() -> Ui {
         Ui {
             state:   State  ::new(),
             menubar: Menubar::default(),
             popups:  Popups ::default(),
-            minesweeper_element: MinesweeperElement::new(), 
+            minesweeper_element: MinesweeperElement::new().await, 
             renderer: Renderer::new(),
         }
     }

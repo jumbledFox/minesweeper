@@ -95,7 +95,7 @@ impl Popup {
             PopupKind::Custom{..}  => ("Custom",   vec2( 78.0, 58.0)),
             PopupKind::About       => ("About",    vec2(100.0, 70.0)),
             PopupKind::Hint        => ("Hint",     vec2( 60.0, 40.0)),
-            PopupKind::Win         => ("You win!", vec2( 70.0, 40.0)),
+            PopupKind::Win         => ("You win!", vec2( 70.0, 34.0)),
             PopupKind::Exit        => ("Exit",     vec2( 70.0, 40.0)),
         };
         let pos = (state.screen_size() - size) / 2.0;
@@ -124,7 +124,7 @@ impl Popup {
         let active_before = state.active_item;
 
         // Elements inside of the popups
-        // TODO: This bit is a bit messy
+        // This is a bit messy, but it's easy to add to.
         match &mut self.kind {
             PopupKind::NewGame { difficulty } => {
                 text("Are you sure you want\nto start a new game?".to_owned(), None, spritesheet::POPUP_BODY_TEXT, Align::Beg(body.x+3.0), Align::Beg(body.y+3.0), renderer);
@@ -139,16 +139,18 @@ impl Popup {
                 text("Width" .to_owned(), None, spritesheet::POPUP_BODY_TEXT, align_mid(body.x + 17.0), align_beg(body.y +  4.0), renderer);
                 text("Height".to_owned(), None, spritesheet::POPUP_BODY_TEXT, align_mid(body.x + 17.0), align_beg(body.y + 14.0), renderer);
                 text("Bombs" .to_owned(), None, spritesheet::POPUP_BODY_TEXT, align_mid(body.x + 17.0), align_beg(body.y + 24.0), renderer);
-                // TODO: This is also a bit messy
+                // TODO: This is also a bit messy, but once again it works and is easy to know what's going on
                 let width_hint  = format!("{:?} - {:?}", MIN_WIDTH,  MAX_WIDTH);
                 let height_hint = format!("{:?} - {:?}", MIN_HEIGHT, MAX_HEIGHT);
+
+                let (width_id, height_id, bombs_id) = (id.wrapping_add(4), id.wrapping_add(5), id.wrapping_add(6));
                 text_field(
-                    id.wrapping_add(4), align_end(body.right() - 3.0), align_beg(body.y +  2.0),
-                    41.0, width,  width_hint,  TextFieldKind::Digits { min: MIN_WIDTH,  max: MAX_WIDTH  }, 7, state, renderer
+                    width_id,  align_end(body.right() - 3.0), align_beg(body.y +  2.0),
+                    41.0, width,  width_hint,  TextFieldKind::Digits { min: MIN_WIDTH,  max: MAX_WIDTH  }, None, Some(height_id), 7, state, renderer
                 );
                 text_field(
-                    id.wrapping_add(5), align_end(body.right() - 3.0), align_beg(body.y + 12.0),
-                    41.0, height, height_hint, TextFieldKind::Digits { min: MIN_HEIGHT, max: MAX_HEIGHT }, 7, state, renderer
+                    height_id, align_end(body.right() - 3.0), align_beg(body.y + 12.0),
+                    41.0, height, height_hint, TextFieldKind::Digits { min: MIN_HEIGHT, max: MAX_HEIGHT }, Some(width_id), Some(bombs_id), 7, state, renderer
                 );
 
                 let (w, h) = match (width.parse::<usize>(), height.parse::<usize>()) {
@@ -165,8 +167,8 @@ impl Popup {
                 };
 
                 text_field(
-                    id.wrapping_add(6), align_end(body.right() - 3.0), align_beg(body.y + 22.0),
-                    41.0, bomb_count, bombs_hint, TextFieldKind::Digits { min: MIN_HEIGHT, max: MAX_HEIGHT }, 7, state, renderer
+                    bombs_id, align_end(body.right() - 3.0), align_beg(body.y + 22.0),
+                    41.0, bomb_count, bombs_hint, TextFieldKind::Digits { min: MIN_HEIGHT, max: MAX_HEIGHT }, Some(height_id), None, 7, state, renderer
                 );
                 // TODO: Maybe add nice sliders to all of these??
 
@@ -185,7 +187,6 @@ impl Popup {
                 close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body.right()-36.0), align_end(body.bottom()-3.0), false, state, renderer).released();
             }
             PopupKind::About => {
-                // TODO: Add text styling?
                 url(
                     id.wrapping_add(2), "jumbledFox".to_owned(), "https://jumbledFox.github.io".to_owned(), None,
                     Align::Beg(body.x+3.0), Align::Beg(body.y+10.0), state, renderer
@@ -205,13 +206,11 @@ impl Popup {
             }
             PopupKind::Hint => {
                 text("You're on your\nown.".to_owned(), None, spritesheet::POPUP_BODY_TEXT, Align::Beg(body.x+3.0), Align::Beg(body.y+3.0), renderer);
-                close = close || button_text(id.wrapping_add(3), "Ah.".to_owned(), align_end(body.right()-3.0), align_end(body.bottom()-3.0), false, state, renderer).released()
+                close = close || button_text(id.wrapping_add(3), "Ah.".to_owned(), align_end(body.right()-3.0), align_end(body.bottom()-3.0), false, state, renderer).released();
             }
             PopupKind::Win => {
-                text("You win,\ncongratulations!".to_owned(), None, spritesheet::POPUP_BODY_TEXT, Align::Beg(body.x+3.0), Align::Beg(body.y+3.0), renderer);
-                if false {
-                    close = true;
-                }
+                text("Congratulations!".to_owned(), None, spritesheet::POPUP_BODY_TEXT, Align::Beg(body.x+3.0), Align::Beg(body.y+3.0), renderer);
+                close = close || button_text(id.wrapping_add(3), "Yippee!".to_owned(), align_end(body.right()-3.0), align_end(body.bottom()-3.0), false, state, renderer).released();
             }
             PopupKind::Exit => {
                 text("Are you sure you\nwant to exit?".to_owned(), None, spritesheet::POPUP_BODY_TEXT, Align::Beg(body.x+3.0), Align::Beg(body.y+3.0), renderer);
