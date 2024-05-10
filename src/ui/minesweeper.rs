@@ -1,13 +1,24 @@
 // A minesweeper ui element
 
-use std::collections::HashSet;
-
 use indexmap::IndexMap;
 use macroquad::{input::MouseButton, math::{vec2, Rect, Vec2}, time::get_frame_time};
 
-use crate::minesweeper::{get_index_from_offset, Difficulty, DifficultyValues, GameState, Minesweeper, SetFlagMode, Tile};
+use crate::minesweeper::{Difficulty, DifficultyValues, GameState, Minesweeper, SetFlagMode, Tile};
 
 use super::{elements::{aligned_rect, button, Align}, hash_string, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, State}};
+
+// An animation that relies on an index map
+// struct IndexMapAnimation<T> {
+//     pub map: IndexMap<usize, (T, bool)>,
+//     pub qualifier: T,
+//     pub skip: usize,
+//     pub timer: Option<f32>,
+// }
+
+// impl<T> IndexMapAnimation<T> {
+//     pub fn 
+// }
+
 
 pub struct MinesweeperElement {
     game: Minesweeper,
@@ -15,8 +26,14 @@ pub struct MinesweeperElement {
     timer: Option<f32>,
     flag_mode: Option<SetFlagMode>,
 
+    // Stuff to do with animation
+    dig_animation_map: IndexMap<usize, (usize, bool)>,
+    dig_animation_skip: usize,
+    dig_animation_current: usize,
+    dig_animation_timer: Option<f32>,
     explosion_radius: f32,
     explosion_bombs: IndexMap<usize, (f32, bool)>,
+    explosion_skip: usize,
     explosion_timer: Option<f32>,
     // Stores what the last custom input was for the popup
     custom_values: Option<DifficultyValues>,
@@ -33,8 +50,13 @@ impl MinesweeperElement {
             timer: None,
             flag_mode: None,
 
+            dig_animation_map: IndexMap::new(),
+            dig_animation_skip: 0,
+            dig_animation_current: 0,
+            dig_animation_timer: None,
             explosion_radius: 0.0,
             explosion_bombs:  IndexMap::new(),
+            explosion_skip: 0,
             explosion_timer:  None,
             
             custom_values: None,
@@ -68,6 +90,7 @@ impl MinesweeperElement {
             _ => (),
         }
         self.explosion_radius = 0.0;
+        self.explosion_skip = 0;
         self.explosion_timer = None;
     }
 
@@ -106,10 +129,11 @@ impl MinesweeperElement {
         self.minefield(Align::Mid(area.x + area.w / 2.0), Align::Mid(area.y + (area.h + self.top_height()-6.0)/2.0), area.y + self.top_height(), state, renderer)
     }
 
+    // explode_bombs_begin() and explode_bombs() are my favourite functions in the whole game
     fn explode_bombs_begin(&mut self, start_index: usize) {
         let index_to_coord = |index: usize| {(
-            (index % self.game.width())  as f32,
-            (index / self.game.height()) as f32
+            (index % self.game.width()) as f32,
+            (index / self.game.width()) as f32
         )};
         // Calculate all of the bombs distances to the center
         let (center_x, center_y) = index_to_coord(start_index);
@@ -121,31 +145,56 @@ impl MinesweeperElement {
             bomb_distances.push((*bomb_index, squared_distance));
         }
         // Sort them by distance
-        // bomb_distance_values.sort_by(|(_, a, _), (_, b, _)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Less));
-        bomb_distances.sort_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap());
+        bomb_distances.sort_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Less));
 
-        // Add all of the sorted values to an ordered hashmap
+        // Add all of the sorted values to our ordered hashmap
         self.explosion_bombs = IndexMap::with_capacity(bomb_distances.len());
         for (bomb_index, squared_distance) in bomb_distances {
             self.explosion_bombs.insert(bomb_index, (squared_distance, false));
         }
     }
     fn explode_bombs(&mut self) {
-        // TODO: Move at a given rate, rather than x spaces a second
-        self.explosion_radius += macroquad::time::get_frame_time() * 5.0;
+        // If we've exploded all of the bombs, we don't need to do anything more
+        if self.explosion_skip == self.explosion_bombs.len() {
+            return;
+        }
+        // TODO: Maybe move at a rate depending on the map size
+        // This makes it so the first bomb explodes, then after 0.7 seconds the rest explode
+        let multiplier = match self.explosion_radius < 1.0 {
+            true  => 1.0 / 0.7,
+            false => 20.0,
+        };
+        self.explosion_radius += macroquad::time::get_frame_time() * multiplier;
         let squared_radius = self.explosion_radius.powi(2);
 
-        // TODO: Maybe iterate over a slice from the first non-exploded bomb?
-        for (_, (squared_distance, exploded)) in &mut self.explosion_bombs {
-            // If we've already exploded this bomb, don't do anything
-            if *exploded { continue; }
+        // Iterate from the first non-exploded bomb
+        let range = self.explosion_bombs.values_mut().skip(self.explosion_skip);
+        for (squared_distance, exploded) in range {
             match squared_radius > *squared_distance {
-                // If this bomb is inside the circle, make it explode 
-                true  => *exploded = true,
-                // Otherwise, it's outside, so all of the next ones are outisde, so stop!!
-                false => break,
+                // If this bomb is inside the circle, increase the skip amount, and explode it! 
+                true  => { self.explosion_skip += 1; *exploded = true; },
+                // Otherwise, it's outside, meaning all of the ones after this are outisde, so stop!!
+                false => { break; },
             };
         }
+    }
+
+    fn dig_animation(&mut self) {
+        if let Some(t) = self.dig_animation_timer.as_mut() {
+            *t += macroquad::time::get_frame_time();
+            if *t < 0.001 { return;} else { *t = 0.0; }
+        } else { return; }
+
+        if self.dig_animation_map.len() == 0 || self.dig_animation_map.len() == self.dig_animation_skip { self.dig_animation_current = 0; return; }
+        let range = self.dig_animation_map.values_mut().skip(self.dig_animation_skip);
+        for (index, dug) in range {
+            // println!("{:?} {:?}", index, self.dig_animation_current);
+            match *index == self.dig_animation_current {
+                true  => { self.dig_animation_skip += 1; *dug = true; }
+                false => { break; }
+            };
+        }
+        self.dig_animation_current += 1;
     }
 
     pub fn minimum_area_size(&self) -> Vec2 {
@@ -175,7 +224,10 @@ impl MinesweeperElement {
             }
 
             if self.game.diggable(selected_tile) && state.mouse_released(MouseButton::Left) {
-                self.game.dig(selected_tile);
+                self.game.dig(selected_tile, &mut self.dig_animation_map);
+                self.dig_animation_current = 0;
+                self.dig_animation_skip = 0;
+                self.dig_animation_timer = Some(f32::MAX);
                 // If the game's state is now Lose, we dug a mine, so start the explosion flood fill here
                 if self.game.state() == GameState::Lose {
                     self.explode_bombs_begin(selected_tile);
@@ -198,16 +250,21 @@ impl MinesweeperElement {
             }
         }
 
+        self.dig_animation();
+
         for (i, t) in self.game.board().iter().enumerate() {
             let pos = rect.point() + tile_pos(i, self.game.width());
-            match *t {
-                Tile::Flag        => renderer.draw(DrawShape::image(pos.x, pos.y, spritesheet::minefield_tile(12), None)),
-                Tile::Numbered(n) => renderer.draw(DrawShape::image(pos.x, pos.y, spritesheet::minefield_tile(n as usize+3), None)),
-                _ => (),
+            if self.dig_animation_map.get(&i).is_some_and(|(_, d)| *d) {
+                match *t {
+                    Tile::Flag        => renderer.draw(DrawShape::image(pos.x, pos.y, spritesheet::minefield_tile(12), None)),
+                    Tile::Numbered(n) => renderer.draw(DrawShape::image(pos.x, pos.y, spritesheet::minefield_tile(n as usize+3), None)),
+                    _ => (),
+                }
             }
             let tile_base = spritesheet::minefield_tile(
                 // if self.exploded_bombs.contains(&i) {15}
                 // if self.game.bombs().contains(&i) && self.game.state() == GameState::Lose {14}
+                // The first explosion_bombs is always gonna be the center, so make the background of it red
                 if self.game.state() == GameState::Lose {
                     match self.explosion_bombs.get(&i) {
                         Some((_, exploded)) => if *exploded { 15 } else { 14 }
@@ -215,7 +272,14 @@ impl MinesweeperElement {
                     }
                 }
 
-                else {if matches!(t, Tile::Dug | Tile::Numbered(_)) { 2 } else { 0 }});
+                else {
+                    match self.dig_animation_map.get(&i) {
+                        Some((_, dug)) => if *dug { 2 } else { 0 },
+                        None => {if matches!(t, Tile::Dug | Tile::Numbered(_)) { 2 } else { 0 }}
+                    }
+                }
+
+                );
             // let tile_base = spritesheet::minefield_tile(
             //     if self.explosion_floodfill_frontier.iter().filter(|s| s.1 == i).count() != 0 { 12 }
             //     else { 0 });

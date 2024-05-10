@@ -3,6 +3,7 @@
 
 use std::collections::HashSet;
 
+use indexmap::IndexMap;
 use macroquad::rand::ChooseRandom;
 
 const NEIGHBOUR_OFFSETS: &[(isize, isize)] = &[
@@ -144,12 +145,13 @@ impl Minesweeper {
         && self.board.get(index).is_some_and(|t| *t == Tile::Unopened)
     }
 
-    // Digs at a position, returns true if something happened
+    // Digs at a position, returns the tile iterations
     // TODO: Chording !!
-    pub fn dig(&mut self, index: usize) -> bool {
+    pub fn dig(&mut self, index: usize, index_map: &mut IndexMap<usize, (usize, bool)>) -> bool {
         if !self.diggable(index) {
             return false;
         }
+        index_map.clear();
         if self.turns == 0 {
             self.populate_board(index);
         }
@@ -158,6 +160,7 @@ impl Minesweeper {
         // We dug a bomb! lose the game and return :c
         if self.bombs.contains(&index) {
             self.state = GameState::Lose;
+            index_map.insert(index, (0, false));
             return true;
         }
 
@@ -165,9 +168,11 @@ impl Minesweeper {
         self.floodfill_current.clear();
         self.floodfill_current.push(index);
         self.floodfill_next.clear();
+
         // This would be an infinite loop, but I don't like the chance of it looping forever and ever due to a silly mistake
-        for _ in 0..self.board.len() {
+        for i in 0..self.board.len() {
             for &tile_index in &self.floodfill_current {
+                index_map.insert(tile_index, (i, false));
                 let valid_neighbours = NEIGHBOUR_OFFSETS.iter().flat_map(|(x, y)| {
                     get_index_from_offset(tile_index, *x, *y, self.width, self.height)
                 });
