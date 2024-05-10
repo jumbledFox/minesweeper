@@ -13,11 +13,12 @@ pub struct MinesweeperElement {
     timer: Option<f32>,
     flag_mode: Option<SetFlagMode>,
 
-    // Stuff to do with animation,
+    // Stuff to do with animation
+    // TODO: Maybe add tile breaking animation ? :/
+    losing_bomb: Option<usize>,
     explosion_radius: f32,
     explosion_bombs: IndexMap<usize, (f32, bool)>,
     explosion_skip: usize,
-    explosion_timer: Option<f32>,
     // Stores what the last custom input was for the popup
     custom_values: Option<DifficultyValues>,
     requesting_new_game: bool,
@@ -25,7 +26,7 @@ pub struct MinesweeperElement {
 
 impl MinesweeperElement {
     pub fn new() -> MinesweeperElement {
-        let difficulty = Difficulty::custom(200, 100, 18000).unwrap();
+        let difficulty = Difficulty::Easy;
 
         MinesweeperElement {
             game: Minesweeper::new(difficulty),
@@ -33,11 +34,11 @@ impl MinesweeperElement {
             timer: None,
             flag_mode: None,
 
+            losing_bomb: None,
             explosion_radius: 0.0,
             explosion_bombs:  IndexMap::new(),
             explosion_skip: 0,
-            explosion_timer:  None,
-            
+
             custom_values: None,
             requesting_new_game: false,
         }
@@ -68,9 +69,10 @@ impl MinesweeperElement {
             Difficulty::Custom(values) => self.custom_values = Some(values),
             _ => (),
         }
+        self.losing_bomb = None;
+        self.explosion_bombs.clear();
         self.explosion_radius = 0.0;
         self.explosion_skip = 0;
-        self.explosion_timer = None;
     }
 
     // Area is the area where the minefield and the ui bar at the top will be drawn, it's NOT CLIPPED!
@@ -84,10 +86,6 @@ impl MinesweeperElement {
             // Otherwise (meaning we've won or lost) keep the timer frozen, on a valid value
             _ => Some(self.timer.unwrap_or(0.0)),
         };
-        // Explode bombs
-        if self.game.state() == GameState::Lose {
-            self.explode_bombs();
-        }
 
         // The elements along the top
         if button(
@@ -110,6 +108,7 @@ impl MinesweeperElement {
 
     // explode_bombs_begin() and explode_bombs() are my favourite functions in the whole game
     fn explode_bombs_begin(&mut self, start_index: usize) {
+        self.losing_bomb = Some(start_index);
         let index_to_coord = |index: usize| {(
             (index % self.game.width()) as f32,
             (index / self.game.width()) as f32
@@ -125,12 +124,11 @@ impl MinesweeperElement {
         }
         // Sort them by distance
         bomb_distances.sort_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Less));
-
         // Add all of the sorted values to our ordered hashmap
-        self.explosion_bombs = IndexMap::with_capacity(bomb_distances.len());
-        for (bomb_index, squared_distance) in bomb_distances {
-            self.explosion_bombs.insert(bomb_index, (squared_distance, false));
-        }
+        self.explosion_bombs = IndexMap::from_iter(
+            bomb_distances.iter()
+                .map(|(bomb_index, squared_distance)| (*bomb_index, (*squared_distance, false)))
+        );
     }
     fn explode_bombs(&mut self) {
         // If we've exploded all of the bombs, we don't need to do anything more
@@ -176,15 +174,18 @@ impl MinesweeperElement {
         if state.hot_item.assign_if_none_and(8008135, rect.contains(state.mouse_pos())) {
             let hovered_tile_coord = ((state.mouse_pos() - rect.point()) / 9.0).floor();
             let selected_tile = (hovered_tile_coord.y as usize * self.game.width() + hovered_tile_coord.x as usize).min(self.game.board().len()-1);
-            
+            let selected_diggable = self.game.diggable(selected_tile);
+
+            // Draw the selector thingy
             let selector_pos = rect.point() + tile_pos(selected_tile, self.game.width()) - 1.0;
             renderer.draw(DrawShape::image(selector_pos.x, selector_pos.y, spritesheet::MINEFIELD_SELECTED, None));
-
-            if state.mouse_down(MouseButton::Left) && self.game.diggable(selected_tile) {
+            // And a depressed tile if the current tile is diggable and the mouse is down
+            if state.mouse_down(MouseButton::Left) && selected_diggable {
                 renderer.draw(DrawShape::image(selector_pos.x + 1.0, selector_pos.y + 1.0, spritesheet::minefield_tile(1), None));
             }
 
-            if self.game.diggable(selected_tile) && state.mouse_released(MouseButton::Left) {
+            // Digging
+            if selected_diggable && state.mouse_released(MouseButton::Left) {
                 self.game.dig(selected_tile);
                 // If the game's state is now Lose, we dug a mine, so start the explosion flood fill here
                 if self.game.state() == GameState::Lose {
@@ -192,7 +193,7 @@ impl MinesweeperElement {
                 }
             }
             
-            // If we've clicked right click, flag / unflag
+            // Flagging
             if state.mouse_pressed(MouseButton::Right) {
                 self.flag_mode = match self.game.board().get(selected_tile) {
                     Some(t) if *t == Tile::Flag => Some(SetFlagMode::Remove),
@@ -203,40 +204,37 @@ impl MinesweeperElement {
                 self.game.set_flag(flag_mode, selected_tile);
             }
             // We only want to set flags once, and remove flags when holding the mouse down.
-            if state.mouse_released(MouseButton::Right) || matches!(self.flag_mode, Some(SetFlagMode::Flag)) {
+            if matches!(self.flag_mode, Some(SetFlagMode::Flag)) || state.mouse_released(MouseButton::Right) {
                 self.flag_mode = None;
             }
         }
-
-        for (i, t) in self.game.board().iter().enumerate() {
-            let pos = rect.point() + tile_pos(i, self.game.width());
-            match *t {
-                Tile::Flag        => renderer.draw(DrawShape::image(pos.x, pos.y, spritesheet::minefield_tile(12), None)),
-                Tile::Numbered(n) => renderer.draw(DrawShape::image(pos.x, pos.y, spritesheet::minefield_tile(n as usize+3), None)),
-                _ => (),
-            }
-            let tile_base = spritesheet::minefield_tile(
-                // if self.exploded_bombs.contains(&i) {15}
-                // if self.game.bombs().contains(&i) && self.game.state() == GameState::Lose {14}
-                // The first explosion_bombs is always gonna be the center, so make the background of it red
-                if self.game.state() == GameState::Lose {
-                    match self.explosion_bombs.get(&i) {
-                        Some((_, exploded)) => if *exploded { 15 } else { 14 }
-                        None => if matches!(t, Tile::Dug | Tile::Numbered(_)) { 2 } else { 0 }
-                    }
-                }
-
-                else {
-                    if matches!(t, Tile::Dug | Tile::Numbered(_)) { 2 } else { 0 }
-                }
-
-                );
-            // let tile_base = spritesheet::minefield_tile(
-            //     if self.explosion_floodfill_frontier.iter().filter(|s| s.1 == i).count() != 0 { 12 }
-            //     else { 0 });
-            renderer.draw(DrawShape::image(pos.x, pos.y, tile_base, None));
+        // Explode bombs
+        if self.game.state() == GameState::Lose {
+            self.explode_bombs();
         }
 
+        // Draw each tile
+        for (i, t) in self.game.board().iter().enumerate() {
+            let pos = rect.point() + tile_pos(i, self.game.width());
+            // The icon on the tile
+            match (t, self.explosion_bombs.get(&i).map(|(_, e)| *e), self.game.state()) {
+                (Tile::Numbered(n), None,        _              ) => Some(*n as usize + 3), // Numbered
+                (Tile::Flag,        None,        GameState::Lose) => Some(13), // Incorrect flag
+                (Tile::Flag,        None,        _              ) => Some(12), // Flag
+                (_,                 Some(false), _              ) => Some(14), // Unexploded
+                (_,                 Some(true),  _              ) => Some(15), // Exploded
+                _ => None,
+            }.map(|id| renderer.draw(DrawShape::image(pos.x, pos.y, spritesheet::minefield_tile(id), None)));
+            // The tile
+            let tile = match t {
+                _ if self.losing_bomb == Some(i)           => 3, // The losing dig
+                Tile::Dug | Tile::Numbered(_)              => 2, // Dug
+                _ if self.explosion_bombs.contains_key(&i) => 2, // An exploding bomb
+                _                                          => 0, // Undug tile
+            };
+            renderer.draw(DrawShape::image(pos.x, pos.y, spritesheet::minefield_tile(tile), None));
+        }
+        // The border
         let border_rect = Rect::new(rect.x - 2.0, rect.y - 2.0, rect.w + 4.0, rect.h + 4.0);
         renderer.draw(DrawShape::nineslice(border_rect, spritesheet::MINEFIELD_BORDER));
     }
