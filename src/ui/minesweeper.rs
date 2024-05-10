@@ -1,24 +1,11 @@
 // A minesweeper ui element
 
 use indexmap::IndexMap;
-use macroquad::{input::MouseButton, math::{vec2, Rect, Vec2}, time::get_frame_time};
+use macroquad::{input::MouseButton, math::{vec2, Rect, Vec2}};
 
 use crate::minesweeper::{Difficulty, DifficultyValues, GameState, Minesweeper, SetFlagMode, Tile};
 
 use super::{elements::{aligned_rect, button, Align}, hash_string, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, State}};
-
-// An animation that relies on an index map
-// struct IndexMapAnimation<T> {
-//     pub map: IndexMap<usize, (T, bool)>,
-//     pub qualifier: T,
-//     pub skip: usize,
-//     pub timer: Option<f32>,
-// }
-
-// impl<T> IndexMapAnimation<T> {
-//     pub fn 
-// }
-
 
 pub struct MinesweeperElement {
     game: Minesweeper,
@@ -26,11 +13,7 @@ pub struct MinesweeperElement {
     timer: Option<f32>,
     flag_mode: Option<SetFlagMode>,
 
-    // Stuff to do with animation
-    dig_animation_map: IndexMap<usize, (usize, bool)>,
-    dig_animation_skip: usize,
-    dig_animation_current: usize,
-    dig_animation_timer: Option<f32>,
+    // Stuff to do with animation,
     explosion_radius: f32,
     explosion_bombs: IndexMap<usize, (f32, bool)>,
     explosion_skip: usize,
@@ -50,10 +33,6 @@ impl MinesweeperElement {
             timer: None,
             flag_mode: None,
 
-            dig_animation_map: IndexMap::new(),
-            dig_animation_skip: 0,
-            dig_animation_current: 0,
-            dig_animation_timer: None,
             explosion_radius: 0.0,
             explosion_bombs:  IndexMap::new(),
             explosion_skip: 0,
@@ -179,24 +158,6 @@ impl MinesweeperElement {
         }
     }
 
-    fn dig_animation(&mut self) {
-        if let Some(t) = self.dig_animation_timer.as_mut() {
-            *t += macroquad::time::get_frame_time();
-            if *t < 0.001 { return;} else { *t = 0.0; }
-        } else { return; }
-
-        if self.dig_animation_map.len() == 0 || self.dig_animation_map.len() == self.dig_animation_skip { self.dig_animation_current = 0; return; }
-        let range = self.dig_animation_map.values_mut().skip(self.dig_animation_skip);
-        for (index, dug) in range {
-            // println!("{:?} {:?}", index, self.dig_animation_current);
-            match *index == self.dig_animation_current {
-                true  => { self.dig_animation_skip += 1; *dug = true; }
-                false => { break; }
-            };
-        }
-        self.dig_animation_current += 1;
-    }
-
     pub fn minimum_area_size(&self) -> Vec2 {
         self.minefield_size() + vec2(4.0 + 8.0, 4.0 + 2.0 + self.top_height())
     }
@@ -224,10 +185,7 @@ impl MinesweeperElement {
             }
 
             if self.game.diggable(selected_tile) && state.mouse_released(MouseButton::Left) {
-                self.game.dig(selected_tile, &mut self.dig_animation_map);
-                self.dig_animation_current = 0;
-                self.dig_animation_skip = 0;
-                self.dig_animation_timer = Some(f32::MAX);
+                self.game.dig(selected_tile);
                 // If the game's state is now Lose, we dug a mine, so start the explosion flood fill here
                 if self.game.state() == GameState::Lose {
                     self.explode_bombs_begin(selected_tile);
@@ -250,16 +208,12 @@ impl MinesweeperElement {
             }
         }
 
-        self.dig_animation();
-
         for (i, t) in self.game.board().iter().enumerate() {
             let pos = rect.point() + tile_pos(i, self.game.width());
-            if self.dig_animation_map.get(&i).is_some_and(|(_, d)| *d) {
-                match *t {
-                    Tile::Flag        => renderer.draw(DrawShape::image(pos.x, pos.y, spritesheet::minefield_tile(12), None)),
-                    Tile::Numbered(n) => renderer.draw(DrawShape::image(pos.x, pos.y, spritesheet::minefield_tile(n as usize+3), None)),
-                    _ => (),
-                }
+            match *t {
+                Tile::Flag        => renderer.draw(DrawShape::image(pos.x, pos.y, spritesheet::minefield_tile(12), None)),
+                Tile::Numbered(n) => renderer.draw(DrawShape::image(pos.x, pos.y, spritesheet::minefield_tile(n as usize+3), None)),
+                _ => (),
             }
             let tile_base = spritesheet::minefield_tile(
                 // if self.exploded_bombs.contains(&i) {15}
@@ -273,10 +227,7 @@ impl MinesweeperElement {
                 }
 
                 else {
-                    match self.dig_animation_map.get(&i) {
-                        Some((_, dug)) => if *dug { 2 } else { 0 },
-                        None => {if matches!(t, Tile::Dug | Tile::Numbered(_)) { 2 } else { 0 }}
-                    }
+                    if matches!(t, Tile::Dug | Tile::Numbered(_)) { 2 } else { 0 }
                 }
 
                 );
