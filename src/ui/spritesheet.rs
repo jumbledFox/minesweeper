@@ -15,6 +15,7 @@ const fn rect(x: f32, y: f32, w: f32, h: f32) -> Rect {
     Rect { x, y, w, h }
 }
 
+// TODO: Redo spritesheets to allow themes
 
 pub const BACKGROUND: Nineslice = Nineslice::new(84.0, 0.0, 3.0, 3.0, 1.0);
 pub const BUTTON_IDLE:     Nineslice = Nineslice::new(84.0, 3.0, 3.0, 3.0, 1.0);
@@ -32,10 +33,10 @@ pub const fn input_field(error: bool) -> Nineslice {
 }
 
 // Menubar
-pub fn menubar_colors(hovered: bool) -> (Color, Color) {
+pub fn menubar_colors(hovered: bool) -> (Color, Color, Color) {
     match hovered {
-        false => (Color::from_hex(0xC0CBDC), Color::from_hex(0x181425)),
-        true  => (Color::from_hex(0x262B44), Color::from_hex(0xFFFFFF)),
+        false => (Color::from_hex(0xC0CBDC), Color::from_hex(0x181425), Color::from_hex(0x495673)),
+        true  => (Color::from_hex(0x262B44), Color::from_hex(0xFFFFFF), Color::from_hex(0xFFFFFF)),
     }
 }
 pub const DROPDOWN_BACKGROUND: Nineslice = Nineslice::new(84.0, 9.0, 3.0, 3.0, 1.0);
@@ -62,6 +63,18 @@ pub const fn minefield_tile(id: usize) -> Rect {
     rect((id % 4 * 9) as f32, (id / 4 * 9) as f32, 9.0, 9.0)
 }
 pub const MINEFIELD_SELECTED: Rect = rect(84.0, 20.0, 11.0, 11.0);
+
+// The button / face
+pub enum FoxFace {
+    Normal, Eek, Dead, Happy, Blink
+}
+pub const fn fox_face(face: FoxFace) -> Rect {
+    let x = 17*face as usize + 36;
+    rect(x as f32, 33.0, 17.0, 17.0)
+}
+pub const fn fox_face_blink(face: FoxFace) -> Rect {
+    rect(72.0, 29.0, 10.0, 4.0)
+}
 
 // The bomb counter
 pub const COUNTER_BACKGROUND: Nineslice = Nineslice::new(89.0, 15.0, 3.0, 3.0, 1.0);

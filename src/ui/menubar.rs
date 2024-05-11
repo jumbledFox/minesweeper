@@ -1,6 +1,6 @@
 use macroquad::math::{vec2, Rect, Vec2};
 
-use super::{hash_string, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, Id, SelectedItem, State}};
+use super::{elements::Align, hash_string, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, Id, SelectedItem, State}};
 
 #[derive(Default)]
 pub struct Menubar {
@@ -99,7 +99,7 @@ impl Menubar {
         state.hot_item.make_unavailable_if_none_and(state.mouse_in_rect(self.dropdown_rect));
     }
 
-    fn dropdown_item(&mut self, text: String, icon: bool, state: &mut State, renderer: &mut Renderer) -> bool {
+    fn dropdown_item(&mut self, text: String, other_text: Option<String>, icon: bool, state: &mut State, renderer: &mut Renderer) -> bool {
         self.dropdown_current_y = self.dropdown_next_y;
         let rect = Rect::new(
             self.item_current_x + 1.0,
@@ -136,19 +136,22 @@ impl Menubar {
             })
         }
         renderer.draw(super::renderer::DrawShape::text(rect.x + 7.0, rect.y + 2.0, text, None, None, None, colors.1 ));
+        if let Some(other_text) = other_text {
+            super::elements::text(other_text, None, colors.2, Align::End(rect.right()-3.0), Align::Beg(rect.y + 2.0), renderer);
+        }
         renderer.draw(super::renderer::DrawShape::rect(rect, colors.0));
 
         released
     }
 
-    pub fn dropdown(&mut self, text: String, state: &mut State, renderer: &mut Renderer) -> bool {
-        self.dropdown_item(text, false, state, renderer)
+    pub fn dropdown(&mut self, text: String, other_text: Option<String>, state: &mut State, renderer: &mut Renderer) -> bool {
+        self.dropdown_item(text, other_text, false, state, renderer)
     }
-    pub fn dropdown_radio(&mut self, text: String, qualifier: bool, state: &mut State, renderer: &mut Renderer) -> bool {
-        self.dropdown_item(text, qualifier, state, renderer)
+    pub fn dropdown_radio(&mut self, text: String, other_text: Option<String>, qualifier: bool, state: &mut State, renderer: &mut Renderer) -> bool {
+        self.dropdown_item(text, other_text, qualifier, state, renderer)
     }
-    pub fn dropdown_toggle(&mut self, text: String, value: &mut bool, state: &mut State, renderer: &mut Renderer) -> bool {
-        let pressed = self.dropdown_item(text, *value, state, renderer);
+    pub fn dropdown_toggle(&mut self, text: String, other_text: Option<String>, value: &mut bool, state: &mut State, renderer: &mut Renderer) -> bool {
+        let pressed = self.dropdown_item(text, other_text, *value, state, renderer);
         if pressed { *value = !*value; }
         pressed
     }

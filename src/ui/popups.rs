@@ -63,7 +63,7 @@ impl PopupKind {
     }
     pub fn custom(difficulty_values: Option<DifficultyValues>) -> Self {
         let (width, height, bomb_count) = match difficulty_values {
-            Some(d) => (d.width.to_string(), d.height.to_string(), d.bomb_count.to_string()),
+            Some(d) => (d.width().to_string(), d.height().to_string(), d.bomb_count().to_string()),
             None => (String::new(), String::new(), String::new()),
         };
         Self::Custom { width, height, bomb_count }

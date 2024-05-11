@@ -3,11 +3,11 @@
 use std::collections::HashSet;
 
 use indexmap::IndexMap;
-use macroquad::{audio::{play_sound, PlaySoundParams, Sound}, camera::{set_camera, Camera2D}, color::WHITE, input::MouseButton, math::{vec2, Rect, Vec2}, texture::{draw_texture_ex, render_target, DrawTextureParams, RenderTarget}};
+use macroquad::{audio::{play_sound, PlaySoundParams, Sound}, camera::{set_camera, Camera2D}, color::WHITE, input::MouseButton, math::{vec2, Rect, Vec2}, rand::gen_range, texture::{draw_texture_ex, render_target, DrawTextureParams, RenderTarget}};
 
 use crate::minesweeper::{get_index_from_offset, Difficulty, DifficultyValues, GameState, Minesweeper, SetFlagMode, Tile, NEIGHBOUR_OFFSETS};
 
-use super::{elements::{aligned_rect, button, Align}, hash_string, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, State}};
+use super::{elements::{aligned_rect, Align}, renderer::{DrawShape, Renderer}, spritesheet::{self, FoxFace}, state::{ButtonState, State}};
 
 pub struct MinesweeperElement {
     game: Minesweeper,
@@ -19,7 +19,18 @@ pub struct MinesweeperElement {
     prev_state: GameState,
 
     minefield: RenderTarget,
+    // TODO: Flag sound
+    // TODO: Popup textbox fix
+    // TODO: Dark mode
+    // TODO: Make it so you can only start digging if you initially click on the minefield
+    // TODO: it'd be a good idea to split these up into separate structs and files....
     // Stuff to do with animation
+    // Face
+    holding: bool,
+    fox_blink_timer: f32,
+    fox_blink_next: f32,
+
+    // Explosion
     losing_bomb: Option<usize>,
     explosion_radius: f32,
     explosion_radius_grow_rate: f32,
@@ -40,7 +51,7 @@ impl MinesweeperElement {
         let explosion_sound = macroquad::audio::load_sound_from_bytes(include_bytes!("../../resources/explosion.ogg")).await.ok();
         let win_sound       = macroquad::audio::load_sound_from_bytes(include_bytes!("../../resources/congrats.ogg")) .await.ok();
 
-        let minefield =render_target(difficulty.values().width as u32 * 9, difficulty.values().height as u32 * 9);
+        let minefield =render_target(difficulty.values().width() as u32 * 9, difficulty.values().height() as u32 * 9);
         minefield.texture.set_filter(macroquad::texture::FilterMode::Nearest);
 
         MinesweeperElement {
@@ -53,6 +64,10 @@ impl MinesweeperElement {
             prev_state: GameState::Playing,
             minefield,
             
+            holding: false,
+            fox_blink_timer: 0.0,
+            fox_blink_next: 0.0,
+
             losing_bomb: None,
             explosion_radius: 0.0,
             explosion_radius_grow_rate: 0.0,
@@ -93,7 +108,7 @@ impl MinesweeperElement {
             Difficulty::Custom(values) => self.custom_values = Some(values),
             _ => (),
         }
-        self.minefield = render_target(difficulty.values().width as u32 * 9, difficulty.values().height as u32 * 9);
+        self.minefield = render_target(difficulty.values().width() as u32 * 9, difficulty.values().height() as u32 * 9);
         self.minefield.texture.set_filter(macroquad::texture::FilterMode::Nearest);
 
         self.losing_bomb = None;
@@ -116,13 +131,7 @@ impl MinesweeperElement {
         };
 
         // The elements along the top
-        if button(
-            hash_string(&"hello if ur reading this :3".to_owned()),
-            Align::Mid(area.x + area.w / 2.0), Align::Beg(area.y + 3.0),
-            19.0, 19.0, false, state, renderer
-        ) == ButtonState::Released {
-            self.requesting_new_game = true;
-        }
+        self.button(Align::Mid(area.x + area.w / 2.0), Align::Beg(area.y + 3.0), state, renderer);
 
         let lower_x = area.x + area.w * (1.0 / 6.0);
         let upper_x = area.x + area.w * (5.0 / 6.0);
@@ -154,7 +163,8 @@ impl MinesweeperElement {
         bomb_distances.sort_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Less));
         // Add all of the sorted values to our ordered hashmap
         self.explosion_bombs = IndexMap::from_iter(
-            bomb_distances.iter()
+            bomb_distances
+                .iter()
                 .map(|(bomb_index, squared_distance)| (*bomb_index, (*squared_distance, false)))
         );
         self.losing_bomb = Some(*self.explosion_bombs.keys().next().unwrap_or(&0));
@@ -219,7 +229,10 @@ impl MinesweeperElement {
 
     pub fn win_sound(&self) {
         if let Some(win_sound) = &self.win_sound {
-            play_sound(&win_sound, PlaySoundParams::default())
+            play_sound(&win_sound, PlaySoundParams {
+                looped: false,
+                volume: 0.5,
+            })
         }
     }
 
@@ -235,7 +248,7 @@ impl MinesweeperElement {
         let rect = Rect::new(rect.x, rect.y.max(min_y), rect.w, rect.h);
 
         self.prev_state = self.game.state();
-        
+        self.holding = false;
         let mut chorded_tiles: HashSet<usize> = HashSet::with_capacity(9);
 
         if state.hot_item.assign_if_none_and(8008135, rect.contains(state.mouse_pos())) {
@@ -251,6 +264,8 @@ impl MinesweeperElement {
             // Chording should only be true if right and left are held, or if middle is held
             self.chording = (state.mouse_down(MouseButton::Left) && state.mouse_down(MouseButton::Right)) || state.mouse_down(MouseButton::Middle);
             
+            self.holding = self.chording || state.mouse_down(MouseButton::Left);
+
             // Draw the chorded tiles
             if self.chording && self.game.state() == GameState::Playing {
                 chorded_tiles.extend(NEIGHBOUR_OFFSETS
@@ -350,6 +365,42 @@ impl MinesweeperElement {
         renderer.draw(DrawShape::texture(rect.x, rect.y, self.minefield.texture.clone()));
         let border_rect = Rect::new(rect.x - 2.0, rect.y - 2.0, rect.w + 4.0, rect.h + 4.0);
         renderer.draw(DrawShape::nineslice(border_rect, spritesheet::MINEFIELD_BORDER));
+    }
+
+    // i KNOW some of this is basically just copied from element.rs.. but it's different enough to warrant this and i really don't wanna faff about
+    fn button(&mut self, x: Align, y: Align, state: &mut State, renderer: &mut Renderer) {
+        let rect = aligned_rect(x, y, 19.0, 19.0);
+        let button_state = state.button_state(0xB00B135, state.mouse_in_rect(rect), false, true);
+
+        let (offset, source) = match button_state {
+            ButtonState::Disabled                    => (0.0, spritesheet::BUTTON_DISABLED),
+            ButtonState::Held | ButtonState::Clicked => (1.0, spritesheet::BUTTON_DOWN),
+            _                                        => (0.0, spritesheet::BUTTON_IDLE),
+        };
+
+        self.fox_blink_timer += macroquad::time::get_frame_time();
+        if self.fox_blink_timer > self.fox_blink_next {
+            self.fox_blink_timer = 0.0;
+            self.fox_blink_next = gen_range(1.0, 10.0); 
+        }
+
+        const BLINK_TIME: f32 = 0.1;
+        let face = match &button_state {
+            _ if self.game.state() == GameState::Lose                    => FoxFace::Dead,
+            _ if self.game.state() == GameState::Win                     => FoxFace::Happy,
+            _ if self.holding                                            => FoxFace::Eek,
+            ButtonState::Held | ButtonState::Clicked                     => FoxFace::Blink,
+            _ if self.fox_blink_timer > self.fox_blink_next - BLINK_TIME => FoxFace::Blink,
+            _                                                            => FoxFace::Normal
+        };
+
+        let rect = rect.offset(Vec2::splat(offset));
+        renderer.draw(DrawShape::image(rect.x+1.0, rect.y+1.0, spritesheet::fox_face(face), None));
+        renderer.draw(DrawShape::nineslice(rect, source));
+
+        if button_state.released() {
+            self.requesting_new_game = true;
+        }
     }
 
     fn bomb_counter(&self, x: Align, y: Align, renderer: &mut Renderer) {

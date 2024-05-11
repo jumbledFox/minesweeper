@@ -22,9 +22,14 @@ pub enum Difficulty {
 }
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct DifficultyValues {
-    pub width: usize,
-    pub height: usize,
-    pub bomb_count: usize,
+    width: usize,
+    height: usize,
+    bomb_count: usize,
+}
+impl DifficultyValues {
+    pub fn width(&self)      -> usize { self.width }
+    pub fn height(&self)     -> usize { self.height }
+    pub fn bomb_count(&self) -> usize { self.bomb_count }
 }
 
 impl Difficulty {
@@ -61,6 +66,11 @@ impl Difficulty {
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum GameState {
     Playing, Win, Lose,
+}
+impl GameState {
+    pub fn is_playing(&self) -> bool { matches!(self, Self::Playing) }
+    pub fn is_win(&self)     -> bool { matches!(self, Self::Win) }
+    pub fn is_lose(&self)    -> bool { matches!(self, Self::Lose) }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

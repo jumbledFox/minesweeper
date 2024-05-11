@@ -1,5 +1,5 @@
 use macroquad::{miniquad::window::{cancel_quit, order_quit}, prelude::*};
-use minesweeper::Difficulty;
+use minesweeper::{Difficulty, DifficultyValues};
 use ui::{popups::{PopupKind, PopupReturn}, Ui};
 
 pub mod ui;
@@ -31,54 +31,54 @@ async fn main() {
 
         ui.menubar.begin();
         if ui.menubar.item("Game".to_owned(), 91.0, &mut ui.state, &mut ui.renderer) {
-            if ui.menubar.dropdown("New Game".to_owned(), &mut ui.state, &mut ui.renderer) {
+            if ui.menubar.dropdown("New Game".to_owned(), None, &mut ui.state, &mut ui.renderer) {
                 new_game = Some(Difficulty::Hard);
             }
             ui.menubar.dropdown_separator(&mut ui.renderer);
 
             let difficulties = [
-                ("Easy".to_owned(),   Difficulty::Easy),
-                ("Normal".to_owned(), Difficulty::Normal),
-                ("Hard".to_owned(),   Difficulty::Hard),
+                ("Easy".to_owned(),   "9¬¬*¬¬9¬¬,  ¬9 ¬¬".to_owned(), Difficulty::Easy),
+                ("Normal".to_owned(), "¬15*13, ¬¬40¬¬".to_owned(), Difficulty::Normal),
+                ("Hard".to_owned(),   "30*16, 100".to_owned(),   Difficulty::Hard),
             ];
-            for (s, d) in difficulties {
+            for (s, o_s, d) in difficulties {
                 let is_current_difficulty = std::mem::discriminant(&ui.minesweeper_element.difficulty()) == std::mem::discriminant(&d);
-                if ui.menubar.dropdown_radio(s, is_current_difficulty, &mut ui.state, &mut ui.renderer) {
+                if ui.menubar.dropdown_radio(s, Some(o_s), is_current_difficulty, &mut ui.state, &mut ui.renderer) {
                     new_game = Some(d);
                 }
             }
-            if ui.menubar.dropdown_radio("Custom".to_owned(), matches!(ui.minesweeper_element.difficulty(), Difficulty::Custom(_)), &mut ui.state, &mut ui.renderer) {
+            if ui.menubar.dropdown_radio("Custom...".to_owned(), None, matches!(ui.minesweeper_element.difficulty(), Difficulty::Custom(_)), &mut ui.state, &mut ui.renderer) {
                 ui.popups.add(PopupKind::custom(ui.minesweeper_element.custom_values()), &mut ui.state);
             };
             ui.menubar.dropdown_separator(&mut ui.renderer);
 
-            if ui.menubar.dropdown_radio("Screen Shake".to_owned(), ui.renderer.shake_enabled, &mut ui.state, &mut ui.renderer) {
+            if ui.menubar.dropdown_radio("Screen Shake".to_owned(), None, ui.renderer.shake_enabled, &mut ui.state, &mut ui.renderer) {
                 ui.renderer.shake_enabled = !ui.renderer.shake_enabled;
             }
             ui.menubar.dropdown_separator(&mut ui.renderer);
 
-            if ui.menubar.dropdown("Exit".to_owned(), &mut ui.state, &mut ui.renderer) {
+            if ui.menubar.dropdown("Exit".to_owned(), None, &mut ui.state, &mut ui.renderer) {
                 quit = true;
             }
 
             ui.menubar.finish_item(&mut ui.state, &mut ui.renderer);
         }
         if ui.menubar.item("Help".to_owned(), 34.0, &mut ui.state, &mut ui.renderer) {
-            if ui.menubar.dropdown("Hint".to_owned(), &mut ui.state, &mut ui.renderer) {
+            if ui.menubar.dropdown("Hint".to_owned(), None, &mut ui.state, &mut ui.renderer) {
                 ui.popups.add(PopupKind::Hint, &mut ui.state);
             }
-            if ui.menubar.dropdown("About".to_owned(), &mut ui.state, &mut ui.renderer) {
+            if ui.menubar.dropdown("About".to_owned(), None, &mut ui.state, &mut ui.renderer) {
                 ui.popups.add(PopupKind::About, &mut ui.state);
             }
             ui.menubar.finish_item(&mut ui.state, &mut ui.renderer);
         }
         if ui.menubar.item("Scale".to_owned(), 28.0, &mut ui.state, &mut ui.renderer) {
-            if ui.menubar.dropdown_radio("Auto".to_owned(), ui.state.auto_scale(), &mut ui.state, &mut ui.renderer) {
+            if ui.menubar.dropdown_radio("Auto".to_owned(), None, ui.state.auto_scale(), &mut ui.state, &mut ui.renderer) {
                 ui.state.set_auto_scale(!ui.state.auto_scale());
             }
             ui.menubar.dropdown_separator(&mut ui.renderer);
             for i in 1..=8 {
-                if ui.menubar.dropdown_radio(format!(" {}{}* ", if i == 1 {"¬"} else {""}, i), ui.state.scale() == i as f32, &mut ui.state, &mut ui.renderer) {
+                if ui.menubar.dropdown_radio(format!(" {}{}* ", if i == 1 {"¬"} else {""}, i), None, ui.state.scale() == i as f32, &mut ui.state, &mut ui.renderer) {
                     ui.state.set_auto_scale(false);
                     ui.state.set_scale(i as f32);
                 }

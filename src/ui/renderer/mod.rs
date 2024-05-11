@@ -43,7 +43,6 @@ impl DrawShape {
             Self::ImageRect { dest, source, .. }           => { *dest = dest.round(); *source = source.round(); }
             Self::Nineslice { dest, source, padding }      => { *dest = dest.round(); *source = source.round(); *padding = padding.round(); }
             Self::Texture   { x, y, .. }                   => { *x = x.round(); *y = y.round(); }
-            // Self::Minefield { x, y }                    => { *x = x.round(); *y = y.round(); }
         }
     }
 }
