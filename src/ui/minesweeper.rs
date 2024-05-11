@@ -342,7 +342,6 @@ impl MinesweeperElement {
                 (_, Some(false))         => Some(2), // Unexploded bomb
                 (_, Some(true) )         => Some(3), // Exploded bomb
                 (Tile::Numbered(n), _)   => Some(*n as usize+7), // Number
-                
                 _ => None
             }.map(|id| draw_tile(i, id));
         }
