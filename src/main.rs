@@ -50,7 +50,11 @@ async fn main() {
             if ui.menubar.dropdown_radio("Custom".to_owned(), matches!(ui.minesweeper_element.difficulty(), Difficulty::Custom(_)), &mut ui.state, &mut ui.renderer) {
                 ui.popups.add(PopupKind::custom(ui.minesweeper_element.custom_values()), &mut ui.state);
             };
+            ui.menubar.dropdown_separator(&mut ui.renderer);
 
+            if ui.menubar.dropdown_radio("Screen Shake".to_owned(), ui.renderer.shake_enabled, &mut ui.state, &mut ui.renderer) {
+                ui.renderer.shake_enabled = !ui.renderer.shake_enabled;
+            }
             ui.menubar.dropdown_separator(&mut ui.renderer);
 
             if ui.menubar.dropdown("Exit".to_owned(), &mut ui.state, &mut ui.renderer) {
@@ -107,7 +111,7 @@ async fn main() {
         // Updating popups, done at the end to prevent flicker
         for p in ui.popups.returns() {
             match p {
-                &PopupReturn::NewGame { difficulty } => ui.minesweeper_element.new_game(difficulty)
+                &PopupReturn::NewGame { difficulty } => ui.minesweeper_element.new_game(difficulty, &mut ui.renderer)
             }
         }
         // Making a new game
@@ -119,7 +123,7 @@ async fn main() {
             if ui.minesweeper_element.game_in_progress() {
                 ui.popups.add(PopupKind::NewGame { difficulty }, &mut ui.state);
             } else {
-                ui.minesweeper_element.new_game(difficulty);
+                ui.minesweeper_element.new_game(difficulty, &mut ui.renderer);
             }
         }
 

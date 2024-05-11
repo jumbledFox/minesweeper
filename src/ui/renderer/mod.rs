@@ -1,4 +1,4 @@
-use macroquad::{color::{Color, WHITE}, math::{vec2, Rect, Vec2}, shapes::draw_rectangle, texture::{draw_texture_ex, DrawTextureParams, FilterMode, Texture2D}};
+use macroquad::{camera::{set_camera, Camera2D}, color::{Color, WHITE}, math::{vec2, Rect, Vec2}, rand::{gen_range, rand}, shapes::draw_rectangle, texture::{draw_texture, draw_texture_ex, DrawTextureParams, FilterMode, Texture2D}, window::{screen_height, screen_width}};
 
 use self::text_renderer::{Caret, TextRenderer};
 
@@ -12,6 +12,7 @@ pub enum DrawShape {
     Image { x: f32, y: f32, source: Rect, color: Color },
     ImageRect { dest: Rect, source: Rect, color: Color },
     Nineslice { dest: Rect, source: Rect, padding: f32 },
+    Texture { x: f32, y: f32, texture: Texture2D },
     // Minefield { x: f32, y: f32, },
 }
 
@@ -31,6 +32,9 @@ impl DrawShape {
     pub fn nineslice(dest: Rect, source: Nineslice) -> Self {
         Self::Nineslice { dest, source: source.rect, padding: source.padding }
     }
+    pub fn texture(x: f32, y: f32, texture: Texture2D) -> Self {
+        Self::Texture { x, y, texture }
+    }
     pub fn round(&mut self) {
         match self {
             Self::Text      { x, y, text: _, line_gap, ..} => { *x = x.round(); *y = y.round(); *line_gap = match line_gap { Some(l) => Some(l.round()), _ => None }; }
@@ -38,6 +42,7 @@ impl DrawShape {
             Self::Image     { x, y, source, .. }           => { *x = x.round(); *y = y.round(); *source = source.round(); }
             Self::ImageRect { dest, source, .. }           => { *dest = dest.round(); *source = source.round(); }
             Self::Nineslice { dest, source, padding }      => { *dest = dest.round(); *source = source.round(); *padding = padding.round(); }
+            Self::Texture   { x, y, .. }                   => { *x = x.round(); *y = y.round(); }
             // Self::Minefield { x, y }                    => { *x = x.round(); *y = y.round(); }
         }
     }
@@ -49,6 +54,12 @@ pub struct Renderer {
     pub draw_queue: Vec<DrawShape>,
     pub caret_timer: f32,
     pub text_click_pos: Option<usize>,
+
+    pub shake_enabled: bool,
+    shake_timer: f32,
+    shake_first: bool,
+    shake_offset: Vec2,
+    shake_damp: f32,
 }
 
 impl Renderer {
@@ -61,7 +72,24 @@ impl Renderer {
             draw_queue: Vec::new(),
             caret_timer: 0.0,
             text_click_pos: None,
+
+            shake_enabled: true,
+            shake_timer: 0.0,
+            shake_first: true,
+            shake_offset: Vec2::ZERO,
+            shake_damp: 0.0,
         }
+    }
+
+    pub fn shake_stop(&mut self) {
+        self.shake_damp *= 0.2;
+    }
+    pub fn shake(&mut self, amount: f32) {
+        self.shake_damp = amount;
+    }
+
+    pub fn texture(&self) -> Texture2D {
+        self.texture.clone()
     }
 
     pub fn draw(&mut self, draw_shape: DrawShape) {
@@ -81,6 +109,31 @@ impl Renderer {
     }
     
     pub fn finish(&mut self, state: &State, menubar: &Menubar) {
+        // Using this makes sure the shake always has some impact, and can never by chance be 0, or something close to it
+        let shake_var = |low: f32, high: f32| {
+            gen_range(low, high) * if rand() % 2 == 0 { -1.0 } else { 1.0 }
+        };
+        if self.shake_timer > 0.02 {
+            self.shake_timer -= 0.02;
+
+            if self.shake_first {
+                self.shake_offset = vec2(shake_var(2.0, 5.0), shake_var(2.0, 4.0)) * self.shake_damp;
+            } else {
+                self.shake_offset *= -1.0;
+                self.shake_damp *= 0.8;
+                if self.shake_damp < 0.001 { self.shake_damp = 0.0; }
+            }
+            self.shake_first = !self.shake_first;
+        } else {
+            self.shake_timer += macroquad::time::get_frame_time();
+        }
+
+        set_camera(&Camera2D {
+            zoom: (state.scale() * 2.0) / vec2(screen_width(), screen_height()),
+            target: (state.screen_size() / 2.0) + if self.shake_enabled {self.shake_offset} else {Vec2::splat(0.0)},
+            ..Default::default()
+        });
+
         // Draw the unrounded background
         let background_rect = Rect::new(
             0.0,
@@ -136,6 +189,9 @@ impl Renderer {
                     draw_texture_ex(&self.texture, d.x, d.y, WHITE, params);
                 }
             },
+            &DrawShape::Texture { x, y, texture } => {
+                draw_texture(texture, *x, *y, WHITE);
+            }
         }
         None
     }

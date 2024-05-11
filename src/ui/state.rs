@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use macroquad::{camera::{set_camera, Camera2D}, input::{is_mouse_button_down, is_mouse_button_pressed, is_mouse_button_released, mouse_position, MouseButton}, math::{vec2, Rect, Vec2}, window::{screen_height, screen_width}};
+use macroquad::{input::{is_mouse_button_down, is_mouse_button_pressed, is_mouse_button_released, mouse_position, MouseButton}, math::{vec2, Rect, Vec2}, window::{screen_height, screen_width}};
 
 use super::{menubar::Menubar, minesweeper::MinesweeperElement};
 
@@ -177,12 +177,6 @@ impl State {
         }
 
         self.screen_size = window_size / self.scale;
-
-        set_camera(&Camera2D {
-            zoom: (self.scale * 2.0) / window_size,
-            target: (self.screen_size / 2.0),
-            ..Default::default()
-        });
         self.hot_item = SelectedItem::None;
         self.tabbed = false;
     }
