@@ -66,14 +66,14 @@ pub const MINEFIELD_SELECTED: Rect = rect(84.0, 20.0, 11.0, 11.0);
 
 // The button / face
 pub enum FoxFace {
-    Normal, Eek, Dead, Happy, Blink
+    Normal, Eek, Dead, Happy
 }
 pub const fn fox_face(face: FoxFace) -> Rect {
     let x = 17*face as usize + 36;
     rect(x as f32, 33.0, 17.0, 17.0)
 }
-pub const fn fox_face_blink(face: FoxFace) -> Rect {
-    rect(72.0, 29.0, 10.0, 4.0)
+pub const fn fox_face_blink() -> Rect {
+    rect(71.0, 29.0, 13.0, 4.0)
 }
 
 // The bomb counter

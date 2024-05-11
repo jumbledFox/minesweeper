@@ -1,4 +1,4 @@
-use macroquad::{audio::{load_sound_from_bytes, Sound}, camera::{set_camera, Camera2D}, color::WHITE, input::MouseButton, math::{vec2, Rect, Vec2}, texture::{draw_texture_ex, render_target, DrawTextureParams, RenderTarget}};
+use macroquad::{audio::{load_sound_from_bytes, play_sound, PlaySoundParams, Sound}, camera::{set_camera, Camera2D}, color::WHITE, input::MouseButton, math::{vec2, Rect, Vec2}, texture::{draw_texture_ex, render_target, DrawTextureParams, RenderTarget}};
 
 use crate::{minesweeper::{Difficulty, GameState, Minesweeper, SetFlagMode, Tile}, ui::{elements::{aligned_rect, Align}, hash_string, renderer::{DrawShape, Renderer}, spritesheet, state::State}};
 
@@ -17,37 +17,27 @@ pub struct Minefield {
 
 impl Minefield {
     pub async fn new(difficulty: Difficulty) -> Minefield {
-        let (sound_flag, sound_explosion, sound_win) = (
-            load_sound_from_bytes(include_bytes!("../../../resources/congrats.ogg" )).await.ok(),
-            load_sound_from_bytes(include_bytes!("../../../resources/explosion.ogg")).await.ok(),
-            load_sound_from_bytes(include_bytes!("../../../resources/congrats.ogg" )).await.ok(),
-        );
-
         Minefield {
             flag_mode: None,
             losing_tile: None,
             render_target: Minefield::render_target(difficulty),
 
-            sound_flag, sound_explosion, sound_win
+            sound_flag:      load_sound_from_bytes(include_bytes!("../../../resources/congrats.ogg" )).await.ok(),
+            sound_explosion: load_sound_from_bytes(include_bytes!("../../../resources/explosion.ogg")).await.ok(),
+            sound_win:       load_sound_from_bytes(include_bytes!("../../../resources/congrats.ogg" )).await.ok(),
         }
     }
     pub fn explosion_sound(&self) -> &Option<Sound> {
         &self.sound_explosion
     }
 
-    pub fn update(
-        &mut self,
-        x: Align,
-        y: Align,
-        min_y: f32,
-        game:     &mut Minesweeper,
-        exploder: &mut Exploder,
-        state:    &mut State,
-        renderer: &mut Renderer)
-    {
+    pub fn update(&mut self, area: Rect, game: &mut Minesweeper, exploder: &mut Exploder, state: &mut State, renderer: &mut Renderer) {
+        renderer.draw(DrawShape::rect(area, macroquad::color::Color::from_rgba(255, 0, 0, 128)));
+
         let size = vec2(game.width() as f32, game.height() as f32) * 9.0;
-        let rect = aligned_rect(x, y, size.x, size.y);
-        let rect = Rect::new(rect.x, f32::max(rect.y, min_y), rect.w, rect.h);
+        let rect = aligned_rect(Align::Mid(area.x + area.w / 2.0), Align::Mid(area.y + area.h / 2.0), size.x, size.y);
+        // Make sure it doesn't go above the area
+        let rect = Rect::new(rect.x, f32::max(rect.y, area.y + 2.0), rect.w, rect.h);
 
         let id = hash_string(&"if you're reading this... say hi :3".to_owned());
 
@@ -61,7 +51,8 @@ impl Minefield {
             
             // Interacting
             let any_mouse_down = state.mouse_down(MouseButton::Left) || state.mouse_down(MouseButton::Middle) || state.mouse_down(MouseButton::Right);
-            if state.active_item.assign_if_none_and(id, any_mouse_down) {
+            state.active_item.assign_if_none_and(id, any_mouse_down);
+            if state.active_item == id {
                 
                 let prev_game_state = game.state();
 
@@ -71,20 +62,36 @@ impl Minefield {
                 }
                 // If about to dig, draw a tile being dug
                 if state.mouse_down(MouseButton::Left) && game.diggable(selected_tile) {
-                    renderer.draw(DrawShape::image(selector_pos.x - 1.0, selector_pos.y - 1.0, spritesheet::minefield_tile(1), None));
+                    renderer.draw(DrawShape::image(selector_pos.x + 1.0, selector_pos.y + 1.0, spritesheet::minefield_tile(1), None));
                 }
 
+                // Flagging
+                if state.mouse_pressed(MouseButton::Right) {
+                    self.flag_mode = match game.board().get(selected_tile).is_some_and(|t| *t == Tile::Flag) {
+                        true  => Some(SetFlagMode::Remove),
+                        false => Some(SetFlagMode::Flag),
+                    }
+                }
+                if let Some(flag_mode) = self.flag_mode {
+                    if game.set_flag(flag_mode, selected_tile) {
+                        // TODO: Make playing sounds look less ugly
+                        if let Some(sound_flag) = &self.sound_flag {
+                            play_sound(sound_flag, PlaySoundParams::default());
+                        }
+                    }
+                }
+                // We only want to set flags once, and remove flags when holding the mouse down.
+                if matches!(self.flag_mode, Some(SetFlagMode::Flag)) || state.mouse_released(MouseButton::Right) {
+                    self.flag_mode = None;
+                }
+
+                // TODO: Chording
+
                 // If we've lost on this frame, start exploding bombs!
-                if game.state().is_lose() && prev_game_state.is_playing() {
+                if prev_game_state.is_playing() && game.state().is_lose() {
                     exploder.initialise(selected_tile, game);
                 }
-                // if prev_game_state.is_playing() {
-                //     match game.state() {
-                //         GameState::Lose => exploder.initialise(selected_tile, game),
-                //         GameState::Win  => (),
-                //         _ => (),
-                //     }
-                // }
+                // TODO: Winning?
             }
         }
         // Explode :3
@@ -140,13 +147,15 @@ impl Minefield {
         renderer.draw(DrawShape::nineslice(border_rect, spritesheet::MINEFIELD_BORDER));
     }
 
-    pub fn reset(&mut self, difficulty: Difficulty) {
+    pub fn new_game(&mut self, difficulty: Difficulty) {
         self.flag_mode     = None;
         self.losing_tile   = None;
         self.render_target = Minefield::render_target(difficulty);
     }
 
     fn render_target(difficulty: Difficulty) -> RenderTarget {
-        render_target(difficulty.values().width() as u32 * 9, difficulty.values().height() as u32 * 9)
+        let r = render_target(difficulty.values().width() as u32 * 9, difficulty.values().height() as u32 * 9);
+        r.texture.set_filter(macroquad::texture::FilterMode::Nearest);
+        r
     }
 }

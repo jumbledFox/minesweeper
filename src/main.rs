@@ -15,7 +15,7 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf())]
 async fn main() {
-    prevent_quit();
+    // prevent_quit();
     // Seed the random generation
     macroquad::rand::srand(macroquad::miniquad::date::now() as _);
 
@@ -41,15 +41,15 @@ async fn main() {
                 ("Normal".to_owned(), "¬15*13, ¬¬40¬¬".to_owned(), Difficulty::Normal),
                 ("Hard".to_owned(),   "30*16, 100".to_owned(),   Difficulty::Hard),
             ];
-            for (s, o_s, d) in difficulties {
-                let is_current_difficulty = std::mem::discriminant(&ui.minesweeper_element.difficulty()) == std::mem::discriminant(&d);
-                if ui.menubar.dropdown_radio(s, Some(o_s), is_current_difficulty, &mut ui.state, &mut ui.renderer) {
-                    new_game = Some(d);
-                }
-            }
-            if ui.menubar.dropdown_radio("Custom...".to_owned(), None, matches!(ui.minesweeper_element.difficulty(), Difficulty::Custom(_)), &mut ui.state, &mut ui.renderer) {
-                ui.popups.add(PopupKind::custom(ui.minesweeper_element.custom_values()), &mut ui.state);
-            };
+            // for (s, o_s, d) in difficulties {
+            //     let is_current_difficulty = std::mem::discriminant(&ui.minesweeper_element.difficulty()) == std::mem::discriminant(&d);
+            //     if ui.menubar.dropdown_radio(s, Some(o_s), is_current_difficulty, &mut ui.state, &mut ui.renderer) {
+            //         new_game = Some(d);
+            //     }
+            // }
+            // if ui.menubar.dropdown_radio("Custom...".to_owned(), None, matches!(ui.minesweeper_element.difficulty(), Difficulty::Custom(_)), &mut ui.state, &mut ui.renderer) {
+            //     ui.popups.add(PopupKind::custom(ui.minesweeper_element.custom_values()), &mut ui.state);
+            // };
             ui.menubar.dropdown_separator(&mut ui.renderer);
 
             if ui.menubar.dropdown_radio("Screen Shake".to_owned(), None, ui.renderer.shake_enabled, &mut ui.state, &mut ui.renderer) {
@@ -93,39 +93,39 @@ async fn main() {
         let minesweeper_area = Rect::new(0.0, ui.menubar.height(), ui.state.screen_size().x, ui.state.screen_size().y - ui.menubar.height());
         ui.minesweeper_element.update(minesweeper_area, &mut ui.state, &mut ui.renderer);
         // Winning popup
-        if ui.minesweeper_element.won_this_frame() {
-            ui.popups.add(PopupKind::Win, &mut ui.state);
-            ui.minesweeper_element.win_sound();
-        }
+        // if ui.minesweeper_element.won_this_frame() {
+        //     ui.popups.add(PopupKind::Win, &mut ui.state);
+        //     ui.minesweeper_element.win_sound();
+        // }
 
         // Quiting
-        if quit {
-            if ui.minesweeper_element.game_in_progress() {
-                cancel_quit();
-                ui.popups.add(PopupKind::Exit, &mut ui.state);
-            } else {
-                order_quit();
-            }
-        }
+        // if quit {
+        //     if ui.minesweeper_element.game_in_progress() {
+        //         cancel_quit();
+        //         ui.popups.add(PopupKind::Exit, &mut ui.state);
+        //     } else {
+        //         order_quit();
+        //     }
+        // }
 
-        // Updating popups, done at the end to prevent flicker
-        for p in ui.popups.returns() {
-            match p {
-                &PopupReturn::NewGame { difficulty } => ui.minesweeper_element.new_game(difficulty, &mut ui.renderer)
-            }
-        }
-        // Making a new game
-        if new_game.is_some() || ui.minesweeper_element.requesting_new_game() {
-            let difficulty = match new_game {
-                Some(d) => d,
-                None => ui.minesweeper_element.difficulty(),
-            };
-            if ui.minesweeper_element.game_in_progress() {
-                ui.popups.add(PopupKind::NewGame { difficulty }, &mut ui.state);
-            } else {
-                ui.minesweeper_element.new_game(difficulty, &mut ui.renderer);
-            }
-        }
+        // // Updating popups, done at the end to prevent flicker
+        // for p in ui.popups.returns() {
+        //     match p {
+        //         &PopupReturn::NewGame { difficulty } => ui.minesweeper_element.new_game(difficulty, &mut ui.renderer)
+        //     }
+        // }
+        // // Making a new game
+        // if new_game.is_some() || ui.minesweeper_element.requesting_new_game() {
+        //     let difficulty = match new_game {
+        //         Some(d) => d,
+        //         None => ui.minesweeper_element.difficulty(),
+        //     };
+        //     if ui.minesweeper_element.game_in_progress() {
+        //         ui.popups.add(PopupKind::NewGame { difficulty }, &mut ui.state);
+        //     } else {
+        //         ui.minesweeper_element.new_game(difficulty, &mut ui.renderer);
+        //     }
+        // }
 
         ui.finish();
 

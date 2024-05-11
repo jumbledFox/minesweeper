@@ -61,6 +61,8 @@ pub struct Renderer {
     shake_damp: f32,
 }
 
+// TODO: Fix rescale flicker
+
 impl Renderer {
     pub fn new() -> Renderer {
         let texture = Texture2D::from_file_with_format(include_bytes!("../../../resources/spritesheet.png"), None);

@@ -30,7 +30,7 @@ impl Exploder {
         self.map.clear();
         self.radius = 0.0;
         self.map_skip = 0;
-        self.effect_timer = 0.0;
+        self.effect_timer = f32::MAX;
     }
 
     pub fn initialise(&mut self, start_index: usize, game: &mut Minesweeper) {

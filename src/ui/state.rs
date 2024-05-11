@@ -78,7 +78,7 @@ impl State {
                 (MouseButton::Middle, (false, false, false)),
             ]),
             screen_size: Vec2::default(),
-            auto_scale: true,
+            auto_scale: false,
             pixel_perfect: true,
             scale: 2.0,
 
@@ -161,7 +161,7 @@ impl State {
         state
     }
 
-    pub fn begin(&mut self, menubar: &Menubar, minesweeper_element: &MinesweeperElement) {
+    pub fn begin(&mut self, menubar: &Menubar) { //}, minesweeper_element: &MinesweeperElement) {
         self.mouse_pos = vec2(mouse_position().0, mouse_position().1) / self.scale;
 
         for (&button, (down, pressed, released)) in &mut self.mouse_buttons.iter_mut() {
@@ -172,7 +172,8 @@ impl State {
 
         let window_size = vec2(screen_width(), screen_height());
         if self.auto_scale {
-            let min_fit = minesweeper_element.minimum_area_size() + vec2(0.0, menubar.height());
+            // let min_fit = minesweeper_element.minimum_area_size() + vec2(0.0, menubar.height());
+            let min_fit = vec2(0.0, menubar.height());
             self.scale = (window_size / min_fit).floor().min_element().max(1.0);
         }
 

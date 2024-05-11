@@ -4,7 +4,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 
 use macroquad::math::Rect;
 
-use self::{menubar::Menubar, minesweeper::MinesweeperElement, popups::Popups, renderer::Renderer, state::State};
+use self::{menubar::Menubar, minesweeper_element::MinesweeperElement, popups::Popups, renderer::Renderer, state::State};
 
 pub fn hash_string(input: &String) -> u64 {
     let mut hasher = DefaultHasher::new();
@@ -50,7 +50,7 @@ impl Ui {
     }
 
     pub fn begin(&mut self) {
-        self.state.begin(&self.menubar, &self.minesweeper_element);
+        self.state.begin(&self.menubar);//, &self.minesweeper_element);
         self.renderer.begin(&self.state);
     }
 

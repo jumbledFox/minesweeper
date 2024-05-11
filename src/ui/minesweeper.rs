@@ -389,8 +389,8 @@ impl MinesweeperElement {
             _ if self.game.state() == GameState::Lose                    => FoxFace::Dead,
             _ if self.game.state() == GameState::Win                     => FoxFace::Happy,
             _ if self.holding                                            => FoxFace::Eek,
-            ButtonState::Held | ButtonState::Clicked                     => FoxFace::Blink,
-            _ if self.fox_blink_timer > self.fox_blink_next - BLINK_TIME => FoxFace::Blink,
+            // ButtonState::Held | ButtonState::Clicked                     => FoxFace::Blink,
+            // _ if self.fox_blink_timer > self.fox_blink_next - BLINK_TIME => FoxFace::Blink,
             _                                                            => FoxFace::Normal
         };
 

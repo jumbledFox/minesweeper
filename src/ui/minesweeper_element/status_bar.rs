@@ -1,6 +1,8 @@
-use macroquad::{rand::gen_range, time::get_frame_time};
+use macroquad::{math::{Rect, Vec2}, rand::gen_range, time::get_frame_time};
 
-use crate::{minesweeper::Minesweeper, ui::{elements::{aligned_rect, Align}, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, State}}};
+use crate::{minesweeper::{GameState, Minesweeper}, ui::{elements::{aligned_rect, Align}, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, State}}};
+
+const BLINK_DURATION: f32 = 0.1;
 
 #[derive(Default)]
 pub struct StatusBar {
@@ -9,12 +11,16 @@ pub struct StatusBar {
 }
 
 impl StatusBar {
-    pub fn update(&mut self, game: &Minesweeper, timer: Option<f32>, state: &mut State, renderer: &mut Renderer) {
-        // StatusBar::bomb_counter(game, x, y, renderer);
-        // StatusBar::timer(timer, x, y, renderer);
+    pub fn update(&mut self, area: Rect, game: &Minesweeper, timer: Option<f32>, state: &mut State, renderer: &mut Renderer) {
+        renderer.draw(DrawShape::rect(area, macroquad::color::Color::from_rgba(0, 0, 255, 128)));
+
+        // TODO: Let this button make a new game
+        self.button(                  Align::Mid(area.x + area.w / 2.0),         Align::Beg(area.y + 3.0), game, state, renderer);
+        StatusBar::bomb_counter(game, Align::Mid(area.x + area.w * (1.0 / 6.0)), Align::Beg(area.y + 4.0), renderer);
+        StatusBar::timer(timer,       Align::Mid(area.x + area.w * (5.0 / 6.0)), Align::Beg(area.y + 9.0), renderer);
     }
 
-    fn button(&mut self, x: Align, y: Align, state: &mut State, renderer: &mut Renderer) {
+    fn button(&mut self, x: Align, y: Align, game: &Minesweeper, state: &mut State, renderer: &mut Renderer) {
         let rect = aligned_rect(x, y, 19.0, 19.0);
         let button_state = state.button_state(0xB00B135, state.mouse_in_rect(rect), false, true);
 
@@ -23,7 +29,23 @@ impl StatusBar {
             _                                        => (0.0, spritesheet::BUTTON_IDLE),
         };
 
+        let eek = false;
+        let face = match game.state() {
+            GameState::Lose => spritesheet::FoxFace::Dead,
+            GameState::Win  => spritesheet::FoxFace::Happy,
+            _ if eek        => spritesheet::FoxFace::Eek,
+            _               => spritesheet::FoxFace::Normal,
+        };
+
+        let rect = rect.offset(Vec2::splat(offset));
+
         self.blink_timer += get_frame_time();
+        if self.blink_timer > self.blink_next - BLINK_DURATION || matches!(button_state, ButtonState::Held | ButtonState::Clicked){
+            renderer.draw(DrawShape::image(rect.x+3.0, rect.y+8.0, spritesheet::fox_face_blink(), None));
+        }
+        renderer.draw(DrawShape::image(rect.x+1.0, rect.y+1.0, spritesheet::fox_face(face), None));
+        renderer.draw(DrawShape::nineslice(rect, source));
+
         if self.blink_timer > self.blink_next {
             self.blink_timer = 0.0;
             self.blink_next = gen_range(1.0, 10.0);

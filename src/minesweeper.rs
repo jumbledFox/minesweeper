@@ -252,18 +252,18 @@ impl Minesweeper {
     }
 
     // Flags / unflags
-    pub fn set_flag(&mut self, flag_mode: SetFlagMode, index: usize) {
+    pub fn set_flag(&mut self, flag_mode: SetFlagMode, index: usize) -> bool {
         if self.state != GameState::Playing {
-            return;
+            return false;
         }
         let tile = match self.board.get_mut(index) {
-            None => return,
+            None => return false,
             Some(t) => t,
         };
         match (&tile, flag_mode) {
-            (Tile::Unopened, SetFlagMode::Toggle | SetFlagMode::Flag)   => *tile = Tile::Flag,
-            (Tile::Flag,     SetFlagMode::Toggle | SetFlagMode::Remove) => *tile = Tile::Unopened,
-            _ => (),
+            (Tile::Unopened, SetFlagMode::Toggle | SetFlagMode::Flag)   => {*tile = Tile::Flag;     true},
+            (Tile::Flag,     SetFlagMode::Toggle | SetFlagMode::Remove) => {*tile = Tile::Unopened; true},
+            _ => false,
         }
     }
 }
