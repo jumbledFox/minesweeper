@@ -1,6 +1,6 @@
 use macroquad::{input::MouseButton, math::{vec2, Rect, Vec2}, miniquad::window::order_quit};
 
-use crate::minesweeper::{Difficulty, DifficultyValues, MAX_HEIGHT, MAX_WIDTH, MIN_HEIGHT, MIN_WIDTH};
+use crate::minesweeper::{Difficulty, MAX_HEIGHT, MAX_WIDTH, MIN_HEIGHT, MIN_WIDTH};
 
 use super::{elements::{align_beg, align_end, align_mid, button_text, text, text_field, url, Align, TextFieldKind}, hash_string, menubar::Menubar, minesweeper_element::MinesweeperElement, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, Id, State}};
 

@@ -2,12 +2,19 @@ use macroquad::{math::{vec2, Rect, Vec2}, rand::gen_range, time::get_frame_time}
 
 use crate::{minesweeper::{GameState, Minesweeper}, ui::{elements::{aligned_rect, Align}, renderer::{DrawShape, Renderer}, spritesheet::{self, FoxFace}, state::{ButtonState, State}}};
 
-const BLINK_DURATION: f32 = 0.1;
+const BLINK_DURATION:        f32   = 0.1;
+const SPAM_MAX_TIME:         f32   = 0.5;
+const SPAM_ANGER_CLICKS:     usize = 10;
+const SPAM_ANGER_RESET_TIME: f32   = 1.0;
 
 #[derive(Default)]
 pub struct StatusBar {
     blink_timer: f32,
     blink_next: f32,
+
+    spam_timer:   f32,
+    spam_counter: usize,
+    angry:        bool,
 }
 
 impl StatusBar {
@@ -33,27 +40,42 @@ impl StatusBar {
         let rect = aligned_rect(x, y, 19.0, 19.0);
         let button_state = state.button_state(0xB00B135, state.mouse_in_rect(rect), false, true);
 
-        let (offset, source) = match button_state {
-            ButtonState::Held | ButtonState::Clicked => (1.0, spritesheet::BUTTON_DOWN),
-            _                                        => (0.0, spritesheet::BUTTON_IDLE),
+        let (offset, source, eyes_closed) = match button_state {
+            | ButtonState::Held 
+            | ButtonState::Clicked
+            | ButtonState::Released => (1.0, spritesheet::BUTTON_DOWN, true ),
+            _                       => (0.0, spritesheet::BUTTON_IDLE, false),
         };
 
-        let face = match (game.state(), eek) {
-            (GameState::Lose, _) => FoxFace::Dead,
-            (GameState::Win,  _) => FoxFace::Happy,
-            (_, true )           => FoxFace::Eek,
-            (_, false)           => FoxFace::Normal,
+        let (face, can_change_eyes) = match (game.state(), eek) {
+            (GameState::Lose, _) => (FoxFace::Dead,   false),
+            (GameState::Win,  _) => (FoxFace::Happy,  false),
+            (_, true )           => (FoxFace::Eek,    true ),
+            (_, false)           => (FoxFace::Normal, true ),
         };
 
         let rect = rect.offset(Vec2::splat(offset));
 
+        // Angring when you spam the button
+        // If we're not angry, reset the counter and timer after a given amount of time not being clicked
+        // If we're angry, go back to the inital state of not being angry if we've clicked the button a given amount of time after the initial angering
+        if (!self.angry && self.spam_timer > SPAM_MAX_TIME) || (self.angry && button_state.clicked() && self.spam_timer > SPAM_ANGER_RESET_TIME) {
+            self.spam_counter = 0;
+            self.angry = false;
+        }
+        self.spam_timer += get_frame_time();
+        // If it's been clicked, reset the timer and increment the counter
+        if button_state.clicked() {
+            self.spam_timer = 0.0;
+            self.spam_counter += 1;
+            self.angry = self.spam_counter >= SPAM_ANGER_CLICKS;
+        }
+        // TODO: do something with self.angry
+
         // TODO: Make it so when you leave the game idle for too long the fox goes to sleep
-        // TODO: add angry eyes when you spam the button in a short amount of time!
         // Blinking
         self.blink_timer += get_frame_time();
-        if (self.blink_timer > self.blink_next - BLINK_DURATION || matches!(button_state, ButtonState::Held | ButtonState::Clicked))
-        && !matches!(face, FoxFace::Dead | FoxFace::Happy)
-        {
+        if (self.blink_timer > self.blink_next - BLINK_DURATION || eyes_closed || self.angry) && can_change_eyes {
             renderer.draw(DrawShape::image(rect.x+3.0, rect.y+8.0, spritesheet::fox_face_blink(), None));
             if self.blink_timer > self.blink_next {
                 self.reset_blink_timer();

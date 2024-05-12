@@ -382,7 +382,7 @@ impl MinesweeperElement {
             self.fox_blink_next = gen_range(1.0, 10.0); 
         }
 
-        const BLINK_TIME: f32 = 0.1;
+        // const BLINK_TIME: f32 = 0.1;
         let face = match &button_state {
             _ if self.game.state() == GameState::Lose                    => FoxFace::Dead,
             _ if self.game.state() == GameState::Win                     => FoxFace::Happy,

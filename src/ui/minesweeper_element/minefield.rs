@@ -221,9 +221,9 @@ impl Minefield {
     }
 
     fn render_target(difficulty: Difficulty) -> RenderTarget {
-        let r = render_target(difficulty.values().width() as u32 * 9, difficulty.values().height() as u32 * 9);
-        r.texture.set_filter(macroquad::texture::FilterMode::Nearest);
-        r
+        let render_target = render_target(difficulty.values().width() as u32 * 9, difficulty.values().height() as u32 * 9);
+        render_target.texture.set_filter(macroquad::texture::FilterMode::Nearest);
+        render_target
     }
 }
 

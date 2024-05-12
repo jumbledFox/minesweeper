@@ -110,7 +110,7 @@ impl Renderer {
     }
     
     pub fn finish(&mut self, state: &State, menubar: &Menubar) {
-        // Using this makes sure the shake always has some impact, and can never by chance be 0, or something close to it
+        // Using this makes sure the shake always has some impact, and can never by chance be 0, or something too close to it
         let shake_var = |low: f32, high: f32| {
             gen_range(low, high) * if rand() % 2 == 0 { -1.0 } else { 1.0 }
         };

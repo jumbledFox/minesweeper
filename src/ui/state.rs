@@ -167,7 +167,6 @@ impl State {
         let window_size = vec2(screen_width(), screen_height());
         if self.auto_scale {
             let min_fit = minesweeper_element.minimum_size() + vec2(0.0, menubar.height());
-            // let min_fit = vec2(0.0, menubar.height());
             self.scale = (window_size / min_fit).floor().min_element().max(1.0);
         } else if let Some(new_scale) = self.new_scale.take() {
             self.auto_scale = false;
