@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use macroquad::{input::{is_mouse_button_down, is_mouse_button_pressed, is_mouse_button_released, mouse_position, MouseButton}, math::{vec2, Rect, Vec2}, window::{screen_height, screen_width}};
 
-use super::{menubar::Menubar, minesweeper::MinesweeperElement};
+use super::{menubar::Menubar, minesweeper_element::MinesweeperElement};
 
 pub type Id = u64;
 
@@ -58,8 +58,8 @@ pub struct State {
     mouse_buttons: HashMap<MouseButton, (bool, bool, bool)>, // (Down, Pressed, Released)
     screen_size: Vec2,
     auto_scale: bool,
-    pixel_perfect: bool,
     scale: f32,
+    new_scale: Option<f32>,
 
     pub hot_item:    SelectedItem,
     pub active_item: SelectedItem,
@@ -78,9 +78,9 @@ impl State {
                 (MouseButton::Middle, (false, false, false)),
             ]),
             screen_size: Vec2::default(),
-            auto_scale: false,
-            pixel_perfect: true,
+            auto_scale:    true,
             scale: 2.0,
+            new_scale: None,
 
             hot_item:     SelectedItem::None,
             active_item:  SelectedItem::None,
@@ -100,19 +100,13 @@ impl State {
         self.scale
     }
     pub fn set_scale(&mut self, scale: f32) {
-        self.scale = scale;
-    } 
+        self.new_scale = Some(scale);
+    }
     pub fn auto_scale(&self) -> bool {
         self.auto_scale
     }
     pub fn set_auto_scale(&mut self, auto_scale: bool) {
         self.auto_scale = auto_scale;
-    }
-    pub fn pixel_perfect(&self) -> bool {
-        self.pixel_perfect
-    }
-    pub fn set_pixel_perfect(&mut self, pixel_perfect: bool) {
-        self.pixel_perfect = pixel_perfect;
     }
 
     fn mouse_button_values(&self, button: MouseButton) -> (bool, bool, bool) {
@@ -161,7 +155,7 @@ impl State {
         state
     }
 
-    pub fn begin(&mut self, menubar: &Menubar) { //}, minesweeper_element: &MinesweeperElement) {
+    pub fn begin(&mut self, menubar: &Menubar, minesweeper_element: &MinesweeperElement) {
         self.mouse_pos = vec2(mouse_position().0, mouse_position().1) / self.scale;
 
         for (&button, (down, pressed, released)) in &mut self.mouse_buttons.iter_mut() {
@@ -172,10 +166,13 @@ impl State {
 
         let window_size = vec2(screen_width(), screen_height());
         if self.auto_scale {
-            // let min_fit = minesweeper_element.minimum_area_size() + vec2(0.0, menubar.height());
-            let min_fit = vec2(0.0, menubar.height());
+            let min_fit = minesweeper_element.minimum_size() + vec2(0.0, menubar.height());
+            // let min_fit = vec2(0.0, menubar.height());
             self.scale = (window_size / min_fit).floor().min_element().max(1.0);
-        }
+        } else if let Some(new_scale) = self.new_scale.take() {
+            self.auto_scale = false;
+            self.scale = new_scale;
+        } 
 
         self.screen_size = window_size / self.scale;
         self.hot_item = SelectedItem::None;

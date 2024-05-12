@@ -144,10 +144,8 @@ impl Renderer {
         );
         self.draw_shape(&DrawShape::nineslice(background_rect, spritesheet::BACKGROUND));
         
-        // TODO: Make NOT having pixel_perfect not have weird texture artifacts.. :(
-        if state.pixel_perfect() {
-            self.draw_queue.iter_mut().for_each(|d| d.round());
-        }
+        // Round all of the elements so they're nice and pixel perfect!
+        self.draw_queue.iter_mut().for_each(|d| d.round());
         self.text_click_pos = None;
         for draw_shape in self.draw_queue.iter().rev() {
             let t = self.draw_shape(&draw_shape);

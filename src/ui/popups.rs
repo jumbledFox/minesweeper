@@ -2,12 +2,12 @@ use macroquad::{input::MouseButton, math::{vec2, Rect, Vec2}, miniquad::window::
 
 use crate::minesweeper::{Difficulty, DifficultyValues, MAX_HEIGHT, MAX_WIDTH, MIN_HEIGHT, MIN_WIDTH};
 
-use super::{elements::{align_beg, align_end, align_mid, button_text, text, text_field, url, Align, TextFieldKind}, hash_string, menubar::Menubar, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, Id, State}};
+use super::{elements::{align_beg, align_end, align_mid, button_text, text, text_field, url, Align, TextFieldKind}, hash_string, menubar::Menubar, minesweeper_element::MinesweeperElement, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, Id, State}};
 
 #[derive(Default)]
 pub struct Popups {
     popups: Vec<Popup>,
-    returns: Vec<PopupReturn>,
+    return_values: Vec<PopupReturn>,
     drag_offset: Vec2,
 }
 
@@ -18,7 +18,7 @@ impl Popups {
     }
 
     pub fn update(&mut self, state: &mut State, menubar: &Menubar, renderer: &mut Renderer) {
-        self.returns.clear();
+        self.return_values.clear();
         let mut close = None; 
         let mut front = None; 
 
@@ -30,7 +30,7 @@ impl Popups {
                 _ => ()
             }
             if let Some(r) = return_value {
-                self.returns.push(r);
+                self.return_values.push(r);
             }
         }
 
@@ -43,8 +43,13 @@ impl Popups {
         }
     }
 
-    pub fn returns(&self) -> &Vec<PopupReturn> {
-        &self.returns
+    pub fn handle_returns(&mut self, minesweeper_element: &mut MinesweeperElement) {
+        for return_value in &mut self.return_values {
+            match return_value {
+                PopupReturn::NewGame { difficulty } => minesweeper_element.new_game(*difficulty),
+                PopupReturn::Exit                   => order_quit(),
+            }
+        }
     }
 }
 
@@ -61,9 +66,12 @@ impl PopupKind {
     pub fn new_game(difficulty: Difficulty) -> Self {
         Self::NewGame { difficulty }
     }
-    pub fn custom(difficulty_values: Option<DifficultyValues>) -> Self {
-        let (width, height, bomb_count) = match difficulty_values {
-            Some(d) => (d.width().to_string(), d.height().to_string(), d.bomb_count().to_string()),
+    pub fn custom(difficulty: Option<Difficulty>) -> Self {
+        let (width, height, bomb_count) = match difficulty {
+            Some(d) => {
+                let v = d.values();
+                (format!("{:?}", v.width()), format!("{:?}", v.height()), format!("{:?}", v.bomb_count()))
+            },
             None => (String::new(), String::new(), String::new()),
         };
         Self::Custom { width, height, bomb_count }
@@ -72,6 +80,7 @@ impl PopupKind {
 
 pub enum PopupReturn {
     NewGame { difficulty: Difficulty },
+    Exit,
 }
 
 pub enum PopupAction {
@@ -108,10 +117,8 @@ impl Popup {
         self.pos = self.pos
             // .min(state.screen_size() - self.size)
             .min(state.screen_size() - titlebar_height)
-            .max(vec2(-self.size.x + titlebar_height, menubar.height()));
-        if state.pixel_perfect() {
-            self.pos = self.pos.round();
-        }
+            .max(vec2(-self.size.x + titlebar_height, menubar.height()))
+            .round();
 
         let titlebar = Rect::new(self.pos.x, self.pos.y,              self.size.x, titlebar_height);
         let body     = Rect::new(self.pos.x, self.pos.y + titlebar.h, self.size.x, self.size.y - titlebar.h);
@@ -131,7 +138,7 @@ impl Popup {
 
                 if button_text(id.wrapping_add(2), "Yes".to_owned(), align_end(body.right() -3.0), align_end(body.bottom()-3.0), false, state, renderer).released() {
                     close = true;
-                    return_value = Some(PopupReturn::NewGame { difficulty: *difficulty })
+                    return_value = Some(PopupReturn::NewGame { difficulty: *difficulty });
                 }
                 close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body.right()-25.0), align_end(body.bottom()-3.0), false, state, renderer).released();
             }
@@ -215,7 +222,7 @@ impl Popup {
             PopupKind::Exit => {
                 text("Are you sure you\nwant to exit?".to_owned(), None, spritesheet::POPUP_BODY_TEXT, Align::Beg(body.x+3.0), Align::Beg(body.y+3.0), renderer);
                 if button_text(id.wrapping_add(2), "Exit".to_owned(), align_end(body.right() -3.0), align_end(body.bottom()-3.0), false, state, renderer).released() {
-                    order_quit();
+                    return_value = Some(PopupReturn::Exit);
                 }
                 close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body.right()-25.0), align_end(body.bottom()-3.0), false, state, renderer).released()
             }

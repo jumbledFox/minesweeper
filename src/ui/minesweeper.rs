@@ -22,8 +22,6 @@ pub struct MinesweeperElement {
     // TODO: Flag sound
     // TODO: Popup textbox fix
     // TODO: Dark mode
-    // TODO: Make it so you can only start digging if you initially click on the minefield
-    // TODO: it'd be a good idea to split these up into separate structs and files....
     // Stuff to do with animation
     // Face
     holding: bool,

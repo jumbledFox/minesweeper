@@ -50,7 +50,7 @@ impl Ui {
     }
 
     pub fn begin(&mut self) {
-        self.state.begin(&self.menubar);//, &self.minesweeper_element);
+        self.state.begin(&self.menubar, &self.minesweeper_element);
         self.renderer.begin(&self.state);
     }
 

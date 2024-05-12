@@ -16,23 +16,29 @@ pub const MIN_WIDTH:  usize = 5;
 pub const MIN_HEIGHT: usize = 5;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Difficulty {
-    Easy, Normal, Hard,
-    Custom(DifficultyValues),
-}
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct DifficultyValues {
     width: usize,
     height: usize,
     bomb_count: usize,
 }
+
 impl DifficultyValues {
     pub fn width(&self)      -> usize { self.width }
     pub fn height(&self)     -> usize { self.height }
     pub fn bomb_count(&self) -> usize { self.bomb_count }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Difficulty {
+    Easy, Normal, Hard,
+    Custom(DifficultyValues),
+}
+
 impl Difficulty {
+    pub fn is_custom(&self) -> bool {
+        matches!(self, Difficulty::Custom(_))
+    }
+    
     pub fn custom(width: usize, height: usize, bomb_count: usize) -> Option<Self> {
         // Ensure the fields match the (somewhat arbitrary) limits.
         match Self::dimensions_in_range(width, height) {
@@ -268,7 +274,7 @@ impl Minesweeper {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum SetFlagMode {
     Toggle, Flag, Remove
 }

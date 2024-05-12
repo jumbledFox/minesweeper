@@ -84,9 +84,9 @@ impl Exploder {
         self.effect_timer += get_frame_time();
         if self.map_skip != prev_skip && self.effect_timer > 0.1 {
             self.effect_timer = 0.0;
+            renderer.shake(1.0);
             if let Some(explosion_sound) = explosion_sound {
                 play_sound(&explosion_sound, PlaySoundParams { looped: false, volume: 0.3 });
-                renderer.shake(1.0);
             }
         }
     }
