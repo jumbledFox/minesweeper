@@ -1,9 +1,10 @@
-use macroquad::{camera::{set_camera, Camera2D}, color::{Color, WHITE}, math::{vec2, Rect, Vec2}, rand::{gen_range, rand}, shapes::draw_rectangle, texture::{draw_texture, draw_texture_ex, DrawTextureParams, FilterMode, Texture2D}, window::{screen_height, screen_width}};
+use macroquad::{camera::{set_camera, Camera2D}, color::{Color, WHITE}, math::{vec2, Rect, Vec2}, rand::{gen_range, rand}, shapes::draw_rectangle, texture::{draw_texture, draw_texture_ex, DrawTextureParams, Texture2D}, window::{screen_height, screen_width}};
 
-use self::text_renderer::{Caret, TextRenderer};
+use self::{style::{Nineslice, Style}, text_renderer::{Caret, TextRenderer}};
 
-use super::{menubar::Menubar, spritesheet::{self, Nineslice}, state::State, Round};
+use super::{menubar::Menubar, state::State, Round};
 
+pub mod style;
 pub mod text_renderer;
 
 pub enum DrawShape {
@@ -48,7 +49,7 @@ impl DrawShape {
 }
 
 pub struct Renderer {
-    pub texture: Texture2D,
+    style: Style,
     pub text_renderer: TextRenderer,
     pub draw_queue: Vec<DrawShape>,
     pub caret_timer: f32,
@@ -65,10 +66,12 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn new() -> Renderer {
-        let texture = Texture2D::from_file_with_format(include_bytes!("../../../resources/spritesheet.png"), None);
-        texture.set_filter(FilterMode::Nearest);
+        // let texture = Texture2D::from_file_with_format(include_bytes!("../../../resources/spritesheet.png"), None);
+        // texture.set_filter(FilterMode::Nearest);
         Renderer {
-            texture,
+            // style: style::win_style(),
+            style: style::temp_style(),
+            // style: style::mini_style(),
             text_renderer: TextRenderer::new(),
             draw_queue: Vec::new(),
             caret_timer: 0.0,
@@ -81,16 +84,14 @@ impl Renderer {
             shake_damp: 0.0,
         }
     }
+    
+    pub fn style(&self) -> &Style { &self.style }
 
     pub fn shake_stop(&mut self) {
         self.shake_damp *= 0.2;
     }
     pub fn shake(&mut self, amount: f32) {
         self.shake_damp = amount;
-    }
-
-    pub fn texture(&self) -> Texture2D {
-        self.texture.clone()
     }
 
     pub fn draw(&mut self, draw_shape: DrawShape) {
@@ -142,7 +143,7 @@ impl Renderer {
             state.screen_size().x,
             state.screen_size().y - menubar.height(),
         );
-        self.draw_shape(&DrawShape::nineslice(background_rect, spritesheet::BACKGROUND));
+        self.draw_shape(&DrawShape::nineslice(background_rect, self.style().background()));
         
         // Round all of the elements so they're nice and pixel perfect!
         self.draw_queue.iter_mut().for_each(|d| d.round());
@@ -165,7 +166,7 @@ impl Renderer {
                     source: Some(*source),
                     ..Default::default()
                 };
-                draw_texture_ex(&self.texture, *x, *y, *color, params)
+                draw_texture_ex(&self.style().texture(), *x, *y, *color, params)
             },
             &DrawShape::ImageRect { dest, source, color } => {
                 let params = DrawTextureParams {
@@ -173,7 +174,7 @@ impl Renderer {
                     source: Some(*source),
                     ..Default::default()
                 };
-                draw_texture_ex(&self.texture, dest.x, dest.y, *color, params)
+                draw_texture_ex(&self.style().texture(), dest.x, dest.y, *color, params)
             },
             &DrawShape::Nineslice { dest, source, padding } => {
                 let dest_parts   = calculate_nineslice_parts(*dest,   *padding);
@@ -185,7 +186,7 @@ impl Renderer {
                         source: Some(s),
                         ..Default::default()
                     };
-                    draw_texture_ex(&self.texture, d.x, d.y, WHITE, params);
+                    draw_texture_ex(&self.style().texture(), d.x, d.y, WHITE, params);
                 }
             },
             &DrawShape::Texture { x, y, texture } => {

@@ -96,10 +96,10 @@ async fn main() {
 
         // Draw the minesweeper game below the menubar
         let minesweeper_area = Rect::new(
-            0.0,
-            ui.menubar.height(),
-            ui.state.screen_size().x,
-            ui.state.screen_size().y - ui.menubar.height()
+            0.0                                            + ui.renderer.style().background().padding,
+            ui.menubar.height()                            + ui.renderer.style().background().padding,
+            ui.state.screen_size().x                       - ui.renderer.style().background().padding * 2.0,
+            ui.state.screen_size().y - ui.menubar.height() - ui.renderer.style().background().padding * 2.0,
         );
         ui.minesweeper_element.update(minesweeper_area, &mut ui.state, &mut ui.renderer);
 
@@ -124,11 +124,11 @@ async fn main() {
             if ui.minesweeper_element.game_in_progress() {
                 ui.popups.add(PopupKind::NewGame { difficulty }, &mut ui.state);
             } else {
-                ui.minesweeper_element.new_game(difficulty);
+                ui.minesweeper_element.new_game(difficulty, &ui.renderer);
             }
         }
 
-        ui.popups.handle_returns(&mut ui.minesweeper_element);
+        ui.popups.handle_returns(&mut ui.minesweeper_element, &ui.renderer);
 
         ui.finish();
 

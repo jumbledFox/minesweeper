@@ -28,7 +28,6 @@ pub mod minesweeper;
 pub mod minesweeper_element;
 pub mod elements;
 pub mod renderer;
-pub mod spritesheet;
 
 pub struct Ui {
     pub state: State,
@@ -40,17 +39,18 @@ pub struct Ui {
 
 impl Ui {
     pub async fn new() -> Ui {
+        let renderer = Renderer::new();
         Ui {
             state:   State  ::new(),
             menubar: Menubar::default(),
             popups:  Popups ::default(),
-            minesweeper_element: MinesweeperElement::new().await, 
-            renderer: Renderer::new(),
+            minesweeper_element: MinesweeperElement::new(&renderer).await, 
+            renderer,
         }
     }
 
     pub fn begin(&mut self) {
-        self.state.begin(&self.menubar, &self.minesweeper_element);
+        self.state.begin(&self.menubar, &self.minesweeper_element, &self.renderer);
         self.renderer.begin(&self.state);
     }
 

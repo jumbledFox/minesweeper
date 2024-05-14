@@ -1,6 +1,6 @@
 use macroquad::math::{vec2, Rect, Vec2};
 
-use super::{elements::Align, hash_string, renderer::{DrawShape, Renderer}, spritesheet, state::{ButtonState, Id, SelectedItem, State}};
+use super::{elements::Align, hash_string, renderer::{style::{DropdownStyle, MenuItemStyle}, DrawShape, Renderer}, state::{ButtonState, Id, SelectedItem, State}};
 
 #[derive(Default)]
 pub struct Menubar {
@@ -37,7 +37,7 @@ impl Menubar {
             y: 0.0,
             w: state.screen_size().x - self.item_next_x + 1.0, // + 1.0 for rounding..
             h: self.height,
-            color: spritesheet::menubar_colors(false).0,
+            color: renderer.style().menu_item_style(false).background,
         });
 
         // If anywhere that's not the dropdown has been clicked, deselect the menubar
@@ -55,7 +55,7 @@ impl Menubar {
         self.item_next_x += size.x;
         self.height = self.height.max(size.y);
         
-        self.dropdown_start_y = self.height + 1.0;
+        self.dropdown_start_y = self.height + renderer.style().dropdown_background().padding;
         self.dropdown_next_y = self.dropdown_start_y;
         self.dropdown_width = dropdown_width;
         
@@ -68,10 +68,10 @@ impl Menubar {
             self.item_current = Some(id);
         }
         
-        let colors = spritesheet::menubar_colors(self.item_current == Some(id) || state.hot_item == id);
+        let MenuItemStyle { background, text_col } = renderer.style().menu_item_style(self.item_current == Some(id) || state.hot_item == id);
 
-        renderer.draw(super::renderer::DrawShape::text(rect.x + 2.0, rect.y + 1.0, text, None, None, None, colors.1));
-        renderer.draw(super::renderer::DrawShape::rect(rect, colors.0));
+        renderer.draw(super::renderer::DrawShape::text(rect.x + 2.0, rect.y + 1.0, text, None, None, None,text_col));
+        renderer.draw(super::renderer::DrawShape::rect(rect, background));
 
         self.item_current == Some(id)
     }
@@ -84,16 +84,17 @@ impl Menubar {
             return;
         }
 
+        let pad = renderer.style().dropdown_background().padding;
         self.dropdown_rect =  Rect::new(
             self.item_current_x,
-            self.dropdown_start_y - 1.0,
-            self.dropdown_width + 2.0,
-            self.dropdown_next_y + 2.0 - self.dropdown_start_y,
+            self.dropdown_start_y - pad,
+            self.dropdown_width  + pad * 2.0,
+            self.dropdown_next_y + pad * 2.0 - self.dropdown_start_y,
         );
 
         // Draw the dropdown box and it's shadow
-        renderer.draw(DrawShape::nineslice(self.dropdown_rect, spritesheet::DROPDOWN_BACKGROUND));
-        renderer.draw(DrawShape::rect(self.dropdown_rect.offset(Vec2::splat(3.0)), spritesheet::SHADOW));
+        renderer.draw(DrawShape::nineslice(self.dropdown_rect, renderer.style().dropdown_background()));
+        renderer.draw(DrawShape::rect(self.dropdown_rect.offset(Vec2::splat(3.0)), renderer.style().shadow()));
 
         // Make it so the box captures the hot item
         state.hot_item.make_unavailable_if_none_and(state.mouse_in_rect(self.dropdown_rect));
@@ -102,7 +103,7 @@ impl Menubar {
     fn dropdown_item(&mut self, text: String, other_text: Option<String>, icon: bool, state: &mut State, renderer: &mut Renderer) -> bool {
         self.dropdown_current_y = self.dropdown_next_y;
         let rect = Rect::new(
-            self.item_current_x + 1.0,
+            self.item_current_x + renderer.style().dropdown_background().padding,
             self.dropdown_current_y,
             self.dropdown_width,
             renderer.text_renderer.text_size(&text, None).y + 3.0,
@@ -125,21 +126,22 @@ impl Menubar {
             self.item_current = None;
         }
 
-        let colors = spritesheet::menubar_colors(state.hot_item == id);
+        let DropdownStyle { background, text_col, other_text_col } = renderer.style().dropdown_style(state.hot_item == id);
+
         if icon {
             renderer.draw(super::renderer::DrawShape::Rect {
                 x: rect.x + 2.0,
                 y: rect.y + 3.0,
                 w: 3.0,
                 h: 3.0,
-                color: colors.1,
+                color: text_col,
             })
         }
-        renderer.draw(super::renderer::DrawShape::text(rect.x + 7.0, rect.y + 2.0, text, None, None, None, colors.1 ));
+        renderer.draw(super::renderer::DrawShape::text(rect.x + 7.0, rect.y + 2.0, text, None, None, None, text_col ));
         if let Some(other_text) = other_text {
-            super::elements::text(other_text, None, colors.2, Align::End(rect.right()-3.0), Align::Beg(rect.y + 2.0), renderer);
+            super::elements::text(other_text, None, other_text_col, Align::End(rect.right()-3.0), Align::Beg(rect.y + 2.0), renderer);
         }
-        renderer.draw(super::renderer::DrawShape::rect(rect, colors.0));
+        renderer.draw(super::renderer::DrawShape::rect(rect, background));
 
         released
     }
@@ -157,14 +159,15 @@ impl Menubar {
     }
     pub fn dropdown_separator(&mut self, renderer: &mut Renderer) {
         self.dropdown_current_y = self.dropdown_next_y;
-        let source = spritesheet::DROPDOWN_SEPARATOR;
+        let source = renderer.style().dropdown_separator();
+        let pad = renderer.style().dropdown_background().padding;
         let dest = Rect::new(
-            self.item_current_x + 2.0,
+            self.item_current_x + pad,
             self.dropdown_current_y,
-            self.dropdown_width - 2.0,
-            source.h,
+            self.dropdown_width,
+            source.rect.h,
         );
         self.dropdown_next_y += dest.h;
-        renderer.draw(super::renderer::DrawShape::image_rect(dest, source, None));
+        renderer.draw(super::renderer::DrawShape::nineslice(dest, source));
     }
 }

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use macroquad::{input::{is_mouse_button_down, is_mouse_button_pressed, is_mouse_button_released, mouse_position, MouseButton}, math::{vec2, Rect, Vec2}, window::{screen_height, screen_width}};
 
-use super::{menubar::Menubar, minesweeper_element::MinesweeperElement};
+use super::{menubar::Menubar, minesweeper_element::MinesweeperElement, renderer::Renderer};
 
 pub type Id = u64;
 
@@ -155,7 +155,7 @@ impl State {
         state
     }
 
-    pub fn begin(&mut self, menubar: &Menubar, minesweeper_element: &MinesweeperElement) {
+    pub fn begin(&mut self, menubar: &Menubar, minesweeper_element: &MinesweeperElement, renderer: &Renderer) {
         self.mouse_pos = vec2(mouse_position().0, mouse_position().1) / self.scale;
 
         for (&button, (down, pressed, released)) in &mut self.mouse_buttons.iter_mut() {
@@ -166,7 +166,7 @@ impl State {
 
         let window_size = vec2(screen_width(), screen_height());
         if self.auto_scale {
-            let min_fit = minesweeper_element.minimum_size() + vec2(0.0, menubar.height());
+            let min_fit = minesweeper_element.minimum_size(renderer) + vec2(0.0, menubar.height()) + renderer.style().background().padding * 2.0;
             self.scale = (window_size / min_fit).floor().min_element().max(1.0);
         } else if let Some(new_scale) = self.new_scale.take() {
             self.auto_scale = false;

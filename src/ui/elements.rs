@@ -1,7 +1,8 @@
 use macroquad::{color::Color, input::{clear_input_queue, get_char_pressed, get_last_key_pressed, is_key_down, KeyCode}, math::{vec2, Rect, Vec2}};
 
-use super::{renderer::{text_renderer::Caret, DrawShape, Renderer}, spritesheet, state::{ButtonState, Id, State}};
+use super::{renderer::{style::ButtonStyle, text_renderer::Caret, DrawShape, Renderer}, state::{ButtonState, Id, State}};
 
+#[derive(Clone, Copy)]
 pub enum Align {
     Beg(f32), Mid(f32), End(f32),
 }
@@ -47,8 +48,9 @@ pub fn url(id: Id, text: String, url: String, line_gap: Option<f32>, x: Align, y
     let size = renderer.text_renderer.text_size(&text, line_gap);
     let rect = aligned_rect(x, y, size.x, size.y);
     let underline = Rect::new(rect.x, rect.y + rect.h - 1.0, rect.w, 1.0);
-    renderer.draw(DrawShape::text(rect.x, rect.y, text, line_gap, None, None, spritesheet::URL_TEXT));
-    renderer.draw(DrawShape::rect(underline, spritesheet::URL_TEXT));
+    
+    renderer.draw(DrawShape::text(rect.x, rect.y, text, line_gap, None, None, renderer.style().url_text()));
+    renderer.draw(DrawShape::rect(underline, renderer.style().url_text()));
 
     if state.button_state(id, state.mouse_in_rect(rect), false, false).released() {
         let _ = webbrowser::open(&url);
@@ -59,13 +61,9 @@ pub fn button(id: Id, x: Align, y: Align, w: f32, h: f32, disabled: bool, state:
     let rect = aligned_rect(x, y, w, h);
     let button_state = state.button_state(id, state.mouse_in_rect(rect), disabled, true);
 
-    let (offset, source) = match button_state {
-        ButtonState::Disabled                    => (0.0, spritesheet::BUTTON_DISABLED),
-        ButtonState::Held | ButtonState::Clicked => (1.0, spritesheet::BUTTON_DOWN),
-        _                                        => (0.0, spritesheet::BUTTON_IDLE),
-    };
+    let ButtonStyle {offset, source, text_col: _ } = renderer.style().button_style(&button_state);
 
-    let rect = rect.offset(Vec2::splat(offset));
+    let rect = rect.offset(offset);
     renderer.draw(DrawShape::nineslice(rect, source));
 
     button_state
@@ -76,13 +74,9 @@ pub fn button_text(id: Id, text: String, x: Align, y: Align, disabled: bool, sta
     let rect = aligned_rect(x, y, button_size.x, button_size.y);
     let button_state = state.button_state(id, state.mouse_in_rect(rect), disabled, true);
 
-    let (offset, source, text_col) = match button_state {
-        ButtonState::Disabled                    => (0.0, spritesheet::BUTTON_DISABLED, spritesheet::BUTTON_TEXT_DISABLED),
-        ButtonState::Held | ButtonState::Clicked => (1.0, spritesheet::BUTTON_DOWN,     spritesheet::BUTTON_TEXT),
-        _                                        => (0.0, spritesheet::BUTTON_IDLE,     spritesheet::BUTTON_TEXT),
-    };
+    let ButtonStyle {offset, source, text_col } = renderer.style().button_style(&button_state);
 
-    let rect = rect.offset(Vec2::splat(offset));
+    let rect = rect.offset(offset);
     renderer.draw(DrawShape::text(rect.x + 3.0, rect.y + 2.0, text, None, None, None, text_col));
     renderer.draw(DrawShape::nineslice(rect, source));
 
@@ -135,27 +129,27 @@ pub fn text_field(id: Id, x: Align, y: Align, w: f32, text: &mut String, hint: S
             renderer.caret_timer = 0.0;
         }
     }
-    let caret = match state.text_field {
-        Some(i) if i == id => Some(Caret { index: state.caret, color: spritesheet::BUTTON_TEXT }),
-        _ => None,
-    };
-    // Doing this down here gives a frame of delay... but.... it works! Plus it's an immediate mode gui so delays are a given
-    let click_pos = match button_state {
-        ButtonState::Clicked => { 
-            state.text_field = Some(id);
-            clear_input_queue();
-            Some(state.mouse_pos())
-        },
-        _ => None,
-    };
-    if text.is_empty() {
-        renderer.draw(DrawShape::text(rect.x + 2.0, rect.y + 2.0, hint, None, caret, click_pos, spritesheet::BUTTON_TEXT_DISABLED));
-    } else {
-        renderer.draw(DrawShape::text(rect.x + 2.0, rect.y + 2.0, text.clone(), None, caret, click_pos, spritesheet::BUTTON_TEXT));
-    }
-    renderer.draw(DrawShape::nineslice(rect, spritesheet::input_field(false)));
+    // let caret = match state.text_field {
+    //     Some(i) if i == id => Some(Caret { index: state.caret, color: spritesheet::BUTTON_TEXT }),
+    //     _ => None,
+    // };
+    // // Doing this down here gives a frame of delay... but.... it works! Plus it's an immediate mode gui so delays are a given
+    // let click_pos = match button_state {
+    //     ButtonState::Clicked => { 
+    //         state.text_field = Some(id);
+    //         clear_input_queue();
+    //         Some(state.mouse_pos())
+    //     },
+    //     _ => None,
+    // };
+    // if text.is_empty() {
+    //     renderer.draw(DrawShape::text(rect.x + 2.0, rect.y + 2.0, hint, None, caret, click_pos, spritesheet::BUTTON_TEXT_DISABLED));
+    // } else {
+    //     renderer.draw(DrawShape::text(rect.x + 2.0, rect.y + 2.0, text.clone(), None, caret, click_pos, spritesheet::BUTTON_TEXT));
+    // }
+    // renderer.draw(DrawShape::nineslice(rect, spritesheet::input_field(false)));
 
-    if new_id.is_some() {
-        state.text_field = new_id;
-    }
+    // if new_id.is_some() {
+    //     state.text_field = new_id;
+    // }
 }
