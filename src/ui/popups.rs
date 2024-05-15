@@ -263,7 +263,7 @@ impl Popup {
         let rect = Rect::new(pos.x, pos.y, 7.0, 7.0);
         let button_state = state.button_state(id, state.mouse_in_rect(rect), false, false);
 
-        renderer.draw(DrawShape::image(pos.x, pos.y, renderer.style().popup_close(button_state != ButtonState::Idle), None));
+        renderer.draw(DrawShape::image(pos.x, pos.y, renderer.style().popup_close(&button_state), None));
 
         button_state == ButtonState::Released
     }

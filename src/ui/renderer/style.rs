@@ -17,6 +17,35 @@ impl Nineslice {
     }
 }
 
+// pub struct ButtonStateStyle {
+//     source:        Rect,
+//     source_offset: Vec2,
+//     inner_offset:  Vec2,
+//     text_col:      Color,
+// }
+
+// pub struct ButtonStyle {
+//     disabled: ButtonStateStyle,
+//     idle:     ButtonStateStyle,
+//     hovered:  ButtonStateStyle,
+//     clicked:  ButtonStateStyle,
+//     held:     ButtonStateStyle,
+//     released: ButtonStateStyle,
+// }
+
+// impl ButtonStyle {
+//     pub fn style(&self, button_state: &ButtonState) -> &ButtonStateStyle {
+//         match button_state {
+//             ButtonState::Disabled => &self.disabled,
+//             ButtonState::Idle     => &self.idle,
+//             ButtonState::Hovered  => &self.hovered,
+//             ButtonState::Clicked  => &self.clicked,
+//             ButtonState::Held     => &self.held,
+//             ButtonState::Released => &self.released,
+//         }
+//     }
+// }
+
 #[derive(Clone, Copy)]
 pub struct MenuItemStyle {
     pub background: Color,
@@ -49,7 +78,8 @@ pub struct Style {
     dropdown_idle:              DropdownStyle,
     dropdown_active:            DropdownStyle,
     dropdown_background:        Nineslice,
-    dropdown_separator:         Nineslice,
+    dropdown_separator:         Rect,
+    dropdown_separator_gap:     f32,
     // Popups
     popup_title:                Nineslice,
     // TODO: popup_title_height:         f32,
@@ -57,6 +87,7 @@ pub struct Style {
     popup_title_text_col:       Color,
     popup_body_text_col:        Color,
     popup_close_idle:           Rect,
+    popup_close_hover:          Rect,
     popup_close_down:           Rect,
     // Minesweeper
     minefield_border:           Nineslice,
@@ -161,8 +192,9 @@ impl Style {
             true  => self.dropdown_active,
         }
     }
-    pub fn dropdown_background(&self) -> Nineslice { self.dropdown_background }
-    pub fn dropdown_separator(&self)  -> Nineslice { self.dropdown_separator }
+    pub fn dropdown_background(&self)     -> Nineslice { self.dropdown_background }
+    pub fn dropdown_separator(&self)      -> Rect      { self.dropdown_separator }
+    pub fn dropdown_separator_gap(&self)  -> f32       { self.dropdown_separator_gap }
 
     // Popups
     pub fn popup_style(&self) -> PopupStyle {
@@ -174,10 +206,13 @@ impl Style {
         }
     }
 
-    pub fn popup_close(&self, hovered: bool) -> Rect {
-        match hovered {
-            false => self.popup_close_idle,
-            true  => self.popup_close_down,
+    pub fn popup_close(&self, button_state: &ButtonState) -> Rect {
+        match button_state {
+            ButtonState::Hovered  => self.popup_close_hover,
+            ButtonState::Clicked  |
+            ButtonState::Held     |
+            ButtonState::Released => self.popup_close_down,
+            _                     => self.popup_close_idle,
         }
     }
 
@@ -340,13 +375,16 @@ pub fn temp_style() -> Style {
         dropdown_active:     DropdownStyle { background: Color::from_hex(0x262b44), text_col: Color::from_hex(0xffffff), other_text_col: Color::from_hex(0xffffff) },
         dropdown_background: Nineslice::new(92.0, 43.0, 3.0, 3.0, 1.0),
         // dropdown_separator:  Rect::new(95.0, 43.0, 1.0, 2.0),
-        dropdown_separator:  Nineslice::new(92.0, 46.0, 3.0, 3.0, 1.0),
+        // dropdown_separator:  Nineslice::new(92.0, 46.0, 3.0, 3.0, 1.0),
+        dropdown_separator:     Rect::new(95.0, 43.0, 1.0, 2.0),
+        dropdown_separator_gap: 2.0,
 
         popup_title:          Nineslice::new(92.0, 37.0, 3.0, 3.0, 1.0),
         popup_body:           Nineslice::new(92.0, 40.0, 3.0, 3.0, 1.0),
         popup_title_text_col: Color::from_rgba(255, 255, 255, 255),
         popup_body_text_col:  Color::from_rgba( 24,  20,  37, 255),
         popup_close_idle:     Rect::new(85.0, 37.0, 7.0, 7.0),
+        popup_close_hover:    Rect::new(85.0, 44.0, 7.0, 7.0),
         popup_close_down:     Rect::new(85.0, 44.0, 7.0, 7.0),
         
         minefield_border:          Nineslice::new(81.0, 11.0, 5.0, 5.0, 2.0),
@@ -395,8 +433,8 @@ pub fn win_style() -> Style {
         url_text:   Color::from_rgba( 51, 118, 230, 255),
         shadow:     Color::from_rgba(  0,   0,   0, 128),
 
-        button_idle:          Nineslice::new(81.0, 51.0, 3.0, 3.0, 1.0),
-        button_down:          Nineslice::new(84.0, 51.0, 3.0, 3.0, 1.0),
+        button_idle:          Nineslice::new(85.0, 144.0, 5.0, 5.0, 2.0),
+        button_down:          Nineslice::new(90.0, 144.0, 5.0, 5.0, 2.0),
         button_disabled:      Nineslice::new(87.0, 51.0, 3.0, 3.0, 1.0),
         button_down_offset:   Vec2::ONE,
         button_text:          Color::from_rgba( 24,  20,  37, 255),
@@ -407,14 +445,16 @@ pub fn win_style() -> Style {
         dropdown_idle:       DropdownStyle { background: Color::from_hex(0xc0c0c0), text_col: Color::from_hex(0x000000), other_text_col: Color::from_hex(0x606060) },
         dropdown_active:     DropdownStyle { background: Color::from_hex(0x000080), text_col: Color::from_hex(0xffffff), other_text_col: Color::from_hex(0xffffff) },
         dropdown_background: Nineslice::new(85.0, 121.0, 5.0, 5.0, 2.0),
-        dropdown_separator:  Nineslice::new(90.0, 121.0, 3.0, 5.0, 1.0),
+        dropdown_separator:  Rect::new(90.0, 121.0, 1.0, 5.0),
+        dropdown_separator_gap: 2.0,
 
-        popup_title:          Nineslice::new(92.0, 37.0, 3.0, 3.0, 1.0),
-        popup_body:           Nineslice::new(92.0, 40.0, 3.0, 3.0, 1.0),
+        popup_title:          Nineslice::new(80.0, 130.0, 7.0, 7.0, 3.0),
+        popup_body:           Nineslice::new(81.0, 137.0, 5.0, 5.0, 2.0),
         popup_title_text_col: Color::from_rgba(255, 255, 255, 255),
         popup_body_text_col:  Color::from_rgba( 24,  20,  37, 255),
-        popup_close_idle:     Rect::new(85.0, 37.0, 7.0, 7.0),
-        popup_close_down:     Rect::new(85.0, 44.0, 7.0, 7.0),
+        popup_close_idle:     Rect::new(82.0, 152.0, 10.0, 9.0),
+        popup_close_hover:    Rect::new(82.0, 152.0, 10.0, 9.0),
+        popup_close_down:     Rect::new(92.0, 152.0, 10.0, 9.0),
         
         minefield_border:          Nineslice::new(95.0, 114.0, 7.0, 7.0, 3.0),
         minefield_tile_origin:     Vec2::new(0.0, 54.0),
@@ -451,69 +491,70 @@ pub fn win_style() -> Style {
     }
 }
 
-pub fn mini_style() -> Style {
-    let texture = Texture2D::from_file_with_format(include_bytes!("../../../resources/mini-spritesheet.png"), None);
-    texture.set_filter(macroquad::texture::FilterMode::Nearest);
+// pub fn mini_style() -> Style {
+//     let texture = Texture2D::from_file_with_format(include_bytes!("../../../resources/mini-spritesheet.png"), None);
+//     texture.set_filter(macroquad::texture::FilterMode::Nearest);
 
-    Style {
-        texture,
+//     Style {
+//         texture,
 
-        background: Nineslice::new(81.0, 48.0, 3.0, 3.0, 1.0),
-        url_text:   Color::from_rgba( 51, 118, 230, 255),
-        shadow:     Color::from_rgba(  0,   0,   0, 128),
+//         background: Nineslice::new(81.0, 48.0, 3.0, 3.0, 1.0),
+//         url_text:   Color::from_rgba( 51, 118, 230, 255),
+//         shadow:     Color::from_rgba(  0,   0,   0, 128),
 
-        button_idle:          Nineslice::new(81.0, 51.0, 3.0, 3.0, 1.0),
-        button_down:          Nineslice::new(84.0, 51.0, 3.0, 3.0, 1.0),
-        button_disabled:      Nineslice::new(87.0, 51.0, 3.0, 3.0, 1.0),
-        button_down_offset:   Vec2::ONE,
-        button_text:          Color::from_rgba( 24,  20,  37, 255),
-        button_disabled_text: Color::from_rgba(110, 128, 156, 255),
+//         button_idle:          Nineslice::new(81.0, 51.0, 3.0, 3.0, 1.0),
+//         button_down:          Nineslice::new(84.0, 51.0, 3.0, 3.0, 1.0),
+//         button_disabled:      Nineslice::new(87.0, 51.0, 3.0, 3.0, 1.0),
+//         button_down_offset:   Vec2::ONE,
+//         button_text:          Color::from_rgba( 24,  20,  37, 255),
+//         button_disabled_text: Color::from_rgba(110, 128, 156, 255),
 
-        menu_item_idle:      MenuItemStyle { background: Color::from_hex(0xc0cbdc), text_col: Color::from_hex(0x181425) },
-        menu_item_active:    MenuItemStyle { background: Color::from_hex(0x262b44), text_col: Color::from_hex(0xffffff) },
-        dropdown_idle:       DropdownStyle { background: Color::from_hex(0xc0cbdc), text_col: Color::from_hex(0x181425), other_text_col: Color::from_hex(0x495673) },
-        dropdown_active:     DropdownStyle { background: Color::from_hex(0x262b44), text_col: Color::from_hex(0xffffff), other_text_col: Color::from_hex(0xffffff) },
-        dropdown_background: Nineslice::new(92.0, 43.0, 3.0, 3.0, 1.0),
-        dropdown_separator:  Nineslice::new(0.0, 0.0, 0.0, 0.0, 0.0),
-
-        popup_title:          Nineslice::new(92.0, 37.0, 3.0, 3.0, 1.0),
-        popup_body:           Nineslice::new(92.0, 40.0, 3.0, 3.0, 1.0),
-        popup_title_text_col: Color::from_rgba(255, 255, 255, 255),
-        popup_body_text_col:  Color::from_rgba( 24,  20,  37, 255),
-        popup_close_idle:     Rect::new(85.0, 37.0, 7.0, 7.0),
-        popup_close_down:     Rect::new(85.0, 44.0, 7.0, 7.0),
+//         menu_item_idle:      MenuItemStyle { background: Color::from_hex(0xc0cbdc), text_col: Color::from_hex(0x181425) },
+//         menu_item_active:    MenuItemStyle { background: Color::from_hex(0x262b44), text_col: Color::from_hex(0xffffff) },
+//         dropdown_idle:       DropdownStyle { background: Color::from_hex(0xc0cbdc), text_col: Color::from_hex(0x181425), other_text_col: Color::from_hex(0x495673) },
+//         dropdown_active:     DropdownStyle { background: Color::from_hex(0x262b44), text_col: Color::from_hex(0xffffff), other_text_col: Color::from_hex(0xffffff) },
+//         dropdown_background: Nineslice::new(92.0, 43.0, 3.0, 3.0, 1.0),
+//         dropdown_separator:  Nineslice::new(0.0, 0.0, 0.0, 0.0, 0.0),
+//         dropdown_separator_gap: 1.0,
         
-        minefield_border:          Nineslice::new(81.0, 11.0, 5.0, 5.0, 2.0),
-        minefield_tile_origin:     Vec2::new(0.0, 57.0),
-        minefield_tile_width:      1,
-        minefield_tile_height:     1,
-        minefield_tile_size:       Vec2::new(1.0, 1.0),
-        minefield_selector:        Rect::default(),
-        minefield_selector_offset: Vec2::ZERO,
+//         popup_title:          Nineslice::new(92.0, 37.0, 3.0, 3.0, 1.0),
+//         popup_body:           Nineslice::new(92.0, 40.0, 3.0, 3.0, 1.0),
+//         popup_title_text_col: Color::from_rgba(255, 255, 255, 255),
+//         popup_body_text_col:  Color::from_rgba( 24,  20,  37, 255),
+//         popup_close_idle:     Rect::new(85.0, 37.0, 7.0, 7.0),
+//         popup_close_down:     Rect::new(85.0, 44.0, 7.0, 7.0),
+        
+//         minefield_border:          Nineslice::new(81.0, 11.0, 5.0, 5.0, 2.0),
+//         minefield_tile_origin:     Vec2::new(0.0, 57.0),
+//         minefield_tile_width:      1,
+//         minefield_tile_height:     1,
+//         minefield_tile_size:       Vec2::new(1.0, 1.0),
+//         minefield_selector:        Rect::default(),
+//         minefield_selector_offset: Vec2::ZERO,
 
-        status_v_pad: 3.0,
-        face_button_idle:        Nineslice::new(86.0, 11.0, 3.0, 3.0, 1.0),
-        face_button_down:        Nineslice::new(86.0, 14.0, 3.0, 3.0, 1.0),
-        face_button_down_offset: Vec2::ONE,
-        face_button_size:        Vec2::new(19.0, 19.0),
-        face_origin:  Vec2::new( 0.0, 37.0),
-        face_size:    Vec2::new(17.0, 11.0),
-        face_offset:  Vec2::new( 1.0,  1.0),
-        mouth_origin: Vec2::new( 0.0, 48.0),
-        mouth_size:   Vec2::new(17.0,  6.0),
-        mouth_offset: Vec2::new( 1.0, 12.0),
+//         status_v_pad: 3.0,
+//         face_button_idle:        Nineslice::new(86.0, 11.0, 3.0, 3.0, 1.0),
+//         face_button_down:        Nineslice::new(86.0, 14.0, 3.0, 3.0, 1.0),
+//         face_button_down_offset: Vec2::ONE,
+//         face_button_size:        Vec2::new(19.0, 19.0),
+//         face_origin:  Vec2::new( 0.0, 37.0),
+//         face_size:    Vec2::new(17.0, 11.0),
+//         face_offset:  Vec2::new( 1.0,  1.0),
+//         mouth_origin: Vec2::new( 0.0, 48.0),
+//         mouth_size:   Vec2::new(17.0,  6.0),
+//         mouth_offset: Vec2::new( 1.0, 12.0),
 
-        bomb_counter_background:   Nineslice::new(89.0, 11.0, 3.0, 3.0, 1.0),
-        bomb_counter_digit_origin: Vec2::new(0.0, 18.0),
-        bomb_counter_digit_offset: Vec2::new(3.0, 2.0),
-        bomb_counter_digit_size:   Vec2::new(8.0, 14.0),
-        bomb_counter_digit_gap:    2.0,
+//         bomb_counter_background:   Nineslice::new(89.0, 11.0, 3.0, 3.0, 1.0),
+//         bomb_counter_digit_origin: Vec2::new(0.0, 18.0),
+//         bomb_counter_digit_offset: Vec2::new(3.0, 2.0),
+//         bomb_counter_digit_size:   Vec2::new(8.0, 14.0),
+//         bomb_counter_digit_gap:    2.0,
 
-        timer_background:   Nineslice::new(89.0, 14.0, 3.0, 3.0, 1.0),
-        timer_digit_origin: Vec2::new(0.0, 32.0),
-        timer_digit_offset: Vec2::new(2.0, 2.0),
-        timer_digit_size:   Vec2::new(3.0, 5.0),
-        timer_digit_gap:    1.0,
-        timer_colon_width:  1.0,
-    }
-}
+//         timer_background:   Nineslice::new(89.0, 14.0, 3.0, 3.0, 1.0),
+//         timer_digit_origin: Vec2::new(0.0, 32.0),
+//         timer_digit_offset: Vec2::new(2.0, 2.0),
+//         timer_digit_size:   Vec2::new(3.0, 5.0),
+//         timer_digit_gap:    1.0,
+//         timer_colon_width:  1.0,
+//     }
+// }

@@ -69,8 +69,8 @@ impl Renderer {
         // let texture = Texture2D::from_file_with_format(include_bytes!("../../../resources/spritesheet.png"), None);
         // texture.set_filter(FilterMode::Nearest);
         Renderer {
-            // style: style::win_style(),
-            style: style::temp_style(),
+            style: style::win_style(),
+            // style: style::temp_style(),
             // style: style::mini_style(),
             text_renderer: TextRenderer::new(),
             draw_queue: Vec::new(),

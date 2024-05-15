@@ -160,14 +160,14 @@ impl Menubar {
     pub fn dropdown_separator(&mut self, renderer: &mut Renderer) {
         self.dropdown_current_y = self.dropdown_next_y;
         let source = renderer.style().dropdown_separator();
-        let pad = renderer.style().dropdown_background().padding;
+        let pad = renderer.style().dropdown_separator_gap();
         let dest = Rect::new(
             self.item_current_x + pad,
             self.dropdown_current_y,
-            self.dropdown_width,
-            source.rect.h,
+            self.dropdown_width - pad,
+            source.h,
         );
         self.dropdown_next_y += dest.h;
-        renderer.draw(super::renderer::DrawShape::nineslice(dest, source));
+        renderer.draw(super::renderer::DrawShape::image_rect(dest, source, None));
     }
 }
