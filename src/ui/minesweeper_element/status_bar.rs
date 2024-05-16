@@ -1,6 +1,6 @@
 use macroquad::{math::{vec2, Rect, Vec2}, rand::gen_range, time::get_frame_time};
 
-use crate::{minesweeper::{GameState, Minesweeper}, ui::{elements::{aligned_rect, Align}, renderer::{style::{ButtonFace, ButtonMouth, CounterDigit, FaceButtonStyle}, DrawShape, Renderer}, state::{ButtonState, State}}};
+use crate::{minesweeper::{GameState, Minesweeper}, ui::{elements::{aligned_rect, Align}, renderer::{style::{ButtonFace, ButtonMouth, ButtonStateStyle, CounterDigit, FaceButtonStyle}, DrawShape, Renderer}, state::{ButtonState, State}}};
 
 const BLINK_DURATION:        f32   = 0.1;
 const SPAM_MAX_TIME:         f32   = 0.5;
@@ -93,13 +93,15 @@ impl StatusBar {
             _                     => ButtonMouth::Idle,
         };
         
-        let FaceButtonStyle { offset, source, face_offset, face, mouth_offset, mouth } = renderer.style().face_button(&button_state, face, mouth);
-        let rect = rect.offset(offset);
+        let FaceButtonStyle {
+            button_style: ButtonStateStyle { source, source_offset, inner_offset, .. },
+            face_offset, face, mouth_offset, mouth
+        } = renderer.style().face_button(&button_state, face, mouth);
 
         // Drawing the face and button
-        renderer.draw(DrawShape::image(rect.x+mouth_offset.x, rect.y+mouth_offset.y, mouth, None));
-        renderer.draw(DrawShape::image(rect.x+face_offset.x,  rect.y+face_offset.y,  face, None));
-        renderer.draw(DrawShape::nineslice(rect, source));
+        renderer.draw(DrawShape::image(rect.x+inner_offset.x+mouth_offset.x, rect.y+inner_offset.y+mouth_offset.y, mouth, None));
+        renderer.draw(DrawShape::image(rect.x+inner_offset.x+face_offset.x,  rect.y+inner_offset.y+face_offset.y,  face, None));
+        renderer.draw(DrawShape::nineslice(rect.offset(source_offset), source));
         button_state.released()
     }
 

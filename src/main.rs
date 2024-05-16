@@ -1,5 +1,5 @@
 use macroquad::{miniquad::window::{cancel_quit, order_quit}, prelude::*};
-use minesweeper::Difficulty;
+use minesweeper::{Difficulty, GameState};
 use ui::{popups::PopupKind, Ui};
 
 pub mod ui;
@@ -103,11 +103,12 @@ async fn main() {
         );
         ui.minesweeper_element.update(minesweeper_area, &mut ui.state, &mut ui.renderer);
 
-        // Winning popup
-        // if ui.minesweeper_element.won_this_frame() {
-        //     ui.popups.add(PopupKind::Win, &mut ui.state);
-        //     ui.minesweeper_element.win_sound();
-        // }
+        match ui.minesweeper_element.game_state_change() {
+            Some(GameState::Win) => {
+                ui.popups.add(PopupKind::Win, &mut ui.state);
+            }
+            _ => {},
+        }
 
         // Quiting
         if quit {

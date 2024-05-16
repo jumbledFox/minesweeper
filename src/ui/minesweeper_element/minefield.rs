@@ -144,7 +144,8 @@ impl Minefield {
                 (Tile::Flag, _)                              => Some(4), // Flag
                 (_, Some(false))                             => Some(7), // Unexploded bomb
                 (_, Some(true))                              => Some(8), // Exploded bomb
-                (Tile::Numbered(n), _)                       => Some(*n as u32 + 8), // Number
+                (Tile::Numbered(n), _)                       => Some(*n as u32 + 9), // Number
+                (Tile::Dug, _)                               => Some(9),
                 _ => None,
             }.map(|id| draw_tile(i, id));
         }
@@ -168,14 +169,20 @@ impl Minefield {
     ) -> Option<usize> {
         // Chording
         // If we were trying to chord and any of the mouse buttons have been released, chord!
-        let any_mouse_released = state.mouse_released(MouseButton::Middle) || state.mouse_released(MouseButton::Left) || state.mouse_released(MouseButton::Right);
+        let any_mouse_released = state.mouse_released(MouseButton::Middle)
+                              || state.mouse_released(MouseButton::Left)
+                              || state.mouse_released(MouseButton::Right);
+
         if self.chording && any_mouse_released {
             (self.chording, self.chorded) = (false, true);
             return game.chord(selected_tile);
         };
 
-        // We only want to be chording if the minefield is active and we're holding the right button(s) 
-        self.chording = is_active && ((state.mouse_down(MouseButton::Middle) || (state.mouse_down(MouseButton::Left) && state.mouse_down(MouseButton::Right))));
+        // We only want to be chording if the minefield is active and we're holding the right button(s)
+        let chord_button_combo = state.mouse_down(MouseButton::Middle)
+                             || (state.mouse_down(MouseButton::Left) && state.mouse_down(MouseButton::Right));
+        self.chording = is_active && game.state().is_playing() && chord_button_combo;
+        
         // Draw the chorded tiles
         if self.chording {
             self.about_to_dig = true;

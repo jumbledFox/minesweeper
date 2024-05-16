@@ -1,3 +1,5 @@
+// Makes the bombs explode in a nice circle, very efficient if I do say so myself :3
+
 use indexmap::IndexMap;
 use macroquad::{audio::{play_sound, PlaySoundParams, Sound}, time::get_frame_time};
 

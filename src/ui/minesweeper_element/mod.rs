@@ -19,8 +19,9 @@ pub struct MinesweeperElement {
     exploder:   Exploder,
     status_bar: StatusBar,
     
-    new_game_request: Option<Difficulty>,
-    custom_values:    Option<Difficulty>,
+    game_state_change: Option<GameState>,
+    new_game_request:  Option<Difficulty>,
+    custom_values:     Option<Difficulty>,
 }
 
 impl MinesweeperElement {
@@ -37,8 +38,9 @@ impl MinesweeperElement {
             exploder:   Exploder::default(),
             status_bar: StatusBar::default(),
 
-            new_game_request: None,
-            custom_values:    None
+            game_state_change: None,
+            new_game_request:  None,
+            custom_values:     None
         }
     }
 
@@ -51,6 +53,10 @@ impl MinesweeperElement {
 
     pub fn new_game_requested(&mut self) -> Option<Difficulty> {
         self.new_game_request.take()
+    }
+
+    pub fn game_state_change(&mut self) -> Option<GameState> {
+        self.game_state_change
     }
 
     // The minimum size the area can be before clipping
@@ -92,6 +98,14 @@ impl MinesweeperElement {
         if self.status_bar.update(status_area, self.minefield.about_to_dig(), &self.game, self.timer, state, renderer) {
             self.new_game_request = Some(self.difficulty)
         }
+
+        let prev_state = self.game.state();
         self.minefield.update(minefield_area, &mut self.game, &mut self.exploder, state, renderer);
+        let new_state  = self.game.state();
+
+        self.game_state_change = match prev_state != new_state {
+            true  => Some(new_state),
+            false => None,
+        }
     }
 }

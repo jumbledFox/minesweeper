@@ -2,7 +2,7 @@ use macroquad::{input::MouseButton, math::{vec2, Rect, Vec2}, miniquad::window::
 
 use crate::minesweeper::{Difficulty, MAX_HEIGHT, MAX_WIDTH, MIN_HEIGHT, MIN_WIDTH};
 
-use super::{elements::{align_beg, align_end, align_mid, button_text, text, text_field, url, Align, TextFieldKind}, hash_string, menubar::Menubar, minesweeper_element::MinesweeperElement, renderer::{style::PopupStyle, DrawShape, Renderer}, state::{ButtonState, Id, State}};
+use super::{elements::{align_beg, align_end, align_mid, aligned_rect, button_text, text, text_field, url, Align, TextFieldKind}, hash_string, menubar::Menubar, minesweeper_element::MinesweeperElement, renderer::{style::{rect_from_pos_size, ButtonStateStyle, PopupStyle}, DrawShape, Renderer}, state::{ButtonState, Id, State}};
 
 #[derive(Default)]
 pub struct Popups {
@@ -113,7 +113,7 @@ impl Popup {
     }
 
     pub fn update(&mut self, drag_offset: &mut Vec2, state: &mut State, menubar: &Menubar, renderer: &mut Renderer) -> (PopupAction, Option<PopupReturn>) {
-        let titlebar_height = renderer.text_renderer.text_size(&self.title, None).y + 3.0;
+        let titlebar_height = renderer.style().popup_title_height();
         self.pos = self.pos
             // .min(state.screen_size() - self.size)
             .min(state.screen_size() - titlebar_height)
@@ -244,7 +244,12 @@ impl Popup {
             self.pos = state.mouse_pos() - *drag_offset;
         }
         
-        renderer.draw(DrawShape::text(title_rect.x + 2.0, title_rect.y + 2.0, self.title.clone(), None, None, None, title_text_col));
+        let title_text_size = renderer.text_renderer.text_size(&self.title, None).y;
+        renderer.draw(DrawShape::text(
+            title_rect.x + 2.0,
+            title_rect.y + Align::Mid(title_rect.h/2.0).align_to(title_text_size),
+            self.title.clone(), None, None, None, title_text_col
+        ));
         renderer.draw(DrawShape::nineslice(title_rect, title));
         renderer.draw(DrawShape::nineslice(body_rect,  body));
         renderer.draw(DrawShape::rect(body_rect.combine_with(title_rect).offset(vec2(3.0, 3.0)), renderer.style().shadow()));
@@ -259,11 +264,13 @@ impl Popup {
 
     fn close_button(id: Id, title_rect: Rect, state: &mut State, renderer: &mut Renderer) -> bool {
         // TODO: Position less constant-ly
-        let pos = title_rect.point() + vec2(title_rect.w - 8.0, 1.0);
-        let rect = Rect::new(pos.x, pos.y, 7.0, 7.0);
+        let size = renderer.style().popup_close_size();
+        let rect = aligned_rect(Align::End(title_rect.w - 1.0), Align::Mid(title_rect.h/2.0), size.x, size.y).offset(title_rect.point());
         let button_state = state.button_state(id, state.mouse_in_rect(rect), false, false);
 
-        renderer.draw(DrawShape::image(pos.x, pos.y, renderer.style().popup_close(&button_state), None));
+        let ButtonStateStyle { source, source_offset, .. } = renderer.style().popup_close(&button_state);
+
+        renderer.draw(DrawShape::nineslice(rect.offset(source_offset), source));
 
         button_state == ButtonState::Released
     }

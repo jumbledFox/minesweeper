@@ -66,12 +66,8 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn new() -> Renderer {
-        // let texture = Texture2D::from_file_with_format(include_bytes!("../../../resources/spritesheet.png"), None);
-        // texture.set_filter(FilterMode::Nearest);
         Renderer {
-            style: style::win_style(),
-            // style: style::temp_style(),
-            // style: style::mini_style(),
+            style: style::default_style(),
             text_renderer: TextRenderer::new(),
             draw_queue: Vec::new(),
             caret_timer: 0.0,
@@ -115,8 +111,8 @@ impl Renderer {
         let shake_var = |low: f32, high: f32| {
             gen_range(low, high) * if rand() % 2 == 0 { -1.0 } else { 1.0 }
         };
-        if self.shake_timer > 0.02 {
-            self.shake_timer -= 0.02;
+        if self.shake_timer > 0.015 {
+            self.shake_timer = 0.0;
 
             if self.shake_first {
                 self.shake_offset = vec2(shake_var(2.0, 5.0), shake_var(2.0, 4.0)) * self.shake_damp;

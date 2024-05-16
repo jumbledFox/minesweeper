@@ -1,6 +1,6 @@
 use macroquad::{color::Color, input::{clear_input_queue, get_char_pressed, get_last_key_pressed, is_key_down, KeyCode}, math::{vec2, Rect, Vec2}};
 
-use super::{renderer::{style::ButtonStyle, text_renderer::Caret, DrawShape, Renderer}, state::{ButtonState, Id, State}};
+use super::{renderer::{style::{ButtonStateStyle, ButtonStyle}, text_renderer::Caret, DrawShape, Renderer}, state::{ButtonState, Id, State}};
 
 #[derive(Clone, Copy)]
 pub enum Align {
@@ -61,10 +61,9 @@ pub fn button(id: Id, x: Align, y: Align, w: f32, h: f32, disabled: bool, state:
     let rect = aligned_rect(x, y, w, h);
     let button_state = state.button_state(id, state.mouse_in_rect(rect), disabled, true);
 
-    let ButtonStyle {offset, source, text_col: _ } = renderer.style().button_style(&button_state);
+    let ButtonStateStyle {source, source_offset, inner_offset: _, text_col: _ } = renderer.style().button_style(&button_state);
 
-    let rect = rect.offset(offset);
-    renderer.draw(DrawShape::nineslice(rect, source));
+    renderer.draw(DrawShape::nineslice(rect.offset(source_offset), source));
 
     button_state
 }
@@ -74,11 +73,10 @@ pub fn button_text(id: Id, text: String, x: Align, y: Align, disabled: bool, sta
     let rect = aligned_rect(x, y, button_size.x, button_size.y);
     let button_state = state.button_state(id, state.mouse_in_rect(rect), disabled, true);
 
-    let ButtonStyle {offset, source, text_col } = renderer.style().button_style(&button_state);
+    let ButtonStateStyle {source, source_offset, inner_offset, text_col } = renderer.style().button_style(&button_state);
 
-    let rect = rect.offset(offset);
-    renderer.draw(DrawShape::text(rect.x + 3.0, rect.y + 2.0, text, None, None, None, text_col));
-    renderer.draw(DrawShape::nineslice(rect, source));
+    renderer.draw(DrawShape::text(rect.x + inner_offset.x + 3.0 , rect.y + inner_offset.y + 2.0, text, None, None, None, text_col));
+    renderer.draw(DrawShape::nineslice(rect.offset(source_offset), source));
 
     button_state
 }
