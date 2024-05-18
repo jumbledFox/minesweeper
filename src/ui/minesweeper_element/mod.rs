@@ -25,9 +25,9 @@ pub struct MinesweeperElement {
 }
 
 impl MinesweeperElement {
-    pub async fn new(renderer: &Renderer) -> MinesweeperElement {
+    pub async fn new() -> MinesweeperElement {
         let difficulty = Difficulty::Easy;
-        let minefield = Minefield::new(difficulty, renderer).await;
+        let minefield = Minefield::new(difficulty).await;
 
         MinesweeperElement {
             game: Minesweeper::new(difficulty),
@@ -62,17 +62,17 @@ impl MinesweeperElement {
     // The minimum size the area can be before clipping
     pub fn minimum_size(&self, renderer: &Renderer) -> Vec2 {
         let minefield_size  = self.minefield .min_size(renderer);
-        let status_bar_size = self.status_bar.min_size(renderer);
+        let status_bar_size = self.status_bar.min_size();
         vec2(
             f32::max(minefield_size.x, status_bar_size.x),
             minefield_size.y + status_bar_size.y,
         )
     }
 
-    pub fn new_game(&mut self, difficulty: Difficulty, renderer: &Renderer) {
+    pub fn new_game(&mut self, difficulty: Difficulty) {
         self.game = Minesweeper::new(difficulty);
         self.difficulty = difficulty;
-        self.minefield.new_game(difficulty, &renderer);
+        self.minefield.new_game(difficulty);
         self.exploder.reset();
 
         if difficulty.is_custom() {
@@ -91,7 +91,7 @@ impl MinesweeperElement {
             _ => Some(self.timer.unwrap_or(0.0)),
         };
 
-        let status_area    = Rect::new(area.x, area.y,                 area.w, self.status_bar.min_size(renderer).y);
+        let status_area    = Rect::new(area.x, area.y,                 area.w, self.status_bar.min_size().y);
         let minefield_area = Rect::new(area.x, area.y + status_area.h, area.w, area.h - status_area.h);
 
         // If the button was clicked, we want to start a new game

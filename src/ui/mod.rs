@@ -39,12 +39,12 @@ pub struct Ui {
 
 impl Ui {
     pub async fn new() -> Ui {
-        let renderer = Renderer::new();
+        let renderer = Renderer::new().await;
         Ui {
             state:   State  ::new(),
             menubar: Menubar::default(),
             popups:  Popups ::default(),
-            minesweeper_element: MinesweeperElement::new(&renderer).await, 
+            minesweeper_element: MinesweeperElement::new().await, 
             renderer,
         }
     }

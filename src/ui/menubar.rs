@@ -1,6 +1,6 @@
 use macroquad::math::{vec2, Rect, Vec2};
 
-use super::{elements::Align, hash_string, renderer::{style::{DropdownStyle, MenuItemStyle}, DrawShape, Renderer}, state::{ButtonState, Id, SelectedItem, State}};
+use super::{elements::Align, hash_string, renderer::{style::SHADOW, DrawShape, Renderer}, state::{ButtonState, Id, SelectedItem, State}};
 
 #[derive(Default)]
 pub struct Menubar {
@@ -37,7 +37,7 @@ impl Menubar {
             y: 0.0,
             w: state.screen_size().x - self.item_next_x + 1.0, // + 1.0 for rounding..
             h: self.height,
-            color: renderer.style().menu_item_style(false).background,
+            color: renderer.style().menubar(false).0,
         });
 
         // If anywhere that's not the dropdown has been clicked, deselect the menubar
@@ -68,7 +68,7 @@ impl Menubar {
             self.item_current = Some(id);
         }
         
-        let MenuItemStyle { background, text_col } = renderer.style().menu_item_style(self.item_current == Some(id) || state.hot_item == id);
+        let (background, text_col, _) = renderer.style().menubar(self.item_current == Some(id) || state.hot_item == id);
 
         renderer.draw(super::renderer::DrawShape::text(rect.x + 2.0, rect.y + 1.0, text, None, None, None,text_col));
         renderer.draw(super::renderer::DrawShape::rect(rect, background));
@@ -94,7 +94,7 @@ impl Menubar {
 
         // Draw the dropdown box and it's shadow
         renderer.draw(DrawShape::nineslice(self.dropdown_rect, renderer.style().dropdown_background()));
-        renderer.draw(DrawShape::rect(self.dropdown_rect.offset(Vec2::splat(3.0)), renderer.style().shadow()));
+        renderer.draw(DrawShape::rect(self.dropdown_rect.offset(Vec2::splat(3.0)), SHADOW));
 
         // Make it so the box captures the hot item
         state.hot_item.make_unavailable_if_none_and(state.mouse_in_rect(self.dropdown_rect));
@@ -126,7 +126,7 @@ impl Menubar {
             self.item_current = None;
         }
 
-        let DropdownStyle { background, text_col, other_text_col } = renderer.style().dropdown_style(state.hot_item == id);
+        let (background, text_col, other_text_col) = renderer.style().menubar(state.hot_item == id);
 
         if icon {
             renderer.draw(super::renderer::DrawShape::Rect {
@@ -139,7 +139,7 @@ impl Menubar {
         }
         renderer.draw(super::renderer::DrawShape::text(rect.x + 7.0, rect.y + 2.0, text, None, None, None, text_col ));
         if let Some(other_text) = other_text {
-            super::elements::text(other_text, None, other_text_col, Align::End(rect.right()-3.0), Align::Beg(rect.y + 2.0), renderer);
+            super::elements::text(other_text, None, other_text_col, Align::End(rect.right() - 3.0), Align::Beg(rect.y + 2.0), renderer);
         }
         renderer.draw(super::renderer::DrawShape::rect(rect, background));
 
@@ -160,11 +160,10 @@ impl Menubar {
     pub fn dropdown_separator(&mut self, renderer: &mut Renderer) {
         self.dropdown_current_y = self.dropdown_next_y;
         let source = renderer.style().dropdown_separator();
-        let pad = renderer.style().dropdown_separator_gap();
         let dest = Rect::new(
-            self.item_current_x + pad,
+            self.item_current_x + 1.0,
             self.dropdown_current_y,
-            self.dropdown_width - pad,
+            self.dropdown_width - 1.0,
             source.h,
         );
         self.dropdown_next_y += dest.h;

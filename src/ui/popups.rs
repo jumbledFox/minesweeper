@@ -2,7 +2,7 @@ use macroquad::{input::MouseButton, math::{vec2, Rect, Vec2}, miniquad::window::
 
 use crate::minesweeper::{Difficulty, MAX_HEIGHT, MAX_WIDTH, MIN_HEIGHT, MIN_WIDTH};
 
-use super::{elements::{align_beg, align_end, align_mid, aligned_rect, button_text, text, text_field, url, Align, TextFieldKind}, hash_string, menubar::Menubar, minesweeper_element::MinesweeperElement, renderer::{style::{rect_from_pos_size, ButtonStateStyle, PopupStyle}, DrawShape, Renderer}, state::{ButtonState, Id, State}};
+use super::{elements::{self, Align}, hash_string, menubar::Menubar, minesweeper_element::MinesweeperElement, renderer::{style::SHADOW, DrawShape, Renderer}, state::{ButtonState, Id, State}};
 
 #[derive(Default)]
 pub struct Popups {
@@ -43,10 +43,10 @@ impl Popups {
         }
     }
 
-    pub fn handle_returns(&mut self, minesweeper_element: &mut MinesweeperElement, renderer: &Renderer) {
+    pub fn handle_returns(&mut self, minesweeper_element: &mut MinesweeperElement) {
         for return_value in &mut self.return_values {
             match return_value {
-                PopupReturn::NewGame { difficulty } => minesweeper_element.new_game(*difficulty, renderer),
+                PopupReturn::NewGame { difficulty } => minesweeper_element.new_game(*difficulty),
                 PopupReturn::Exit                   => order_quit(),
             }
         }
@@ -113,9 +113,9 @@ impl Popup {
     }
 
     pub fn update(&mut self, drag_offset: &mut Vec2, state: &mut State, menubar: &Menubar, renderer: &mut Renderer) -> (PopupAction, Option<PopupReturn>) {
-        let titlebar_height = renderer.style().popup_title_height();
+        
+        let titlebar_height = renderer.text_renderer.text_size(&self.title, None).y + 3.0;
         self.pos = self.pos
-            // .min(state.screen_size() - self.size)
             .min(state.screen_size() - titlebar_height)
             .max(vec2(-self.size.x + titlebar_height, menubar.height()))
             .round();
@@ -124,111 +124,179 @@ impl Popup {
         let body_rect  = Rect::new(self.pos.x, self.pos.y + title_rect.h, self.size.x, self.size.y - title_rect.h);
 
         let id = self.id;
-        let mut close = Popup::close_button(id.wrapping_add(1), title_rect, state, renderer);
+        let mut id_add = 1;
+        
         let mut return_value = None;
+        let mut close = Popup::close_button(id.wrapping_add(id_add), title_rect, state, renderer);
 
-        // This is done AFTER doing the close button, so that when you click X it doesn't bring the popup to the top
-        let active_before = state.active_item;
+        let text = |text: String, x: Align, y: Align, renderer: &mut Renderer| {
+            elements::text(text, None, renderer.style().text(), x, y, renderer)
+        };
+        let mut url = |text: String, url: String, x: Align, y: Align, state: &mut State, renderer: &mut Renderer, id_add: &mut Id| {
+            *id_add += 1;
+            elements::url(self.id.wrapping_add(*id_add), text, url, None, x, y, state, renderer)
+        };
+        let mut button = |text: String, x: Align, y: Align, disabled: bool, state: &mut State, renderer: &mut Renderer, id_add: &mut Id| {
+            *id_add += 1;
+            elements::button_text(self.id.wrapping_add(*id_add), text, x, y, disabled, state, renderer)
+        };
 
-        let PopupStyle { title, title_text_col, body, body_text_col } = renderer.style().popup_style();
-
-        // Elements inside of the popups
-        // This is a bit messy, but it's easy to add to.
         match &mut self.kind {
+            PopupKind::Exit => {
+                text("Are you sure you\nwant to exit?".to_owned(), Align::Beg(body_rect.x+3.0), Align::Beg(body_rect.y+3.0), renderer);
+                if button("Exit".to_owned(), Align::End(body_rect.right() - 3.0), Align::End(body_rect.bottom() - 3.0), false, state, renderer, &mut id_add).released() {
+                    return_value = Some(PopupReturn::Exit);
+                }
+                close = close | button("Cancel".to_owned(), Align::End(body_rect.right() - 25.0), Align::End(body_rect.bottom() - 3.0), false, state, renderer, &mut id_add).released();
+            }
             PopupKind::NewGame { difficulty } => {
-                text("Are you sure you want\nto start a new game?".to_owned(), None, body_text_col, Align::Beg(body_rect.x+3.0), Align::Beg(body_rect.y+3.0), renderer);
-
-                if button_text(id.wrapping_add(2), "Yes".to_owned(), align_end(body_rect.right() -3.0), align_end(body_rect.bottom()-3.0), false, state, renderer).released() {
-                    close = true;
+                text("Are you sure you want\nto start a new game?".to_owned(), Align::Beg(body_rect.x+3.0), Align::Beg(body_rect.y+3.0), renderer);
+                if button("Yes".to_owned(), Align::End(body_rect.right() - 3.0), Align::End(body_rect.bottom() - 3.0), false, state, renderer, &mut id_add).released() {
                     return_value = Some(PopupReturn::NewGame { difficulty: *difficulty });
                 }
-                close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body_rect.right()-25.0), align_end(body_rect.bottom()-3.0), false, state, renderer).released();
+                close = close | button("Cancel".to_owned(), Align::End(body_rect.right() - 25.0), Align::End(body_rect.bottom() - 3.0), false, state, renderer, &mut id_add).released();
             }
-            PopupKind::Custom { width, height, bomb_count } => {
-                text("Width" .to_owned(), None, body_text_col, align_mid(body_rect.x + 17.0), align_beg(body_rect.y +  4.0), renderer);
-                text("Height".to_owned(), None, body_text_col, align_mid(body_rect.x + 17.0), align_beg(body_rect.y + 14.0), renderer);
-                text("Bombs" .to_owned(), None, body_text_col, align_mid(body_rect.x + 17.0), align_beg(body_rect.y + 24.0), renderer);
-                // TODO: This is also a bit messy, but once again it works and is easy to know what's going on
-                let width_hint  = format!("{:?} - {:?}", MIN_WIDTH,  MAX_WIDTH);
-                let height_hint = format!("{:?} - {:?}", MIN_HEIGHT, MAX_HEIGHT);
-
-                let (width_id, height_id, bombs_id) = (id.wrapping_add(4), id.wrapping_add(5), id.wrapping_add(6));
-                text_field(
-                    width_id,  align_end(body_rect.right() - 3.0), align_beg(body_rect.y +  2.0),
-                    41.0, width,  width_hint,  TextFieldKind::Digits { min: MIN_WIDTH,  max: MAX_WIDTH  }, None, Some(height_id), 7, state, renderer
-                );
-                text_field(
-                    height_id, align_end(body_rect.right() - 3.0), align_beg(body_rect.y + 12.0),
-                    41.0, height, height_hint, TextFieldKind::Digits { min: MIN_HEIGHT, max: MAX_HEIGHT }, Some(width_id), Some(bombs_id), 7, state, renderer
-                );
-
-                let (w, h) = match (width.parse::<usize>(), height.parse::<usize>()) {
-                    (Ok(w), Ok(h)) if Difficulty::dimensions_in_range(w, h) => (Some(w), Some(h)),
-                    _ => (None, None),
-                };
-
-                let bombs_hint = match (w, h) {
-                    (Some(w), Some(h)) => match Difficulty::max_bombs(w, h) {
-                        Some(b) => format!("{} - {}", 0, b),
-                        None => String::new()
-                    }
-                    _ => String::new(),
-                };
-
-                text_field(
-                    bombs_id, align_end(body_rect.right() - 3.0), align_beg(body_rect.y + 22.0),
-                    41.0, bomb_count, bombs_hint, TextFieldKind::Digits { min: MIN_HEIGHT, max: MAX_HEIGHT }, Some(height_id), None, 7, state, renderer
-                );
-                // TODO: Maybe add nice sliders to all of these??
-
-                let difficulty = match (w, h, bomb_count.parse::<usize>()) {
-                    (Some(w), Some(h), Ok(b)) => Difficulty::custom(w, h, b),
-                    _ => None,
-                };
-
-                // Buttons
-                if button_text(id.wrapping_add(2), "Submit".to_owned(), align_end(body_rect.right()-3.0), align_end(body_rect.bottom()-3.0), difficulty.is_none(), state, renderer).released() {
-                    if let Some(difficulty) = difficulty {
-                        return_value = Some(PopupReturn::NewGame { difficulty });
-                        close = true;
-                    }
-                }
-                close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body_rect.right()-36.0), align_end(body_rect.bottom()-3.0), false, state, renderer).released();
+            PopupKind::Hint => {
+                text("You're on your\nown.".to_owned(),  Align::Beg(body_rect.x+3.0),       Align::Beg(body_rect.y+3.0), renderer);
+                close = close | button("Ah.".to_owned(), Align::End(body_rect.right()-3.0), Align::End(body_rect.bottom()-3.0), false, state, renderer, &mut id_add).released();
+            }
+            PopupKind::Win => {
+                text("Congratulations!".to_owned(),  Align::Beg(body_rect.x+3.0),       Align::Beg(body_rect.y+3.0), renderer);
+                close = close | button("Yippee!".to_owned(), Align::End(body_rect.right()-3.0), Align::End(body_rect.bottom()-3.0), false, state, renderer, &mut id_add).released();
             }
             PopupKind::About => {
                 url(
-                    id.wrapping_add(2), "jumbledFox".to_owned(), "https://jumbledFox.github.io".to_owned(), None,
-                    Align::Beg(body_rect.x+3.0), Align::Beg(body_rect.y+10.0), state, renderer
+                    "jumbledFox".to_owned(), "https://jumbledFox.github.io".to_owned(),          Align::Beg(body_rect.x+3.0),  Align::Beg(body_rect.y+10.0), 
+                    state, renderer, &mut id_add
                 );
                 url(
-                    id.wrapping_add(2), "Macroquad".to_owned(), "https://github.com/not-fl3/macroquad".to_owned(), None,
-                    Align::Beg(body_rect.x+24.0), Align::Beg(body_rect.y+31.0), state, renderer
+                    "Macroquad".to_owned(), "https://github.com/not-fl3/macroquad".to_owned(),   Align::Beg(body_rect.x+24.0), Align::Beg(body_rect.y+31.0),
+                    state, renderer, &mut id_add
                 );
                 url(
-                    id.wrapping_add(2), "Github".to_owned(), "https://github.com/jumbledfox/minesweeper".to_owned(), None,
-                    Align::Beg(body_rect.x+63.0), Align::Beg(body_rect.y+45.0), state, renderer
+                    "Github".to_owned(), "https://github.com/jumbledfox/minesweeper".to_owned(), Align::Beg(body_rect.x+63.0), Align::Beg(body_rect.y+45.0),
+                    state, renderer, &mut id_add
                 );
                 text(
                     "Minesweeper\njumbledFox - 2024\n\nMade with love in Rust, \nusing Macroquad.\n\nOpen source on Github!\nThanks for playing <3".to_owned(),
-                    None, body_text_col, Align::Beg(body_rect.x+3.0), Align::Beg(body_rect.y+3.0), renderer
-                );
+                    Align::Beg(body_rect.x + 3.0), Align::Beg(body_rect.y + 3.0), renderer
+                )
             }
-            PopupKind::Hint => {
-                text("You're on your\nown.".to_owned(), None, body_text_col, Align::Beg(body_rect.x+3.0), Align::Beg(body_rect.y+3.0), renderer);
-                close = close || button_text(id.wrapping_add(3), "Ah.".to_owned(), align_end(body_rect.right()-3.0), align_end(body_rect.bottom()-3.0), false, state, renderer).released();
-            }
-            PopupKind::Win => {
-                text("Congratulations!".to_owned(), None, body_text_col, Align::Beg(body_rect.x+3.0), Align::Beg(body_rect.y+3.0), renderer);
-                close = close || button_text(id.wrapping_add(3), "Yippee!".to_owned(), align_end(body_rect.right()-3.0), align_end(body_rect.bottom()-3.0), false, state, renderer).released();
-            }
-            PopupKind::Exit => {
-                text("Are you sure you\nwant to exit?".to_owned(), None, body_text_col, Align::Beg(body_rect.x+3.0), Align::Beg(body_rect.y+3.0), renderer);
-                if button_text(id.wrapping_add(2), "Exit".to_owned(), align_end(body_rect.right() -3.0), align_end(body_rect.bottom()-3.0), false, state, renderer).released() {
-                    return_value = Some(PopupReturn::Exit);
-                }
-                close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body_rect.right()-25.0), align_end(body_rect.bottom()-3.0), false, state, renderer).released()
+            PopupKind::Custom { width, height, bomb_count } => {
+                
             }
         }
+        /*
+        PopupKind::Exit => {
+        //         text("Are you sure you\nwant to exit?".to_owned(), None, body_text_col, Align::Beg(body_rect.x+3.0), Align::Beg(body_rect.y+3.0), renderer);
+        //         if button_text(id.wrapping_add(2), "Exit".to_owned(), align_end(body_rect.right() -3.0), align_end(body_rect.bottom()-3.0), false, state, renderer).released() {
+        //             return_value = Some(PopupReturn::Exit);
+        //         }
+        //         close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body_rect.right()-25.0), align_end(body_rect.bottom()-3.0), false, state, renderer).released()
+        //     } */
+
+        // // This is done AFTER doing the close button, so that when you click X it doesn't bring the popup to the top
+        // let active_before = state.active_item;
+
+        // let PopupStyle { title, title_text_col, body, body_text_col } = renderer.style().popup_style();
+
+        // // Elements inside of the popups
+        // // This is a bit messy, but it's easy to add to.
+        // match &mut self.kind {
+        //     PopupKind::NewGame { difficulty } => {
+        //         text("Are you sure you want\nto start a new game?".to_owned(), None, body_text_col, Align::Beg(body_rect.x+3.0), Align::Beg(body_rect.y+3.0), renderer);
+
+        //         if button_text(id.wrapping_add(2), "Yes".to_owned(), align_end(body_rect.right() -3.0), align_end(body_rect.bottom()-3.0), false, state, renderer).released() {
+        //             close = true;
+        //             return_value = Some(PopupReturn::NewGame { difficulty: *difficulty });
+        //         }
+        //         close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body_rect.right()-25.0), align_end(body_rect.bottom()-3.0), false, state, renderer).released();
+        //     }
+        //     PopupKind::Custom { width, height, bomb_count } => {
+        //         text("Width" .to_owned(), None, body_text_col, align_mid(body_rect.x + 17.0), align_beg(body_rect.y +  4.0), renderer);
+        //         text("Height".to_owned(), None, body_text_col, align_mid(body_rect.x + 17.0), align_beg(body_rect.y + 14.0), renderer);
+        //         text("Bombs" .to_owned(), None, body_text_col, align_mid(body_rect.x + 17.0), align_beg(body_rect.y + 24.0), renderer);
+        //         // TODO: This is also a bit messy, but once again it works and is easy to know what's going on
+        //         let width_hint  = format!("{:?} - {:?}", MIN_WIDTH,  MAX_WIDTH);
+        //         let height_hint = format!("{:?} - {:?}", MIN_HEIGHT, MAX_HEIGHT);
+
+        //         let (width_id, height_id, bombs_id) = (id.wrapping_add(4), id.wrapping_add(5), id.wrapping_add(6));
+        //         text_field(
+        //             width_id,  align_end(body_rect.right() - 3.0), align_beg(body_rect.y +  2.0),
+        //             41.0, width,  width_hint,  TextFieldKind::Digits { min: MIN_WIDTH,  max: MAX_WIDTH  }, None, Some(height_id), 7, state, renderer
+        //         );
+        //         text_field(
+        //             height_id, align_end(body_rect.right() - 3.0), align_beg(body_rect.y + 12.0),
+        //             41.0, height, height_hint, TextFieldKind::Digits { min: MIN_HEIGHT, max: MAX_HEIGHT }, Some(width_id), Some(bombs_id), 7, state, renderer
+        //         );
+
+        //         let (w, h) = match (width.parse::<usize>(), height.parse::<usize>()) {
+        //             (Ok(w), Ok(h)) if Difficulty::dimensions_in_range(w, h) => (Some(w), Some(h)),
+        //             _ => (None, None),
+        //         };
+
+        //         let bombs_hint = match (w, h) {
+        //             (Some(w), Some(h)) => match Difficulty::max_bombs(w, h) {
+        //                 Some(b) => format!("{} - {}", 0, b),
+        //                 None => String::new()
+        //             }
+        //             _ => String::new(),
+        //         };
+
+        //         text_field(
+        //             bombs_id, align_end(body_rect.right() - 3.0), align_beg(body_rect.y + 22.0),
+        //             41.0, bomb_count, bombs_hint, TextFieldKind::Digits { min: MIN_HEIGHT, max: MAX_HEIGHT }, Some(height_id), None, 7, state, renderer
+        //         );
+        //         // TODO: Maybe add nice sliders to all of these??
+
+        //         let difficulty = match (w, h, bomb_count.parse::<usize>()) {
+        //             (Some(w), Some(h), Ok(b)) => Difficulty::custom(w, h, b),
+        //             _ => None,
+        //         };
+
+        //         // Buttons
+        //         if button_text(id.wrapping_add(2), "Submit".to_owned(), align_end(body_rect.right()-3.0), align_end(body_rect.bottom()-3.0), difficulty.is_none(), state, renderer).released() {
+        //             if let Some(difficulty) = difficulty {
+        //                 return_value = Some(PopupReturn::NewGame { difficulty });
+        //                 close = true;
+        //             }
+        //         }
+        //         close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body_rect.right()-36.0), align_end(body_rect.bottom()-3.0), false, state, renderer).released();
+        //     }
+        //     PopupKind::About => {
+        //         url(
+        //             id.wrapping_add(2), "jumbledFox".to_owned(), "https://jumbledFox.github.io".to_owned(), None,
+        //             Align::Beg(body_rect.x+3.0), Align::Beg(body_rect.y+10.0), state, renderer
+        //         );
+        //         url(
+        //             id.wrapping_add(2), "Macroquad".to_owned(), "https://github.com/not-fl3/macroquad".to_owned(), None,
+        //             Align::Beg(body_rect.x+24.0), Align::Beg(body_rect.y+31.0), state, renderer
+        //         );
+        //         url(
+        //             id.wrapping_add(2), "Github".to_owned(), "https://github.com/jumbledfox/minesweeper".to_owned(), None,
+        //             Align::Beg(body_rect.x+63.0), Align::Beg(body_rect.y+45.0), state, renderer
+        //         );
+        //         text(
+        //             "Minesweeper\njumbledFox - 2024\n\nMade with love in Rust, \nusing Macroquad.\n\nOpen source on Github!\nThanks for playing <3".to_owned(),
+        //             None, body_text_col, Align::Beg(body_rect.x+3.0), Align::Beg(body_rect.y+3.0), renderer
+        //         );
+        //     }
+        //     PopupKind::Hint => {
+        //         text("You're on your\nown.".to_owned(), None, body_text_col, Align::Beg(body_rect.x+3.0), Align::Beg(body_rect.y+3.0), renderer);
+        //         close = close || button_text(id.wrapping_add(3), "Ah.".to_owned(), align_end(body_rect.right()-3.0), align_end(body_rect.bottom()-3.0), false, state, renderer).released();
+        //     }
+        //     PopupKind::Win => {
+        //         text("Congratulations!".to_owned(), None, body_text_col, Align::Beg(body_rect.x+3.0), Align::Beg(body_rect.y+3.0), renderer);
+        //         close = close || button_text(id.wrapping_add(3), "Yippee!".to_owned(), align_end(body_rect.right()-3.0), align_end(body_rect.bottom()-3.0), false, state, renderer).released();
+        //     }
+        //     PopupKind::Exit => {
+        //         text("Are you sure you\nwant to exit?".to_owned(), None, body_text_col, Align::Beg(body_rect.x+3.0), Align::Beg(body_rect.y+3.0), renderer);
+        //         if button_text(id.wrapping_add(2), "Exit".to_owned(), align_end(body_rect.right() -3.0), align_end(body_rect.bottom()-3.0), false, state, renderer).released() {
+        //             return_value = Some(PopupReturn::Exit);
+        //         }
+        //         close = close || button_text(id.wrapping_add(3), "Cancel".to_owned(), align_end(body_rect.right()-25.0), align_end(body_rect.bottom()-3.0), false, state, renderer).released()
+        //     }
+        // }
 
         // Dragging the popup around
         let hovered = state.mouse_in_rect(title_rect) || state.mouse_in_rect(body_rect);
@@ -244,33 +312,32 @@ impl Popup {
             self.pos = state.mouse_pos() - *drag_offset;
         }
         
-        let title_text_size = renderer.text_renderer.text_size(&self.title, None).y;
+        // let title_text_size = renderer.text_renderer.text_size(&self.title, None).y;
         renderer.draw(DrawShape::text(
             title_rect.x + 2.0,
-            title_rect.y + Align::Mid(title_rect.h/2.0).align_to(title_text_size),
-            self.title.clone(), None, None, None, title_text_col
+            title_rect.y + 2.0,
+            self.title.clone(), None, None, None, renderer.style().popup_title_text_col()
         ));
-        renderer.draw(DrawShape::nineslice(title_rect, title));
-        renderer.draw(DrawShape::nineslice(body_rect,  body));
-        renderer.draw(DrawShape::rect(body_rect.combine_with(title_rect).offset(vec2(3.0, 3.0)), renderer.style().shadow()));
+        renderer.draw(DrawShape::nineslice(title_rect, renderer.style().popup_title()));
+        renderer.draw(DrawShape::nineslice(body_rect,  renderer.style().popup_body()));
+        renderer.draw(DrawShape::rect(body_rect.combine_with(title_rect).offset(vec2(3.0, 3.0)), SHADOW));
         
-        let action = match (close, active_before.is_none() && !state.active_item.is_none()) {
-            (true, _) => PopupAction::Close,
-            (_, true) => PopupAction::Front,
-            _ => PopupAction::None,
-        };
+        // let action = match (close, active_before.is_none() && !state.active_item.is_none()) {
+        //     (true, _) => PopupAction::Close,
+        //     (_, true) => PopupAction::Front,
+        //     _ => PopupAction::None,
+        // };
+        let action = PopupAction::None;
         (action, return_value)
     }
 
     fn close_button(id: Id, title_rect: Rect, state: &mut State, renderer: &mut Renderer) -> bool {
-        // TODO: Position less constant-ly
-        let size = renderer.style().popup_close_size();
-        let rect = aligned_rect(Align::End(title_rect.w - 1.0), Align::Mid(title_rect.h/2.0), size.x, size.y).offset(title_rect.point());
+        let rect = Rect::new(title_rect.right() - 8.0, title_rect.y + 1.0, 7.0, 7.0);
         let button_state = state.button_state(id, state.mouse_in_rect(rect), false, false);
 
-        let ButtonStateStyle { source, source_offset, .. } = renderer.style().popup_close(&button_state);
+        let source = renderer.style().popup_close(button_state != ButtonState::Idle);
 
-        renderer.draw(DrawShape::nineslice(rect.offset(source_offset), source));
+        renderer.draw(DrawShape::image(rect.x, rect.y, source, None));
 
         button_state == ButtonState::Released
     }

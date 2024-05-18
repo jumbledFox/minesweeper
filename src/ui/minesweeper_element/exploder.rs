@@ -1,7 +1,7 @@
 // Makes the bombs explode in a nice circle, very efficient if I do say so myself :3
 
 use indexmap::IndexMap;
-use macroquad::{audio::{play_sound, PlaySoundParams, Sound}, time::get_frame_time};
+use macroquad::time::get_frame_time;
 
 use crate::{minesweeper::Minesweeper, ui::renderer::Renderer};
 
@@ -20,6 +20,7 @@ impl Exploder {
     pub fn contains(&self, key: &usize) -> bool {
         self.map.contains_key(key)
     }
+    
     pub fn index_exploded(&self, key: &usize) -> Option<bool> {
         self.map.get(key).and_then(|(_, e)| Some(*e))
     }
@@ -59,7 +60,7 @@ impl Exploder {
         self.radius_expansion = (usize::max(game.width(), game.height()) as f32).sqrt() * 2.0;
     }
 
-    pub fn update(&mut self, explosion_sound: &Option<Sound>, renderer: &mut Renderer) {
+    pub fn update(&mut self, renderer: &mut Renderer) {
         // If we've exploded all of the bombs, we don't need to do anything more!!
         if self.map_skip == self.map.len() {
             return;
@@ -87,9 +88,7 @@ impl Exploder {
         if self.map_skip != prev_skip && self.effect_timer > 0.1 {
             self.effect_timer = 0.0;
             renderer.shake(1.0);
-            if let Some(explosion_sound) = explosion_sound {
-                play_sound(&explosion_sound, PlaySoundParams { looped: false, volume: 0.3 });
-            }
+            renderer.sound_player().play_explosion();
         }
     }
 }

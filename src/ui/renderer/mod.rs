@@ -1,10 +1,11 @@
-use macroquad::{camera::{set_camera, Camera2D}, color::{Color, WHITE}, math::{vec2, Rect, Vec2}, rand::{gen_range, rand}, shapes::draw_rectangle, texture::{draw_texture, draw_texture_ex, DrawTextureParams, Texture2D}, window::{screen_height, screen_width}};
+use macroquad::{camera::{set_camera, Camera2D}, color::{Color, WHITE}, math::{vec2, Rect, Vec2}, prelude::ImageFormat, rand::{gen_range, rand}, shapes::draw_rectangle, texture::{draw_texture, draw_texture_ex, DrawTextureParams, Texture2D}, window::{screen_height, screen_width}};
 
-use self::{style::{Nineslice, Style}, text_renderer::{Caret, TextRenderer}};
+use self::{sound::SoundPlayer, style::{Nineslice, Style, EXPLOSION_SOUND, FLAG_SOUND, SPRITESHEET, WIN_SOUND}, text_renderer::{Caret, TextRenderer}};
 
 use super::{menubar::Menubar, state::State, Round};
 
 pub mod style;
+pub mod sound;
 pub mod text_renderer;
 
 pub enum DrawShape {
@@ -14,7 +15,6 @@ pub enum DrawShape {
     ImageRect { dest: Rect, source: Rect, color: Color },
     Nineslice { dest: Rect, source: Rect, padding: f32 },
     Texture { x: f32, y: f32, texture: Texture2D },
-    // Minefield { x: f32, y: f32, },
 }
 
 impl DrawShape {
@@ -49,7 +49,10 @@ impl DrawShape {
 }
 
 pub struct Renderer {
-    style: Style,
+    texture:      Texture2D,
+    style:        Style,
+    sound_player: SoundPlayer,
+
     pub text_renderer: TextRenderer,
     pub draw_queue: Vec<DrawShape>,
     pub caret_timer: f32,
@@ -65,9 +68,15 @@ pub struct Renderer {
 // TODO: Fix rescale flicker
 
 impl Renderer {
-    pub fn new() -> Renderer {
+    pub async fn new() -> Renderer {
+        let texture = Texture2D::from_file_with_format(SPRITESHEET, Some(ImageFormat::Png));
+        texture.set_filter(macroquad::texture::FilterMode::Nearest);
+        
         Renderer {
-            style: style::default_style(),
+            texture,
+            style: Style::new(),
+            sound_player: SoundPlayer::new(WIN_SOUND, EXPLOSION_SOUND, FLAG_SOUND).await,
+
             text_renderer: TextRenderer::new(),
             draw_queue: Vec::new(),
             caret_timer: 0.0,
@@ -81,7 +90,9 @@ impl Renderer {
         }
     }
     
-    pub fn style(&self) -> &Style { &self.style }
+    pub fn texture(&self)      -> Texture2D    { self.texture.clone() }
+    pub fn style(&self)        -> &Style       { &self.style }
+    pub fn sound_player(&self) -> &SoundPlayer { &self.sound_player }
 
     pub fn shake_stop(&mut self) {
         self.shake_damp *= 0.2;
@@ -162,7 +173,7 @@ impl Renderer {
                     source: Some(*source),
                     ..Default::default()
                 };
-                draw_texture_ex(&self.style().texture(), *x, *y, *color, params)
+                draw_texture_ex(&self.texture, *x, *y, *color, params)
             },
             &DrawShape::ImageRect { dest, source, color } => {
                 let params = DrawTextureParams {
@@ -170,7 +181,7 @@ impl Renderer {
                     source: Some(*source),
                     ..Default::default()
                 };
-                draw_texture_ex(&self.style().texture(), dest.x, dest.y, *color, params)
+                draw_texture_ex(&self.texture, dest.x, dest.y, *color, params)
             },
             &DrawShape::Nineslice { dest, source, padding } => {
                 let dest_parts   = calculate_nineslice_parts(*dest,   *padding);
@@ -182,7 +193,7 @@ impl Renderer {
                         source: Some(s),
                         ..Default::default()
                     };
-                    draw_texture_ex(&self.style().texture(), d.x, d.y, WHITE, params);
+                    draw_texture_ex(&self.texture, d.x, d.y, WHITE, params);
                 }
             },
             &DrawShape::Texture { x, y, texture } => {

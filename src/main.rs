@@ -94,7 +94,7 @@ async fn main() {
         // TODO: Make it so popup positions change depending on the new and old scale of the window
         ui.popups.update(&mut ui.state, &ui.menubar, &mut ui.renderer);
 
-        // Draw the minesweeper game below the menubar
+        // Draw the minesweeper game below the menubar, inside the nineslice padding of the bg
         let minesweeper_area = Rect::new(
             0.0                                            + ui.renderer.style().background().padding,
             ui.menubar.height()                            + ui.renderer.style().background().padding,
@@ -103,11 +103,10 @@ async fn main() {
         );
         ui.minesweeper_element.update(minesweeper_area, &mut ui.state, &mut ui.renderer);
 
-        match ui.minesweeper_element.game_state_change() {
-            Some(GameState::Win) => {
-                ui.popups.add(PopupKind::Win, &mut ui.state);
-            }
-            _ => {},
+        // Winning
+        if ui.minesweeper_element.game_state_change() == Some(GameState::Win) {
+            ui.renderer.sound_player().play_win();
+            ui.popups.add(PopupKind::Win, &mut ui.state);
         }
 
         // Quiting
@@ -125,11 +124,11 @@ async fn main() {
             if ui.minesweeper_element.game_in_progress() {
                 ui.popups.add(PopupKind::NewGame { difficulty }, &mut ui.state);
             } else {
-                ui.minesweeper_element.new_game(difficulty, &ui.renderer);
+                ui.minesweeper_element.new_game(difficulty);
             }
         }
 
-        ui.popups.handle_returns(&mut ui.minesweeper_element, &ui.renderer);
+        ui.popups.handle_returns(&mut ui.minesweeper_element);
 
         ui.finish();
 
