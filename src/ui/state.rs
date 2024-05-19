@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use macroquad::{input::{is_mouse_button_down, is_mouse_button_pressed, is_mouse_button_released, mouse_position, MouseButton}, math::{vec2, Rect, Vec2}, window::{screen_height, screen_width}};
+use macroquad::{input::{get_last_key_pressed, is_key_down, is_mouse_button_down, is_mouse_button_pressed, is_mouse_button_released, mouse_position, KeyCode, MouseButton}, math::{vec2, Rect, Vec2}, time::get_frame_time, window::{screen_height, screen_width}};
 
 use super::{menubar::Menubar, minesweeper_element::MinesweeperElement, renderer::Renderer};
 
@@ -66,6 +66,9 @@ pub struct State {
     pub text_field: Option<Id>,
     pub tabbed: bool,
     pub caret: usize,
+
+    key_held: Option<KeyCode>,
+    key_hold_timer: f32,
 }
 
 impl State {
@@ -87,6 +90,9 @@ impl State {
             text_field: None,
             tabbed: false,
             caret: 0,
+
+            key_held: None,
+            key_hold_timer: 0.0,
         }
     }
 
@@ -176,6 +182,22 @@ impl State {
         self.screen_size = window_size / self.scale;
         self.hot_item = SelectedItem::None;
         self.tabbed = false;
+
+        if let Some(k) = get_last_key_pressed() {
+            self.key_held = Some(k);
+            self.key_hold_timer = 0.0;
+        }
+        if self.key_held.map(|k| is_key_down(k)) != Some(true) {
+            self.key_held = None;
+        }
+        self.key_hold_timer += get_frame_time();
+    }
+
+    pub fn key_held(&mut self) -> Option<KeyCode> {
+        match (self.key_held, self.key_hold_timer > 0.5) {
+            (Some(k), true) => { self.key_hold_timer -= 0.025; Some(k) },
+            _ => None
+        }
     }
 
     pub fn finish(&mut self) {

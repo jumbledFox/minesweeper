@@ -87,8 +87,8 @@ pub enum Tile {
 }
 
 pub struct Minesweeper {
-    width: usize,
-    height: usize,
+    width:      usize,
+    height:     usize,
     bomb_count: usize,
 
     board: Vec<Tile>,
@@ -240,8 +240,13 @@ impl Minesweeper {
                 .filter_map(|(x, y)| get_index_from_offset(index, *x, *y, self.width, self.height))
                 .filter(|i| self.board.get(*i).is_some_and(|t| *t == Tile::Unopened))
                 .collect();
+            // If we're not going to dig anything, return
+            if diggable_neighbours.len() == 0 {
+                return None;
+            }
+            self.turns += 1;
             // If we're going to dig a bomb, dig only it and then return.
-            let bomb_index =  diggable_neighbours
+            let bomb_index = diggable_neighbours
                 .iter()
                 .filter(|i| self.bombs().contains(&i))
                 .next()

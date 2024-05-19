@@ -65,7 +65,7 @@ impl Minefield {
         // renderer.draw(DrawShape::rect(area, macroquad::color::Color::from_rgba(255, 0, 0, 128)));
 
         let size = self.size();
-        let rect = aligned_rect(Align::Mid(area.x + area.w / 2.0), Align::Mid(area.y + area.h / 2.0 - STATUS_V_PAD), size.x, size.y);
+        let rect = aligned_rect(Align::Mid(area.x + area.w / 2.0), Align::Mid(area.y + (area.h - STATUS_V_PAD) / 2.0), size.x, size.y);
         // Make sure it doesn't go above the area
         let rect = Rect::new(rect.x, f32::max(rect.y, area.y + renderer.style().minefield_border().padding).floor(), rect.w, rect.h);
 
@@ -111,7 +111,7 @@ impl Minefield {
 
         let draw_tile = |index: usize, id: u32| {
             let pos = self.tile_pos(index, game);
-            draw_texture_ex(&renderer.texture(), pos.x, pos.y, WHITE, DrawTextureParams {
+            draw_texture_ex(&renderer.style().texture(), pos.x, pos.y, WHITE, DrawTextureParams {
                 source: Some(renderer.style().minefield_tile(id)),
                 ..Default::default()
             });
@@ -227,11 +227,8 @@ impl Minefield {
             }
         }
         if let Some(flag_mode) = self.flag_mode {
-            if game.set_flag(flag_mode, selected_tile) {
-                renderer.sound_player().play_flag();
-            }
+            game.set_flag(flag_mode, selected_tile);
         }
-
         None
     }
 }

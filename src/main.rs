@@ -1,6 +1,6 @@
 use macroquad::{miniquad::window::{cancel_quit, order_quit}, prelude::*};
 use minesweeper::{Difficulty, GameState};
-use ui::{popups::PopupKind, Ui};
+use ui::{popups::PopupKind, renderer::style, Ui};
 
 pub mod ui;
 pub mod minesweeper;
@@ -74,6 +74,32 @@ async fn main() {
             if ui.menubar.dropdown("About".to_owned(), None, &mut ui.state, &mut ui.renderer) {
                 ui.popups.add(PopupKind::About, &mut ui.state);
             }
+            ui.menubar.dropdown_separator(&mut ui.renderer);
+
+            let themes = [
+                ("Light".to_owned(), style::Theme::Light),
+                ("Dark" .to_owned(), style::Theme::Dark),
+            ];
+            for (s, theme) in themes {
+                let is_current = *ui.renderer.style().theme() == theme;
+                if ui.menubar.dropdown_radio(s, None, is_current, &mut ui.state, &mut ui.renderer) {
+                    ui.renderer.style_mut().set_theme(theme);
+                }
+            }
+            ui.menubar.dropdown_separator(&mut ui.renderer);
+
+            let faces = [
+                ("Fox" .to_owned(), style::FaceType::Fox),
+                ("Bird".to_owned(), style::FaceType::Bird),
+                ("Nerd".to_owned(), style::FaceType::Nerd),
+            ];
+            for (s, face_type) in faces {
+                let is_current = *ui.renderer.style().face_type() == face_type;
+                if ui.menubar.dropdown_radio(s, None, is_current, &mut ui.state, &mut ui.renderer) {
+                    ui.renderer.style_mut().set_face_type(face_type);
+                }
+            }
+
             ui.menubar.finish_item(&mut ui.state, &mut ui.renderer);
         }
         if ui.menubar.item("Scale".to_owned(), 28.0, &mut ui.state, &mut ui.renderer) {

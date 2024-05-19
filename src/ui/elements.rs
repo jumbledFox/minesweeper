@@ -1,4 +1,4 @@
-use macroquad::{color::Color, input::{clear_input_queue, get_char_pressed, get_last_key_pressed, is_key_down, KeyCode}, math::{vec2, Rect, Vec2}};
+use macroquad::{color::Color, input::{clear_input_queue, get_char_pressed, get_last_key_pressed, KeyCode}, math::{vec2, Rect}};
 
 use super::{renderer::{text_renderer::Caret, DrawShape, Renderer}, state::{ButtonState, Id, State}};
 
@@ -81,73 +81,59 @@ pub fn button_text(id: Id, text: String, x: Align, y: Align, disabled: bool, sta
     button_state
 }
 
-// TODO: Text fields aren't the best but they work
-pub enum TextFieldKind {
-    Digits{min: usize, max: usize},
-}
-
-pub fn text_field(id: Id, x: Align, y: Align, w: f32, text: &mut String, hint: String, kind: TextFieldKind, prev: Option<Id>, next: Option<Id>, max_chars: usize, state: &mut State, renderer: &mut Renderer) {
-    let lines = match kind {
-        TextFieldKind::Digits {..} => 1,
-    };
-    let h = renderer.text_renderer.line_gap(None) * lines as f32 + 2.0;
+pub fn number_field(id: Id, number: &mut String, max: usize, hint: String, x: Align, y: Align, w: f32, state: &mut State, renderer: &mut Renderer) {
+    let h = renderer.text_renderer.line_gap(None) + 2.0;
     let rect = aligned_rect(x, y, w, h);
+
     let button_state = state.button_state(id, state.mouse_in_rect(rect), false, false);
 
-    let mut new_id = None;
     if state.text_field.is_some_and(|i| i == id) {
         if let Some(click_pos) = renderer.text_click_pos {
             state.caret = click_pos;
         }
-        state.caret = text.len().min(state.caret);
-        let mut reset_flash = true;
+        state.caret = state.caret.min(number.len());
+
+        let mut reset_flash = 0;
         match get_char_pressed() {
-            Some(c) if matches!(kind, TextFieldKind::Digits{..}) && text.len() < max_chars => {
-                if c.is_digit(10) { text.insert(state.caret, c); state.caret += 1; }
-            }
-            _ => {}
+            Some(c) if c.is_digit(10) && number.len() < max => { number.insert(state.caret, c); state.caret += 1; }
+            _ => reset_flash += 1,
         }
-        // TODO: These don't repeat when held!!!!
-        match get_last_key_pressed() {
+
+        match get_last_key_pressed().or_else(|| state.key_held()) {
             // Left
-            Some(KeyCode::Left)  => state.caret = state.caret.saturating_sub(1).min(text.len()),
+            Some(KeyCode::Left)  => state.caret = state.caret.saturating_sub(1).min(number.len()),
             // Right
-            Some(KeyCode::Right) => state.caret = state.caret.saturating_add(1).min(text.len()),
+            Some(KeyCode::Right) => state.caret = state.caret.saturating_add(1).min(number.len()),
             // Backspace
-            Some(KeyCode::Backspace) if state.caret > 0 => {state.caret -= 1; text.remove(state.caret);}
+            Some(KeyCode::Backspace) if state.caret > 0 => {state.caret -= 1; number.remove(state.caret);}
             // Delete
-            Some(KeyCode::Delete) if state.caret < text.len() => {text.remove(state.caret);}
-            Some(KeyCode::Tab) if !state.tabbed => {
-                new_id = if is_key_down(KeyCode::LeftShift) {prev} else {next};
-                state.tabbed = true;
-            }
-            _ => reset_flash = false,
+            Some(KeyCode::Delete) if state.caret < number.len() => { number.remove(state.caret); }
+            _ => reset_flash += 1,
         }
-        if reset_flash {
+        if reset_flash != 2 {
             renderer.caret_timer = 0.0;
         }
     }
-    // let caret = match state.text_field {
-    //     Some(i) if i == id => Some(Caret { index: state.caret, color: spritesheet::BUTTON_TEXT }),
-    //     _ => None,
-    // };
-    // // Doing this down here gives a frame of delay... but.... it works! Plus it's an immediate mode gui so delays are a given
-    // let click_pos = match button_state {
-    //     ButtonState::Clicked => { 
-    //         state.text_field = Some(id);
-    //         clear_input_queue();
-    //         Some(state.mouse_pos())
-    //     },
-    //     _ => None,
-    // };
-    // if text.is_empty() {
-    //     renderer.draw(DrawShape::text(rect.x + 2.0, rect.y + 2.0, hint, None, caret, click_pos, spritesheet::BUTTON_TEXT_DISABLED));
-    // } else {
-    //     renderer.draw(DrawShape::text(rect.x + 2.0, rect.y + 2.0, text.clone(), None, caret, click_pos, spritesheet::BUTTON_TEXT));
-    // }
-    // renderer.draw(DrawShape::nineslice(rect, spritesheet::input_field(false)));
 
-    // if new_id.is_some() {
-    //     state.text_field = new_id;
-    // }
+    let caret = match state.text_field {
+        Some(i) if i == id => Some(Caret { index: state.caret, color: renderer.style().text() }),
+        _ => None
+    };
+
+    let click_pos = match button_state {
+        ButtonState::Clicked => {
+            state.text_field = Some(id);
+            clear_input_queue();
+            Some(state.mouse_pos())
+        },
+        _ => None,
+    };
+
+    let text = match number.is_empty() {
+        true  => DrawShape::text(rect.x + 2.0, rect.y + 2.0, hint,           None, caret, click_pos, renderer.style().text_disabled()),
+        false => DrawShape::text(rect.x + 2.0, rect.y + 2.0, number.clone(), None, caret, click_pos, renderer.style().text()),
+    };
+
+    renderer.draw(text);
+    renderer.draw(DrawShape::nineslice(rect, renderer.style().text_input()));
 }

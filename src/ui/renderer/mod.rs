@@ -1,6 +1,6 @@
 use macroquad::{camera::{set_camera, Camera2D}, color::{Color, WHITE}, math::{vec2, Rect, Vec2}, prelude::ImageFormat, rand::{gen_range, rand}, shapes::draw_rectangle, texture::{draw_texture, draw_texture_ex, DrawTextureParams, Texture2D}, window::{screen_height, screen_width}};
 
-use self::{sound::SoundPlayer, style::{Nineslice, Style, EXPLOSION_SOUND, FLAG_SOUND, SPRITESHEET, WIN_SOUND}, text_renderer::{Caret, TextRenderer}};
+use self::{sound::SoundPlayer, style::{Nineslice, Style, EXPLOSION_SOUND, SPRITESHEET, WIN_SOUND}, text_renderer::{Caret, TextRenderer}};
 
 use super::{menubar::Menubar, state::State, Round};
 
@@ -49,7 +49,6 @@ impl DrawShape {
 }
 
 pub struct Renderer {
-    texture:      Texture2D,
     style:        Style,
     sound_player: SoundPlayer,
 
@@ -73,9 +72,8 @@ impl Renderer {
         texture.set_filter(macroquad::texture::FilterMode::Nearest);
         
         Renderer {
-            texture,
-            style: Style::new(),
-            sound_player: SoundPlayer::new(WIN_SOUND, EXPLOSION_SOUND, FLAG_SOUND).await,
+            style: Style::new(texture),
+            sound_player: SoundPlayer::new(WIN_SOUND, EXPLOSION_SOUND).await,
 
             text_renderer: TextRenderer::new(),
             draw_queue: Vec::new(),
@@ -90,9 +88,10 @@ impl Renderer {
         }
     }
     
-    pub fn texture(&self)      -> Texture2D    { self.texture.clone() }
-    pub fn style(&self)        -> &Style       { &self.style }
-    pub fn sound_player(&self) -> &SoundPlayer { &self.sound_player }
+    // pub fn texture(&self)      -> Texture2D    { self.texture.clone() }
+    pub fn style(&self)         -> &Style       { &self.style }
+    pub fn style_mut(&mut self) -> &mut Style   { &mut self.style }
+    pub fn sound_player(&self)  -> &SoundPlayer { &self.sound_player }
 
     pub fn shake_stop(&mut self) {
         self.shake_damp *= 0.2;
@@ -173,7 +172,7 @@ impl Renderer {
                     source: Some(*source),
                     ..Default::default()
                 };
-                draw_texture_ex(&self.texture, *x, *y, *color, params)
+                draw_texture_ex(&self.style().texture(), *x, *y, *color, params)
             },
             &DrawShape::ImageRect { dest, source, color } => {
                 let params = DrawTextureParams {
@@ -181,7 +180,7 @@ impl Renderer {
                     source: Some(*source),
                     ..Default::default()
                 };
-                draw_texture_ex(&self.texture, dest.x, dest.y, *color, params)
+                draw_texture_ex(&self.style().texture(), dest.x, dest.y, *color, params)
             },
             &DrawShape::Nineslice { dest, source, padding } => {
                 let dest_parts   = calculate_nineslice_parts(*dest,   *padding);
@@ -193,7 +192,7 @@ impl Renderer {
                         source: Some(s),
                         ..Default::default()
                     };
-                    draw_texture_ex(&self.texture, d.x, d.y, WHITE, params);
+                    draw_texture_ex(&self.style().texture(), d.x, d.y, WHITE, params);
                 }
             },
             &DrawShape::Texture { x, y, texture } => {

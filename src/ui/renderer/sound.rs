@@ -3,15 +3,13 @@ use macroquad::audio::{load_sound_from_bytes, play_sound, PlaySoundParams, Sound
 pub struct SoundPlayer {
     win:       Option<Sound>,
     explosion: Option<Sound>,
-    flag:      Option<Sound>
 }
 
 impl SoundPlayer {
-    pub async fn new(win: &[u8], explosion: &[u8], flag: &[u8]) -> SoundPlayer {
+    pub async fn new(win: &[u8], explosion: &[u8]) -> SoundPlayer {
         SoundPlayer {
             win:       SoundPlayer::load(win)      .await,
             explosion: SoundPlayer::load(explosion).await,
-            flag:      SoundPlayer::load(flag)     .await,
         }
     }
 
@@ -39,12 +37,6 @@ impl SoundPlayer {
         SoundPlayer::play(
             &self.explosion,
             PlaySoundParams { looped: false, volume: 0.3 },
-        );
-    }
-    pub fn play_flag(&self) {
-        SoundPlayer::play(
-            &self.flag,
-            PlaySoundParams { looped: false, volume: 1.0 },
         );
     }
 }
