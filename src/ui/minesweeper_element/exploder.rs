@@ -48,12 +48,8 @@ impl Exploder {
         let (center_x, center_y) = index_to_coord(start_index);
         for bomb_index in game.bombs() {
             let (x, y) = index_to_coord(*bomb_index);
-            // Add a random amount to the squared distance, to make explosions a little bit more varied and cool looking!
-            let (x, y) = (x + gen_range(-3.0, 3.0), y + gen_range(-3.0, 3.0));
             // a^2 + b^2 = c^2, thanks Pythagoras
-            let squared_distance = ((center_x - x).powi(2) + (center_y - y).powi(2))
-            // Ensure it never explodes too soon
-                .max(2.0);
+            let squared_distance = (center_x - x).powi(2) + (center_y - y).powi(2);
             self.map.insert(*bomb_index, (squared_distance, false));
         }
         // Make the starting bomb explode instantly
