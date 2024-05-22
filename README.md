@@ -15,11 +15,12 @@ This is a little minesweeper game that I've been working on, written in Rust usi
 ## Info
 It's built on top of my own implementation of an immediate-mode GUI. It isn't the most efficient, but it works very well for my purposes. Casey Muratori's [talk on this subject](https://youtu.be/Z1qyvQsjK5Y) was invaluable to me when implementing my own!
 
-Below you can see some of the GUI,  namely the menubar and a popup window.<p align="center"><img src="/docs/menubar_popup.png" width="509"></p>
+Below you can see some of the GUI,  namely the menubar and a popup window.
+<p align="center"><img src="/docs/menubar_popup.png" width="509"></p>
 
-There's a very cool circular explosion effect which I'm quite proud of.
-
-https://github.com/jumbledFox/minesweeper/assets/81022536/42800b87-ce62-410f-afba-1f84cf627cec
+There's a very cool circular explosion effect which I'm quite proud of.   
+(this would've been SO much nicer as an mp4 file, i.e. improved video quality, smaller file size, and sound, but silly github doesn't like putting videos in markdown files for some reason!!!)
+<p align="center"><img src="/docs/explosions.gif" width="509"></p>
 
 You can also make custom games!
 <p align="center"><img src="/docs/custom.png" width="475"></p>
