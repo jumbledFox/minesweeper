@@ -18,6 +18,7 @@ It's built on top of my own implementation of an immediate-mode GUI. It isn't th
 Below you can see some of the GUI,  namely the menubar and a popup window.<p align="center"><img src="/docs/menubar_popup.png" width="509"></p>
 
 There's a very cool circular explosion effect which I'm quite proud of.
+
 https://github.com/jumbledFox/minesweeper/assets/81022536/42800b87-ce62-410f-afba-1f84cf627cec
 
 You can also make custom games!
