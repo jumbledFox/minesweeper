@@ -90,7 +90,6 @@ impl Theme {
 #[derive(PartialEq, Eq)]
 pub enum FaceType { Fox, Bird, Nerd }
 pub enum Face { Idle, Scared, Win, Lose }
-pub enum Eyes { Open, Blink, Angry }
 
 pub struct Style {
     texture:   Texture2D,
@@ -165,14 +164,14 @@ impl Style {
             ButtonState::Hovered  => (0.0, 0.0, self.text()),
             _                     => (1.0, 3.0, self.text()),
         };
-        (Vec2::splat(offset), Nineslice::new(92.0, self.theme.y() + y, 3.0, 3.0, 1.0), text_col)
+        (Vec2::splat(offset), Nineslice::new(92.0, y + self.theme.y(), 3.0, 3.0, 1.0), text_col)
     }
 
-    pub fn text_input(&self) -> Nineslice { Nineslice::new(92.0, 15.0+self.theme.y(), 3.0, 3.0, 1.0) }
+    pub fn text_input(&self) -> Nineslice { Nineslice::new(92.0, 15.0 + self.theme.y(), 3.0, 3.0, 1.0) }
 
     pub fn popup_title_text(&self) -> Color { self.colors.get(&self.theme).map(|c| c.text_popup_title).unwrap_or_default() }
-    pub fn popup_title(&self) -> Nineslice { Nineslice::new(102.0,       self.theme.y(), 3.0, 3.0, 1.0) }
-    pub fn popup_body(&self)  -> Nineslice { Nineslice::new(102.0, 3.0 + self.theme.y(), 3.0, 3.0, 1.0) }
+    pub fn popup_title(&self) -> Nineslice { Nineslice::new(86.0, 15.0 + self.theme.y(), 3.0, 3.0, 1.0) }
+    pub fn popup_body(&self)  -> Nineslice { Nineslice::new(89.0, 15.0 + self.theme.y(), 3.0, 3.0, 1.0) }
     pub fn popup_close(&self, hovered: bool) -> Rect {
         let y = if hovered { 7.0 } else { 0.0 };
         rect(95.0, y + self.theme.y(), 7.0, 7.0)
@@ -200,17 +199,18 @@ impl Style {
         }
     }
 
-    pub fn face(&self, face: Face, eyes: Eyes) -> (Rect, Option<Rect>) {
+    pub fn face(&self, face: Face, blinking: bool, angry: bool) -> (Rect, Option<Rect>) {
         let size = FACE_SIZE;
         let face_rect = |index: usize| {
             Rect::new(index as f32 * size.x, self.face_y(), size.x, size.y)
         };
         
-        let eye_index = match (&face, eyes) {
-            (Face::Win | Face::Lose, _) => None,
-            (_, Eyes::Open)  => None, 
-            (_, Eyes::Blink) => Some(4), 
-            (_, Eyes::Angry) => Some(5), 
+        let eye_index = match (&face, blinking, angry) {
+            (Face::Win | Face::Lose, ..) => None,
+            (_, false, false) => None,    // Neither
+            (_, true,  false) => Some(4), // Blinking
+            (_, false, true)  => Some(5), // Angry
+            (_, true,  true)  => Some(6), // Both
         };
         let face_index = face as usize;
 

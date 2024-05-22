@@ -1,14 +1,16 @@
-use macroquad::{miniquad::window::{cancel_quit, order_quit}, prelude::*};
+use macroquad::{miniquad::{conf::Icon, window::{cancel_quit, order_quit}}, prelude::*};
 use minesweeper::{Difficulty, GameState};
 use ui::{popups::PopupKind, renderer::style, Ui};
 
 pub mod ui;
 pub mod minesweeper;
+include!(concat!(env!("OUT_DIR"), "/icon_data.rs"));
 
 fn window_conf() -> Conf {
     Conf {
         window_title: String::from("Minesweeper"),
         high_dpi: true,
+        icon: Some(Icon { small: ICON_SMALL, medium: ICON_MEDIUM, big: ICON_BIG}),
         ..Default::default()
     }
 }

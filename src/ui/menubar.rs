@@ -161,9 +161,9 @@ impl Menubar {
         self.dropdown_current_y = self.dropdown_next_y;
         let source = renderer.style().dropdown_separator();
         let dest = Rect::new(
-            self.item_current_x + 1.0,
+            self.item_current_x + 2.0,
             self.dropdown_current_y,
-            self.dropdown_width - 1.0,
+            self.dropdown_width - 2.0,
             source.h,
         );
         self.dropdown_next_y += dest.h;

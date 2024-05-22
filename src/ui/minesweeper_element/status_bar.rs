@@ -1,6 +1,6 @@
 use macroquad::{math::{vec2, Rect, Vec2}, rand::gen_range, time::get_frame_time};
 
-use crate::{minesweeper::{GameState, Minesweeper}, ui::{elements::{aligned_rect, Align}, renderer::{style::{bomb_counter_digit, bomb_counter_size, timer_colon, timer_digit, CounterDigit, Eyes, Face, BOMB_COUNTER_DIGIT_GAP, BOMB_COUNTER_DIGIT_OFFSET, BOMB_COUNTER_HEIGHT, FACE_BUTTON_SIZE, FACE_OFFSET, STATUS_V_PAD, TIMER_COLON_POSITION, TIMER_DIGIT_POSITIONS, TIMER_DIGIT_Y, TIMER_SIZE}, DrawShape, Renderer}, state::{ButtonState, State}}};
+use crate::{minesweeper::{GameState, Minesweeper}, ui::{elements::{aligned_rect, Align}, renderer::{style::{bomb_counter_digit, bomb_counter_size, timer_colon, timer_digit, CounterDigit, Face, BOMB_COUNTER_DIGIT_GAP, BOMB_COUNTER_DIGIT_OFFSET, BOMB_COUNTER_HEIGHT, FACE_BUTTON_SIZE, FACE_OFFSET, STATUS_V_PAD, TIMER_COLON_POSITION, TIMER_DIGIT_POSITIONS, TIMER_DIGIT_Y, TIMER_SIZE}, DrawShape, Renderer}, state::{ButtonState, State}}};
 
 const BLINK_DURATION:        f32   = 0.1;
 const SPAM_MAX_TIME:         f32   = 0.5;
@@ -93,12 +93,7 @@ impl StatusBar {
             (_, false)           => Face::Idle,
         };
         let button_held = matches!(button_state, ButtonState::Clicked | ButtonState::Held | ButtonState::Released);
-        let eyes = match (blinking || button_held, self.angry) {
-            (true, _) => Eyes::Blink,
-            (_, true) => Eyes::Angry,
-            _         => Eyes::Open,
-        };
-        let (face, eyes) = renderer.style().face(face, eyes);
+        let (face, eyes) = renderer.style().face(face, blinking || button_held, self.angry);
 
         // Drawing
         if let Some(eyes) = eyes {

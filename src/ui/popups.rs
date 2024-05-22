@@ -1,6 +1,6 @@
 use macroquad::{input::MouseButton, math::{vec2, Rect, Vec2}, miniquad::window::order_quit};
 
-use crate::minesweeper::Difficulty;
+use crate::minesweeper::{Difficulty, MAX_HEIGHT, MAX_WIDTH, MIN_HEIGHT, MIN_WIDTH};
 
 use super::{elements::{self, Align}, hash_string, menubar::Menubar, minesweeper_element::MinesweeperElement, renderer::{style::SHADOW, DrawShape, Renderer}, state::{ButtonState, Id, State}};
 
@@ -194,8 +194,8 @@ impl Popup {
                 text("Width" .to_owned(), Align::Mid(body_rect.x + 17.0), Align::Beg(body_rect.y +  4.0), renderer);
                 text("Height".to_owned(), Align::Mid(body_rect.x + 17.0), Align::Beg(body_rect.y + 14.0), renderer);
                 text("Bombs" .to_owned(), Align::Mid(body_rect.x + 17.0), Align::Beg(body_rect.y + 24.0), renderer);
-                number_field(width,      "0 - 200".to_owned(), Align::End(body_rect.right()-3.0), Align::Beg(body_rect.y +  2.0), 41.0, state, renderer, &mut id_add);
-                number_field(height,     "0 - 100".to_owned(), Align::End(body_rect.right()-3.0), Align::Beg(body_rect.y + 12.0), 41.0, state, renderer, &mut id_add);
+                number_field(width,  format!("{:?} - {:?}", MIN_WIDTH,  MAX_WIDTH),  Align::End(body_rect.right()-3.0), Align::Beg(body_rect.y +  2.0), 41.0, state, renderer, &mut id_add);
+                number_field(height, format!("{:?} - {:?}", MIN_HEIGHT, MAX_HEIGHT), Align::End(body_rect.right()-3.0), Align::Beg(body_rect.y + 12.0), 41.0, state, renderer, &mut id_add);
                 let (size, max_bombs) = match (width.parse::<usize>(), height.parse::<usize>()) {
                     (Ok(w), Ok(h)) if Difficulty::dimensions_in_range(w, h) => (Some((w, h)), Difficulty::max_bombs(w, h)),
                     _ => (None, None),
