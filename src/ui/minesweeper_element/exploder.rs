@@ -1,7 +1,7 @@
 // Makes the bombs explode in a nice circle, very efficient if I do say so myself :3
 
 use indexmap::IndexMap;
-use macroquad::time::get_frame_time;
+use macroquad::{rand::gen_range, time::get_frame_time};
 
 use crate::{minesweeper::Minesweeper, ui::renderer::Renderer};
 
@@ -48,14 +48,20 @@ impl Exploder {
         let (center_x, center_y) = index_to_coord(start_index);
         for bomb_index in game.bombs() {
             let (x, y) = index_to_coord(*bomb_index);
+            // Add a random amount to the squared distance, to make explosions a little bit more varied and cool looking!
+            let (x, y) = (x + gen_range(-3.0, 3.0), y + gen_range(-3.0, 3.0));
             // a^2 + b^2 = c^2, thanks Pythagoras
-            let squared_distance = (center_x - x).powi(2) + (center_y - y).powi(2);
+            let squared_distance = ((center_x - x).powi(2) + (center_y - y).powi(2))
+            // Ensure it never explodes too soon
+                .max(2.0);
             self.map.insert(*bomb_index, (squared_distance, false));
         }
+        // Make the starting bomb explode instantly
+        self.map.get_mut(&start_index).map(|(dist, _)| *dist = 0.0);
 
         // Sort the map by distance
         self.map.sort_unstable_by(|_, (a, _), _, (b, _)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Less));
-        
+
         // TODO: Make this better
         self.radius_expansion = (usize::max(game.width(), game.height()) as f32).sqrt() * 2.0;
     }
