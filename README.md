@@ -28,6 +28,7 @@ You can also make custom games!
 ##  Credits
 Macroquad - [not-fl3](https://github.com/not-fl3/macroquad)   
 WASM build script ([build_wasm.sh](build_wasm.sh)) - [Tom Solberg (and more!)](https://gist.github.com/nicolas-sabbatini/8af10dddc96be76d2bf24fc671131add)   
+MP4 to GIF script - [troyane](https://gist.github.com/troyane/af2a43a9eecda6d3de7729154cc4fe5e)   
 Explosion sound - [AyeDrevis](https://freesound.org/people/AyaDrevis/sounds/649191/)   
 Lowercase character 'e' - [04b03](https://www.dafont.com/04b-03.font)   
 
