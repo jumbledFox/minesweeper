@@ -1,5 +1,5 @@
 # Minesweeper
-<p align="center"><img src="/docs/ms.png"  width="211"></p>
+<p align="center"><img src="/docs/ms.png"  width="556"></p>
 
 This is a little minesweeper game that I've been working on, written in Rust using the [Macroquad](https://github.com/not-fl3/macroquad) framework.
  
