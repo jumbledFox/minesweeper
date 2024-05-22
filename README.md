@@ -20,7 +20,7 @@ Below you can see some of the GUI,  namely the menubar and a popup window.
 
 There's a very cool circular explosion effect which I'm quite proud of.   
 (this would've been SO much nicer as an mp4 file, i.e. improved video quality, smaller file size, and sound, but silly github doesn't like putting videos in markdown files for some reason!!!)
-<p align="center"><img src="/docs/explosions.gif" width="509"></p>
+<p align="center"><img src="/docs/explosions.gif" width="409"></p>
 
 You can also make custom games!
 <p align="center"><img src="/docs/custom.png" width="475"></p>
