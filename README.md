@@ -1,3 +1,5 @@
+I know the link in this README and the repo's description is a 404, I'm still working on it!!
+
 # Minesweeper
 <p align="center"><img src="/docs/ms.png"  width="556"></p>
 
