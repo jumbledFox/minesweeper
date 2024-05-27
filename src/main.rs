@@ -92,7 +92,7 @@ async fn main() {
 
             let faces = [
                 ("Fox" .to_owned(), style::FaceType::Fox),
-                ("Bird".to_owned(), style::FaceType::Bird),
+                // ("Bird".to_owned(), style::FaceType::Bird),
                 ("Nerd".to_owned(), style::FaceType::Nerd),
             ];
             for (s, face_type) in faces {

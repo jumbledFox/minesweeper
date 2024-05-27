@@ -1,7 +1,7 @@
 // Makes the bombs explode in a nice circle, very efficient if I do say so myself :3
 
 use indexmap::IndexMap;
-use macroquad::{rand::gen_range, time::get_frame_time};
+use macroquad::time::get_frame_time;
 
 use crate::{minesweeper::Minesweeper, ui::renderer::Renderer};
 

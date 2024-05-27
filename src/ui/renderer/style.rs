@@ -88,7 +88,7 @@ impl Theme {
     }}
 }
 #[derive(PartialEq, Eq)]
-pub enum FaceType { Fox, Bird, Nerd }
+pub enum FaceType { Fox, Nerd }
 pub enum Face { Idle, Scared, Win, Lose }
 
 pub struct Style {
@@ -194,8 +194,7 @@ impl Style {
     fn face_y(&self) -> f32 {
         55.0 + match self.face_type {
             FaceType::Fox  =>  0.0,
-            FaceType::Bird => 17.0,
-            FaceType::Nerd => 51.0,
+            FaceType::Nerd => 17.0,
         }
     }
 

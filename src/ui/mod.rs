@@ -24,7 +24,6 @@ impl Round for Rect {
 pub mod state;
 pub mod menubar;
 pub mod popups;
-pub mod minesweeper;
 pub mod minesweeper_element;
 pub mod elements;
 pub mod renderer;
